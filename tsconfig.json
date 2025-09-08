@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["resources/js/*"]
+    },
+    "ignoreDeprecations": "6.0"   // <-- add this
+  },
+  "include": [
+    "resources/js/**/*"
+  ],
+  "exclude": ["node_modules", "public", "vendor"]
+}
