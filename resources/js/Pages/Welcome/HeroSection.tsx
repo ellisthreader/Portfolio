@@ -14,7 +14,7 @@ export default function HeroSection() {
 
   return (
     <section className="relative flex flex-col items-center justify-center min-h-screen text-center px-4 gap-6
-      bg-gradient-to-br from-indigo-100 via-pink-100 to-yellow-100
+      bg-gradient-to-br from-red-100 via-pink-100 to-yellow-100
       dark:bg-gradient-to-br dark:from-gray-800 dark:via-gray-900 dark:to-black
       text-gray-900 dark:text-gray-100 transition-colors duration-500"
     >
