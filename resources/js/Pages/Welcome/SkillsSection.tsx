@@ -1,102 +1,130 @@
+"use client";
+
 import React from "react";
+import { motion, MotionProps } from "framer-motion";
 import CodingTerminal from "@/Components/CodingTerminal";
 import ShapePlayground from "@/Components/ShapePlayground";
+import CreativeSkills from "@/Components/CreativeSkills";
+import GameDevShowcase from "@/Components/GameDevShowcase";
 
 export default function SkillsSection() {
+  const glowAnimation: MotionProps = {
+    animate: { scale: [1, 1.05, 1], opacity: [0.4, 0.8, 0.4] },
+    transition: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+  };
+
   return (
     <section
       id="skills"
-      className="w-full px-6 py-20 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+      className="relative w-full flex flex-col items-center py-24 px-6
+        bg-gradient-to-b from-white via-indigo-50 to-pink-50
+        dark:bg-gradient-to-b dark:from-gray-900 dark:via-gray-950 dark:to-black
+        text-gray-900 dark:text-gray-100 transition-colors duration-500"
     >
-      <h2 className="text-4xl font-bold text-center mb-16 dark:text-white">
+      {/* Section Title */}
+      <h2
+        className="text-5xl font-extrabold mb-20 text-center
+          bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500
+          dark:from-blue-400 dark:via-purple-400 dark:to-pink-400"
+      >
         Skills
       </h2>
 
       {/* Coding */}
-      <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
-        <div>
-          <h3 className="text-2xl font-semibold mb-4 dark:text-white">💻 Coding</h3>
-          <p className="text-lg leading-relaxed dark:text-gray-300">
-            I have a strong foundation in HTML, CSS, and JavaScript, with
-            experience using modern frontend frameworks such as React, Vue, and
-            Angular. On the backend, I work with Node.js, Express, Django, and
-            Flask. I am proficient in managing databases including both SQL
-            (PostgreSQL, MySQL) and NoSQL (MongoDB, Firebase). I also use Git with
-            platforms like GitHub and GitLab for version control and collaboration.
-          </p>
-        </div>
-        <div className="flex justify-center">
-          <CodingTerminal />
-        </div>
+      <div className="mb-24 flex flex-col items-center gap-6">
+        <h3 className="text-3xl font-semibold">💻 Coding</h3>
+        <CodingTerminal />
       </div>
 
-      {/* Design & UX with interactive Shape Playground */}
-      <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
-        <div className="flex flex-col items-center gap-8 order-2 md:order-1">
+      {/* Design & User Experience */}
+      <div className="mb-24 flex flex-col items-center gap-6 w-full max-w-5xl relative">
+        <h3 className="text-3xl font-semibold text-center">
+          🎨 Design & User Experience
+        </h3>
+        <div className="relative w-full flex justify-center">
           <ShapePlayground />
         </div>
-        <div className="order-1 md:order-2">
-          <h3 className="text-2xl font-semibold mb-4 dark:text-white">
-            🎨 Design & User Experience
-          </h3>
-          <p className="text-lg leading-relaxed dark:text-gray-300">
-            I specialize in creating responsive, accessible designs with a focus on
-            strong UI/UX principles. I have experience using design tools such as
-            Figma, Adobe XD, and Sketch for prototyping, and I build modern,
-            user-friendly interfaces with frameworks like Tailwind, Bootstrap, and
-            Material UI.
-          </p>
-        </div>
       </div>
 
-      {/* Professional Skills */}
-      <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
-        <div>
-          <h3 className="text-2xl font-semibold mb-4 dark:text-white">
-            🤝 Professional Skills
-          </h3>
-          <p className="text-lg leading-relaxed dark:text-gray-300">
-            I bring strong problem-solving abilities, applying creative debugging
-            and logical thinking to overcome challenges. I am experienced in
-            project management, working with Agile and Scrum methodologies and
-            using tools like Trello, Jira, and Notion to stay organized. I thrive
-            in collaboration, working effectively with designers, developers, and
-            clients, and excel in communication by writing clear documentation and
-            explaining technical concepts. Additionally, I manage my time
-            efficiently to deliver projects on schedule.
-          </p>
+      {/* Content Creation & Editing */}
+      <div className="mb-24 flex flex-col items-center gap-6 w-full relative">
+        <h3 className="text-3xl font-semibold text-center">
+          🤝 Content Creation & Editing
+        </h3>
+
+        {/* Animated Background Glows */}
+        <div className="absolute inset-0 flex justify-center items-center pointer-events-none z-0">
+          <div className="w-full max-w-5xl flex justify-between relative h-64">
+            <motion.div
+              className="absolute w-44 h-44 rounded-full"
+              style={{
+                top: "50%",
+                left: "0%",
+                background:
+                  "radial-gradient(circle, #31A8FF80 0%, transparent 70%)",
+                filter: "blur(80px)",
+                transform: "translate(-50%, -50%)",
+              }}
+              {...glowAnimation}
+            />
+            <motion.div
+              className="absolute w-44 h-44 rounded-full"
+              style={{
+                top: "50%",
+                left: "50%",
+                background:
+                  "radial-gradient(circle, #4B2C9B80 0%, transparent 70%)",
+                filter: "blur(80px)",
+                transform: "translate(-50%, -50%)",
+              }}
+              {...glowAnimation}
+            />
+            <motion.div
+              className="absolute w-44 h-44 rounded-full"
+              style={{
+                top: "50%",
+                left: "100%",
+                background:
+                  "radial-gradient(circle, #991F3680 0%, transparent 70%)",
+                filter: "blur(80px)",
+                transform: "translate(-50%, -50%)",
+              }}
+              {...glowAnimation}
+            />
+          </div>
         </div>
-        <div className="flex justify-center">
-          <img
-            src="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=600&q=80"
-            alt="Professional Skills"
-            className="w-full max-w-md rounded-lg shadow-lg dark:shadow-gray-700"
-          />
-        </div>
+
+        {/* Skill Cards */}
+        <CreativeSkills />
       </div>
 
-      {/* Technical Skills */}
-      <div className="grid md:grid-cols-2 gap-12 items-center">
-        <div className="flex justify-center order-2 md:order-1">
-          <img
-            src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80"
-            alt="Technical Skills"
-            className="w-full max-w-md rounded-lg shadow-lg dark:shadow-gray-700"
+      {/* 3D Modeling & Game Development */}
+      <GameDevShowcase />
+
+      {/* Bottom Waves */}
+      <div className="absolute bottom-0 w-full overflow-hidden leading-none">
+        <svg
+          className="relative block w-full h-24"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 1200 120"
+          preserveAspectRatio="none"
+        >
+          {/* Back wave (lighter, transparent) */}
+          <path
+            d="M0,0 C600,120 600,0 1200,120 L1200,0 L0,0 Z"
+            className="fill-current text-pink-100 dark:text-gray-800 opacity-50"
           />
-        </div>
-        <div className="order-1 md:order-2">
-          <h3 className="text-2xl font-semibold mb-4 dark:text-white">
-            ⚙️ Technical Skills
-          </h3>
-          <p className="text-lg leading-relaxed dark:text-gray-300">
-            Beyond core web development, I have experience with data
-            visualization using D3.js, Chart.js, and Recharts, as well as a
-            foundational understanding of machine learning with scikit-learn and
-            TensorFlow. I also explore mobile development with React Native and
-            Flutter, and enjoy building interactive experiences with tools such as
-            Three.js, p5.js, and Unity.
-          </p>
-        </div>
+          {/* Middle wave */}
+          <path
+            d="M0,0 C600,100 600,20 1200,100 L1200,0 L0,0 Z"
+            className="fill-current text-indigo-100 dark:text-gray-900 opacity-70"
+          />
+          {/* Front wave (strongest, covers bottom edge) */}
+          <path
+            d="M0,0 C600,80 600,40 1200,80 L1200,0 L0,0 Z"
+            className="fill-current text-white dark:text-black"
+          />
+        </svg>
       </div>
     </section>
   );

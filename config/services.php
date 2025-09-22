@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    // ---------------------------
+    // Unsplash API
+    // ---------------------------
+    'unsplash' => [
+        'access_key' => env('UNSPLASH_ACCESS_KEY'),
+    ],
+
 ];
