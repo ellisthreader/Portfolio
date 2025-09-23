@@ -15,7 +15,9 @@ export default function ProfileFields() {
   const [bio, setBio] = useState(user?.bio || "");
 
   const updateField = async (field: string, value: any) => {
-    setUser((prev) => prev ? { ...prev, [field]: value, avatar_url: prev.avatar_url } : prev);
+    setUser((prev) =>
+      prev ? { ...prev, [field]: value, avatar_url: prev.avatar_url } : prev
+    );
 
     const formData = new FormData();
     formData.append("name", field === "name" ? value : name);
@@ -52,12 +54,16 @@ export default function ProfileFields() {
     <>
       {/* Full Name */}
       <div>
-        <label className="block text-gray-700 dark:text-gray-200 mb-1">Full Name</label>
+        <label className="block text-gray-700 dark:text-gray-200 mb-1">
+          Full Name
+        </label>
         <input
           type="text"
           value={name}
-          maxLength={255}
-          onChange={(e) => setName(e.target.value.replace(/[^A-Za-z\s]/g, ""))}
+          maxLength={25}
+          onChange={(e) =>
+            setName(e.target.value.replace(/[^A-Za-z\s]/g, "").slice(0, 25))
+          }
           onBlur={() => updateField("name", name)}
           className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100"
         />
@@ -65,32 +71,51 @@ export default function ProfileFields() {
 
       {/* Username */}
       <div>
-        <label className="block text-gray-700 dark:text-gray-200 mb-1">Username</label>
+        <label className="block text-gray-700 dark:text-gray-200 mb-1">
+          Username
+        </label>
         <input
           type="text"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          maxLength={25}
+          onChange={(e) =>
+            setUsername(e.target.value.replace(/[^\w]/g, "").slice(0, 25))
+          }
           onBlur={() => updateField("username", username)}
           className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100"
         />
-        {usernameError && <p className="text-red-600 mt-1 text-sm">{usernameError}</p>}
+        {usernameError && (
+          <p className="text-red-600 mt-1 text-sm">{usernameError}</p>
+        )}
       </div>
 
       {/* Email */}
       <div>
-        <label className="block text-gray-700 dark:text-gray-200 mb-1">Email</label>
+        <label className="block text-gray-700 dark:text-gray-200 mb-1">
+          Email
+        </label>
         <input
           type="email"
           value={email}
+          maxLength={254}
           onChange={(e) => {
             setEmail(e.target.value);
             setEmailConfirm(false);
             setEmailError(null);
           }}
           onBlur={() => {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+              setEmailError("Please enter a valid email.");
+              return;
+            }
             if (email.trim() !== user?.email) {
               if (!emailConfirm) {
-                if (!window.confirm(`Are you sure you want to change your email to: ${email.trim()}?`)) {
+                if (
+                  !window.confirm(
+                    `Are you sure you want to change your email to: ${email.trim()}?`
+                  )
+                ) {
                   setEmail(user?.email || "");
                   return;
                 }
@@ -101,16 +126,23 @@ export default function ProfileFields() {
           }}
           className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100"
         />
-        {emailError && <p className="text-red-600 mt-1 text-sm">{emailError}</p>}
+        {emailError && (
+          <p className="text-red-600 mt-1 text-sm">{emailError}</p>
+        )}
       </div>
 
       {/* Phone */}
       <div>
-        <label className="block text-gray-700 dark:text-gray-200 mb-1">Phone</label>
+        <label className="block text-gray-700 dark:text-gray-200 mb-1">
+          Phone
+        </label>
         <input
           type="tel"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          maxLength={15}
+          onChange={(e) =>
+            setPhone(e.target.value.replace(/\D/g, "").slice(0, 15))
+          }
           onBlur={() => updateField("phone", phone)}
           className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100"
         />
@@ -118,7 +150,9 @@ export default function ProfileFields() {
 
       {/* Bio */}
       <div>
-        <label className="block text-gray-700 dark:text-gray-200 mb-1">Bio / About Me</label>
+        <label className="block text-gray-700 dark:text-gray-200 mb-1">
+          Bio / About Me
+        </label>
         <textarea
           value={bio}
           onChange={(e) => setBio(e.target.value.slice(0, 500))}

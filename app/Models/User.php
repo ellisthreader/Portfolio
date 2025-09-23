@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Notifications\ResetPasswordNotification;
+use Carbon\Carbon;
 
 class User extends Authenticatable
 {
@@ -44,7 +45,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'last_avatar_generated_at' => 'datetime', // <-- added
+        'last_avatar_generated_at' => 'datetime:UTC', // Force UTC
         'password' => 'hashed',
     ];
 
@@ -55,12 +56,10 @@ class User extends Authenticatable
     {
         if (!$this->avatar) return null;
 
-        // If avatar is already a full URL, return as-is
         if (str_starts_with($this->avatar, 'http://') || str_starts_with($this->avatar, 'https://')) {
             return $this->avatar;
         }
 
-        // Otherwise, treat it as a local storage path
         return asset('storage/' . $this->avatar);
     }
 
