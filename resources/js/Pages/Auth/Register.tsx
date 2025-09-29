@@ -12,6 +12,7 @@ export default function Register() {
   const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
   const [signupLoading, setSignupLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false); // Prevent double POST
 
   const passwordRequirements = [
     { label: "At least 8 characters", test: (pw: string) => pw.length >= 8 },
@@ -30,7 +31,6 @@ export default function Register() {
       return;
     }
 
-    // Client-side validation
     if (username.length > 20) {
       setSignupErrors((prev: any) => ({
         ...prev,
@@ -74,7 +74,7 @@ export default function Register() {
   }, [username]);
 
   // --------------------------
-  // Email check
+  // Email validation & check
   // --------------------------
   useEffect(() => {
     if (!email) return;
@@ -109,7 +109,7 @@ export default function Register() {
   }, [email]);
 
   // --------------------------
-  // Confirm password
+  // Confirm password check
   // --------------------------
   useEffect(() => {
     if (confirmPassword && password !== confirmPassword) {
@@ -130,7 +130,12 @@ export default function Register() {
   // --------------------------
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasSubmitted) return;
 
+    setHasSubmitted(true);
+    setSignupLoading(true);
+
+    // Client-side validation
     const errors: any = {};
     if (!username) errors.username = "Username is required.";
     if (!email) errors.email = "Email is required.";
@@ -143,39 +148,32 @@ export default function Register() {
 
     if (Object.keys(errors).length > 0) {
       setSignupErrors(errors);
+      setSignupLoading(false);
+      setHasSubmitted(false);
       return;
     }
 
     setSignupErrors({});
-    setSignupLoading(true);
 
     try {
-      await axios.post("/register", {
+      const response = await axios.post("/register", {
         username,
         email,
         password,
         password_confirmation: confirmPassword,
       });
 
-      // Show success UI
       setSuccess(true);
 
-      // Trigger confetti
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
+      // Confetti
+      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
 
-      // Auto-redirect to profile after 3s
-      setTimeout(() => {
-        Inertia.visit("/profile");
-      }, 3000);
-
+      // Redirect to profile edit
+      setTimeout(() => Inertia.visit("/profile/edit"), 3000);
     } catch (err: any) {
       const backendErrors = err.response?.data?.errors || {};
       setSignupErrors(backendErrors);
-      console.error(err.response?.data || err.message);
+      setHasSubmitted(false);
     } finally {
       setSignupLoading(false);
     }
@@ -189,10 +187,10 @@ export default function Register() {
             🎉 Account Created! 🎉
           </h2>
           <p className="text-gray-700 dark:text-gray-200 mb-4">
-            Redirecting to your profile...
+            Your account has been created.
           </p>
           <button
-            onClick={() => Inertia.visit("/profile")}
+            onClick={() => Inertia.visit("/profile/edit")}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md"
           >
             Go to Profile
@@ -245,9 +243,9 @@ export default function Register() {
           onChange={(e) => setPassword(e.target.value)}
           className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100"
         />
-        {signupErrors.password && <p className="text-red-500 text-sm mt-1">{signupErrors.password}</p>}
-
-        {/* Password requirements */}
+        {signupErrors.password && (
+          <p className="text-red-500 text-sm mt-1">{signupErrors.password}</p>
+        )}
         <ul className="mt-2 text-sm">
           {passwordRequirements.map((req) => (
             <li
@@ -276,7 +274,7 @@ export default function Register() {
 
       <button
         type="submit"
-        disabled={signupLoading}
+        disabled={signupLoading || hasSubmitted}
         className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md"
       >
         {signupLoading ? "Signing up..." : "Sign Up"}

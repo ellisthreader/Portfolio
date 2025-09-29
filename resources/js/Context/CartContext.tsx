@@ -1,4 +1,3 @@
-// resources/js/Context/CartContext.tsx
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
@@ -6,7 +5,7 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 type CartItem = {
   id: number;
   title: string;
-  price: number; // stored as a number
+  price: number;
   quantity: number;
   image?: string;
 };
@@ -35,7 +34,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const normalizePrice = (p: number | string): number => {
     if (typeof p === "number") return p;
     if (typeof p === "string") {
-      // remove any non-numeric characters (like £, $) then parse
       const num = parseFloat(p.replace(/[^0-9.]/g, ""));
       return isNaN(num) ? 0 : num;
     }
@@ -45,40 +43,29 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const addToCart = (item: AddToCartPayload) => {
     const price = normalizePrice(item.price);
 
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+    setCart(prev => {
+      const existing = prev.find(i => i.id === item.id);
       if (existing) {
-        // increment quantity
-        return prev.map((i) =>
+        return prev.map(i =>
           i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
         );
       }
-      // add new item with quantity 1
       return [...prev, { id: item.id, title: item.title, price, quantity: 1, image: item.image }];
     });
   };
 
   const updateQuantity = (id: number, quantity: number) => {
-    setCart((prev) => {
-      if (quantity <= 0) {
-        return prev.filter((i) => i.id !== id);
-      }
-      return prev.map((i) => (i.id === id ? { ...i, quantity } : i));
-    });
+    setCart(prev => quantity <= 0 ? prev.filter(i => i.id !== id) : prev.map(i => i.id === id ? { ...i, quantity } : i));
   };
 
-  const removeFromCart = (id: number) => {
-    setCart((prev) => prev.filter((i) => i.id !== id));
-  };
+  const removeFromCart = (id: number) => setCart(prev => prev.filter(i => i.id !== id));
 
   const clearCart = () => setCart([]);
 
   const totalPrice = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   return (
-    <CartContext.Provider
-      value={{ cart, addToCart, updateQuantity, removeFromCart, clearCart, totalPrice }}
-    >
+    <CartContext.Provider value={{ cart, addToCart, updateQuantity, removeFromCart, clearCart, totalPrice }}>
       {children}
     </CartContext.Provider>
   );

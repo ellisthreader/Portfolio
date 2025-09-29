@@ -2,11 +2,26 @@
 
 return [
 
-    'paths' => ['api/*', 'create-checkout-session', 'sanctum/csrf-cookie'],
+    /*
+    |--------------------------------------------------------------------------
+    | Cross-Origin Resource Sharing (CORS) Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure your settings for cross-origin resource sharing
+    | or "CORS". This determines what cross-origin operations may execute
+    | in web browsers. You are free to adjust these settings as needed.
+    |
+    */
+
+    'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:8080'],
+    // Allow your front-end URL(s)
+    'allowed_origins' => [
+        'http://localhost:5174',  // Vite dev server
+        'http://127.0.0.1:5174',  // alternative
+    ],
 
     'allowed_origins_patterns' => [],
 
@@ -16,6 +31,5 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
-
+    'supports_credentials' => true, // enable if you need cookies/auth
 ];

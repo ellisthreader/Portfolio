@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { Eye, EyeOff } from "lucide-react"; // Lightweight icons for the eye toggle
 
 export default function PasswordUpdate() {
   const [editingPassword, setEditingPassword] = useState(false);
@@ -8,6 +9,11 @@ export default function PasswordUpdate() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // States to control visibility for each field
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handlePasswordUpdate = async () => {
     setPasswordLoading(true);
@@ -25,7 +31,6 @@ export default function PasswordUpdate() {
         password: newPassword,
         password_confirmation: confirmPassword,
       });
-
       setPasswordMessage("✅ Password updated successfully!");
       setEditingPassword(false);
       setCurrentPassword("");
@@ -37,7 +42,9 @@ export default function PasswordUpdate() {
         if (errors.current_password) {
           setPasswordMessage("❌ Current password is incorrect.");
         } else {
-          setPasswordMessage("❌ Failed to update password. Please check your details.");
+          setPasswordMessage(
+            "❌ Failed to update password. Please check your details."
+          );
         }
       } else {
         setPasswordMessage("❌ Failed to update password. Please try again.");
@@ -47,9 +54,36 @@ export default function PasswordUpdate() {
     }
   };
 
+  const renderPasswordInput = (
+    value: string,
+    setValue: React.Dispatch<React.SetStateAction<string>>,
+    show: boolean,
+    setShow: React.Dispatch<React.SetStateAction<boolean>>,
+    placeholder: string
+  ) => (
+    <div className="relative w-full">
+      <input
+        type={show ? "text" : "password"}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100 pr-10"
+      />
+      <button
+        type="button"
+        onClick={() => setShow(!show)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+      >
+        {show ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  );
+
   return (
     <div>
-      <label className="block text-gray-700 dark:text-gray-200 mb-1">Password</label>
+      <label className="block text-gray-700 dark:text-gray-200 mb-1">
+        Password
+      </label>
       {!editingPassword ? (
         <div className="flex items-center justify-between w-full border rounded-md px-3 py-2 bg-gray-50 dark:bg-gray-700 dark:text-gray-100">
           <span>********</span>
@@ -63,27 +97,27 @@ export default function PasswordUpdate() {
         </div>
       ) : (
         <div className="space-y-3">
-          <input
-            type="password"
-            placeholder="Current Password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100"
-          />
-          <input
-            type="password"
-            placeholder="New Password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100"
-          />
-          <input
-            type="password"
-            placeholder="Confirm New Password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100"
-          />
+          {renderPasswordInput(
+            currentPassword,
+            setCurrentPassword,
+            showCurrent,
+            setShowCurrent,
+            "Current Password"
+          )}
+          {renderPasswordInput(
+            newPassword,
+            setNewPassword,
+            showNew,
+            setShowNew,
+            "New Password"
+          )}
+          {renderPasswordInput(
+            confirmPassword,
+            setConfirmPassword,
+            showConfirm,
+            setShowConfirm,
+            "Confirm New Password"
+          )}
           <div className="flex justify-end gap-3">
             <button
               type="button"

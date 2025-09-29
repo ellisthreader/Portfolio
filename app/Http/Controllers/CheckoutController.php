@@ -9,51 +9,78 @@ use Illuminate\Support\Facades\Log;
 
 class CheckoutController extends Controller
 {
-    /**
-     * Create a PaymentIntent for embedded Stripe checkout
-     */
     public function createPaymentIntent(Request $request)
     {
         Log::info('PaymentIntent request received', $request->all());
 
         try {
-            // Use backend secret key
-            Stripe::setApiKey(env('STRIPE_SECRET'));
+            // Load Stripe secret key from config/services.php
+            Stripe::setApiKey(config('services.stripe.secret'));
 
             $email = $request->input('email');
-            $amount = $request->input('amount'); // in pence
             $items = $request->input('items', []);
 
-            // Validate required parameters
-            if (!$email || !$amount || empty($items)) {
+            // Log raw request items
+            Log::info('Incoming items', $items);
+
+            if (!$email || empty($items)) {
                 return response()->json(['error' => 'Missing required parameters'], 400);
             }
 
-            // Ensure amount is integer
-            $amount = (int)$amount;
+            $subtotal = 0;
+            foreach ($items as $item) {
+                if (!isset($item['unit_price'], $item['quantity'])) {
+                    Log::warning('Invalid item data', $item);
+                    return response()->json(['error' => 'Invalid item data'], 400);
+                }
+                // unit_price is expected in pence
+                $subtotal += ((int) $item['unit_price']) * ((int) $item['quantity']);
+            }
 
-            // Create Stripe PaymentIntent
+            $vat = round($subtotal * 0.2);
+            $total = $subtotal + $vat;
+
             $paymentIntent = PaymentIntent::create([
-                'amount' => $amount,
+                'amount' => $total, // still in pence
                 'currency' => 'gbp',
                 'receipt_email' => $email,
                 'metadata' => [
                     'items' => json_encode($items),
+                    'subtotal' => $subtotal,
+                    'vat' => $vat,
                 ],
             ]);
 
+            // Normalize items for frontend (convert back to £)
+            $normalizedItems = array_map(function ($item) {
+                return [
+                    'name' => $item['name'] ?? 'Unknown',
+                    'quantity' => (int) ($item['quantity'] ?? 1),
+                    'unit_price' => isset($item['unit_price']) ? $item['unit_price'] / 100 : 0,
+                    'image' => $item['image'] ?? null,
+                ];
+            }, $items);
+
+            // Log outgoing response
             Log::info('PaymentIntent created', [
                 'id' => $paymentIntent->id,
-                'client_secret' => $paymentIntent->client_secret
+                'subtotal (£)' => $subtotal / 100,
+                'vat (£)' => $vat / 100,
+                'total (£)' => $total / 100,
+                'client_secret' => $paymentIntent->client_secret,
+                'items' => $normalizedItems,
             ]);
 
-            // Return client_secret to frontend
             return response()->json([
-                'client_secret' => $paymentIntent->client_secret
+                'client_secret' => $paymentIntent->client_secret,
+                'subtotal' => $subtotal / 100,
+                'vat' => $vat / 100,
+                'total' => $total / 100,
+                'items' => $normalizedItems,
             ]);
+
         } catch (\Exception $e) {
             Log::error('Stripe PaymentIntent error: ' . $e->getMessage());
-
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

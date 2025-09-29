@@ -1,22 +1,26 @@
 import { useDarkMode } from "@/Context/DarkModeContext";
 import { useCart } from "@/Context/CartContext";
-import { Link } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DarkModeSwitch } from "react-toggle-dark-mode";
 import { ShoppingCart, X } from "lucide-react";
 import React from "react";
-import { usePage } from "@inertiajs/react";
 
 export default function NavMenu() {
   const { darkMode, toggleDarkMode } = useDarkMode();
   const { cart, updateQuantity, removeFromCart } = useCart();
-  const { auth } = usePage().props;
+  const { auth, component } = usePage().props; // get current Inertia component
 
   const [showNav, setShowNav] = React.useState(true);
   const [lastScrollY, setLastScrollY] = React.useState(0);
   const [showCart, setShowCart] = React.useState(false);
 
+  // Show navbar if on any profile page
+  const isProfilePage = component?.startsWith("Profile"); // works for Profile, Profile/Edit, etc.
+
+  // Handle scroll to hide/show nav on non-profile pages
   React.useEffect(() => {
+    if (isProfilePage) return; // always show navbar on profile pages
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       setShowNav(currentScrollY < 50 || currentScrollY < lastScrollY);
@@ -24,8 +28,9 @@ export default function NavMenu() {
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]);
+  }, [lastScrollY, isProfilePage]);
 
+  // Auto-show cart when items added
   React.useEffect(() => {
     if (cart.length > 0) {
       setShowCart(true);
@@ -39,7 +44,7 @@ export default function NavMenu() {
 
   return (
     <AnimatePresence>
-      {showNav && (
+      {(showNav || isProfilePage) && (
         <motion.nav
           initial={{ y: -100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -66,11 +71,7 @@ export default function NavMenu() {
 
           {/* Right Side: Dark Mode + Cart */}
           <div className="flex items-center gap-4 relative">
-            <DarkModeSwitch
-              checked={darkMode}
-              onChange={toggleDarkMode}
-              size={22}
-            />
+            <DarkModeSwitch checked={darkMode} onChange={toggleDarkMode} size={22} />
 
             <div className="relative">
               <ShoppingCart

@@ -22,7 +22,7 @@ const courses = [
     longDescription:
       "Our TikTok Creator Rewards Programme is designed for aspiring influencers who want to grow and monetize their accounts. With structured lessons, mentorship, and real community support, this course is the most complete way to unlock TikTok’s earning potential.",
     image: "/images/tiktok.jpeg",
-    price: 299, // number only
+    price: 299,
     features: [
       { icon: <Trophy className="w-5 h-5" />, text: "1 Year Access" },
       { icon: <Users className="w-5 h-5" />, text: "33 Students" },
@@ -176,7 +176,14 @@ export default function Courses() {
                           <div className="flex items-center justify-between">
                             <span className="text-xl font-bold">£{course.price}</span>
                             <button
-                              onClick={() => addToCart(course)}
+                              onClick={() =>
+                                addToCart({
+                                  id: course.id,
+                                  title: course.title,
+                                  price: course.price,
+                                  image: course.image, // <-- send image
+                                })
+                              }
                               className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold hover:opacity-90 transition"
                             >
                               BUY NOW

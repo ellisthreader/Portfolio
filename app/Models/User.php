@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Auth\MustVerifyEmail; // Required for email verification
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Notifications\ResetPasswordNotification;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable;
 
@@ -21,11 +22,12 @@ class User extends Authenticatable
         'username',
         'email',
         'password',
-        'name',    // full name
-        'phone',   // optional phone
-        'bio',     // user bio
-        'avatar',  // avatar file path or URL
-        'last_avatar_generated_at', // track when random avatar was generated
+        'name',    
+        'phone',   
+        'bio',     
+        'avatar',  
+        'last_avatar_generated_at', 
+        'last_verification_sent_at', 
     ];
 
     /**
@@ -45,7 +47,8 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'last_avatar_generated_at' => 'datetime:UTC', // Force UTC
+        'last_avatar_generated_at' => 'datetime:UTC',
+        'last_verification_sent_at' => 'datetime', 
         'password' => 'hashed',
     ];
 
@@ -54,7 +57,9 @@ class User extends Authenticatable
      */
     public function getAvatarUrlAttribute(): ?string
     {
-        if (!$this->avatar) return null;
+        if (!$this->avatar) {
+            return null;
+        }
 
         if (str_starts_with($this->avatar, 'http://') || str_starts_with($this->avatar, 'https://')) {
             return $this->avatar;
@@ -69,5 +74,25 @@ class User extends Authenticatable
     public function sendPasswordResetNotification($token): void
     {
         $this->notify(new ResetPasswordNotification($token));
+    }
+
+    /**
+     * Optional helper to check cooldown before resending verification email.
+     */
+    public function canSendVerificationEmail(int $cooldownSeconds = 60): bool
+    {
+        if (!$this->last_verification_sent_at) {
+            return true;
+        }
+
+        return $this->last_verification_sent_at->diffInSeconds(now()) >= $cooldownSeconds;
+    }
+
+    /**
+     * Optional: mark verification email as sent (for cooldown tracking)
+     */
+    public function markVerificationEmailSent(): void
+    {
+        $this->update(['last_verification_sent_at' => now()]);
     }
 }

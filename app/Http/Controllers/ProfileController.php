@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use App\Services\UnsplashService;
+use App\Models\User;
 
 class ProfileController extends Controller
 {
@@ -51,14 +53,41 @@ class ProfileController extends Controller
         $user = $request->user();
         Log::info("ProfileController: Update request received for User ID {$user->id}", $request->all());
 
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'username' => 'sometimes|string|max:255|unique:users,username,' . $user->id,
-            'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
-            'phone' => 'sometimes|nullable|string|max:20',
-            'bio' => 'sometimes|nullable|string|max:500',
-            'avatar' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'username' => 'sometimes|string|max:255|unique:users,username,' . $user->id,
+                'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
+                'phone' => 'sometimes|nullable|string|max:20',
+                'bio' => 'sometimes|nullable|string|max:500',
+                'avatar' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
+            ]);
+        } catch (ValidationException $e) {
+            $errors = $e->validator->errors()->toArray();
+
+            // If username is taken, generate suggestions
+            if (isset($errors['username'])) {
+                $username = $request->input('username');
+                $suggestions = [];
+
+                if ($username) {
+                    for ($i = 1; $i <= 5; $i++) {
+                        $newName = $username . $i;
+                        $exists = User::where('username', $newName)->exists();
+                        if (!$exists) {
+                            $suggestions[] = $newName;
+                        }
+                    }
+                }
+
+                return response()->json([
+                    'errors' => $errors,
+                    'suggestions' => $suggestions,
+                ], 422);
+            }
+
+            throw $e; // default Laravel behavior for other errors
+        }
 
         if ($request->hasFile('avatar')) {
             if ($user->avatar && !str_starts_with($user->avatar, 'http')) {
@@ -174,7 +203,6 @@ class ProfileController extends Controller
 
         return $remaining;
     }
-
 
     /**
      * Helper: cooldown end timestamp ISO

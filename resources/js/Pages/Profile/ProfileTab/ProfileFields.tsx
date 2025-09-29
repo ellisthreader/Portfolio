@@ -1,13 +1,27 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useProfile } from "@/Context/ProfileContext";
+import PasswordUpdate from "./PasswordUpdate";
 
-export default function ProfileFields() {
+interface Props {
+  flash?: any;
+  backendErrors?: any;
+  setSuccessMessage?: (msg: string | null) => void;
+  setErrorMessage?: (msg: string | null) => void;
+}
+
+export default function ProfileFields({
+  flash,
+  backendErrors,
+  setSuccessMessage,
+  setErrorMessage,
+}: Props) {
   const { user, setUser } = useProfile();
 
   const [name, setName] = useState(user?.name || "");
   const [username, setUsername] = useState(user?.username || "");
   const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
   const [email, setEmail] = useState(user?.email || "");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailConfirm, setEmailConfirm] = useState(false);
@@ -27,32 +41,55 @@ export default function ProfileFields() {
     formData.append("bio", field === "bio" ? value : bio);
 
     try {
-      const response = await axios.post("/profile/update", formData, {
+      const res = await axios.post("/profile/update", formData, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
 
-      if (response.data?.user) {
+      if (res.data?.user) {
         setUser((prev) => ({
           ...prev,
-          ...response.data.user,
-          avatar_url: response.data.user.avatar_url || prev?.avatar_url,
+          ...res.data.user,
+          avatar_url: res.data.user.avatar_url || prev?.avatar_url,
         }));
-      }
 
-      if (field === "username") setUsernameError(null);
-      if (field === "email") setEmailError(null);
+        setSuccessMessage?.(`✅ Successfully updated ${field}`);
+        setErrorMessage?.(null);
+
+        if (field === "username") {
+          setUsernameError(null);
+          setUsernameSuggestions([]);
+        }
+        if (field === "email") {
+          setEmailError(null);
+          setEmailConfirm(false);
+        }
+      }
     } catch (err: any) {
+      let message = "❌ Failed to update field.";
+
       if (err.response?.status === 422) {
         const errors = err.response.data.errors;
-        if (errors.username) setUsernameError(errors.username[0]);
-        if (errors.email) setEmailError(errors.email[0]);
+
+        if (errors?.username) {
+          message = `❌ ${errors.username[0]}`;
+          setUsernameError(errors.username[0]);
+          setUsernameSuggestions(err.response.data.suggestions || []);
+        }
+
+        if (errors?.email) {
+          message = `❌ ${errors.email[0]}`;
+          setEmailError(errors.email[0]);
+        }
       }
+
+      setErrorMessage?.(message);
+      setSuccessMessage?.(null);
     }
   };
 
   return (
     <>
-      {/* Full Name */}
+      {/* --- Full Name --- */}
       <div>
         <label className="block text-gray-700 dark:text-gray-200 mb-1">
           Full Name
@@ -69,7 +106,7 @@ export default function ProfileFields() {
         />
       </div>
 
-      {/* Username */}
+      {/* --- Username --- */}
       <div>
         <label className="block text-gray-700 dark:text-gray-200 mb-1">
           Username
@@ -87,9 +124,32 @@ export default function ProfileFields() {
         {usernameError && (
           <p className="text-red-600 mt-1 text-sm">{usernameError}</p>
         )}
+        {usernameSuggestions.length > 0 && (
+          <div className="mt-2">
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-1">
+              Try one of these:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {usernameSuggestions.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => {
+                    setUsername(s);
+                    setUsernameSuggestions([]);
+                    updateField("username", s);
+                  }}
+                  className="px-2 py-1 border rounded-md text-sm hover:bg-gray-200 dark:hover:bg-gray-600"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Email */}
+      {/* --- Email --- */}
       <div>
         <label className="block text-gray-700 dark:text-gray-200 mb-1">
           Email
@@ -103,27 +163,7 @@ export default function ProfileFields() {
             setEmailConfirm(false);
             setEmailError(null);
           }}
-          onBlur={() => {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-              setEmailError("Please enter a valid email.");
-              return;
-            }
-            if (email.trim() !== user?.email) {
-              if (!emailConfirm) {
-                if (
-                  !window.confirm(
-                    `Are you sure you want to change your email to: ${email.trim()}?`
-                  )
-                ) {
-                  setEmail(user?.email || "");
-                  return;
-                }
-                setEmailConfirm(true);
-              }
-              updateField("email", email.trim());
-            }
-          }}
+          onBlur={() => updateField("email", email.trim())}
           className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100"
         />
         {emailError && (
@@ -131,7 +171,14 @@ export default function ProfileFields() {
         )}
       </div>
 
-      {/* Phone */}
+      {/* --- Password --- */}
+      <PasswordUpdate
+        updateField={updateField}
+        setSuccessMessage={setSuccessMessage}
+        setErrorMessage={setErrorMessage}
+      />
+
+      {/* --- Phone --- */}
       <div>
         <label className="block text-gray-700 dark:text-gray-200 mb-1">
           Phone
@@ -148,7 +195,7 @@ export default function ProfileFields() {
         />
       </div>
 
-      {/* Bio */}
+      {/* --- Bio --- */}
       <div>
         <label className="block text-gray-700 dark:text-gray-200 mb-1">
           Bio / About Me

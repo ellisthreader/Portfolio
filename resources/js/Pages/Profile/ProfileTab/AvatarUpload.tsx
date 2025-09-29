@@ -4,16 +4,20 @@ import { useProfile } from "@/Context/ProfileContext";
 
 interface Props {
   updateAvatar?: (url: string) => void;
+  setSuccessMessage: (msg: string | null) => void;
+  setErrorMessage: (msg: string | null) => void;
 }
 
-export default function AvatarUpload({ updateAvatar }: Props) {
+export default function AvatarUpload({
+  updateAvatar,
+  setSuccessMessage,
+  setErrorMessage,
+}: Props) {
   const { user, setUser } = useProfile();
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
-  /**
-   * Always refresh cooldown state from server when component mounts
-   */
+  // --- Sync cooldown from server ---
   useEffect(() => {
     const fetchCooldown = async () => {
       try {
@@ -26,16 +30,10 @@ export default function AvatarUpload({ updateAvatar }: Props) {
 
           const serverNow = new Date(res.data.auth.user.server_time);
           const cooldownEnd = new Date(res.data.auth.user.cooldown_ends_at);
-          const diff = Math.max(
-            0,
-            Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000)
-          );
-          setSecondsLeft(diff);
 
-          console.log("[AvatarUpload] Synced cooldown on mount:", {
-            diff,
-            cooldownEnd,
-          });
+          setSecondsLeft(
+            Math.max(0, Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000))
+          );
         }
       } catch (err) {
         console.error("[AvatarUpload] Failed to fetch cooldown", err);
@@ -45,33 +43,23 @@ export default function AvatarUpload({ updateAvatar }: Props) {
     fetchCooldown();
   }, [setUser]);
 
-  /**
-   * Countdown timer
-   */
+  // --- Countdown timer ---
   useEffect(() => {
     if (secondsLeft <= 0) return;
-
-    const interval = setInterval(() => {
-      setSecondsLeft((prev) => Math.max(prev - 1, 0));
-    }, 1000);
-
+    const interval = setInterval(() => setSecondsLeft((prev) => Math.max(prev - 1, 0)), 1000);
     return () => clearInterval(interval);
   }, [secondsLeft]);
 
-  /**
-   * Upload avatar
-   */
+  // --- Upload avatar ---
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
     setLoading(true);
-    console.log("[AvatarUpload] Upload avatar clicked", { file });
-
-    const formData = new FormData();
-    formData.append("avatar", file);
-
     try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
       const res = await axios.post("/profile/update", formData, {
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
@@ -82,41 +70,33 @@ export default function AvatarUpload({ updateAvatar }: Props) {
 
         const serverNow = new Date(res.data.user.server_time);
         const cooldownEnd = new Date(res.data.user.cooldown_ends_at);
-        const diff = Math.max(
-          0,
-          Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000)
-        );
-        setSecondsLeft(diff);
 
-        console.log("[AvatarUpload] Avatar uploaded:", res.data.user);
+        setSecondsLeft(
+          Math.max(0, Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000))
+        );
+
+        setSuccessMessage("✅ Avatar successfully uploaded!");
+        setErrorMessage(null);
       }
     } catch (err: any) {
-      console.error(
-        "[AvatarUpload] Failed to upload avatar",
-        err.response?.data || err
-      );
-      alert("Failed to upload avatar. Please try again.");
+      console.error("[AvatarUpload] Failed to upload avatar", err.response?.data || err);
+      setErrorMessage("❌ Failed to upload avatar. Please try again.");
+      setSuccessMessage(null);
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Generate random avatar
-   */
+  // --- Generate random avatar ---
   const handleGenerateRandom = async () => {
     if (!user || secondsLeft > 0 || loading) return;
 
     setLoading(true);
-    console.log("[AvatarUpload] Generate random avatar clicked", { secondsLeft });
-
     try {
       const res = await axios.post(
         "/profile/generate-avatar",
         {},
-        {
-          headers: { "X-Requested-With": "XMLHttpRequest" },
-        }
+        { headers: { "X-Requested-With": "XMLHttpRequest" } }
       );
 
       if (res.data?.user) {
@@ -125,45 +105,36 @@ export default function AvatarUpload({ updateAvatar }: Props) {
 
         const serverNow = new Date(res.data.user.server_time);
         const cooldownEnd = new Date(res.data.user.cooldown_ends_at);
-        const diff = Math.max(
-          0,
-          Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000)
-        );
-        setSecondsLeft(diff);
 
-        console.log("[AvatarUpload] Random avatar generated:", res.data.user);
+        setSecondsLeft(
+          Math.max(0, Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000))
+        );
+
+        setSuccessMessage("✅ Random avatar generated!");
+        setErrorMessage(null);
       }
     } catch (err: any) {
       if (err.response?.status === 429 && err.response.data) {
-        console.warn("[AvatarUpload] Cooldown active:", err.response.data);
-        if (
-          err.response.data.cooldown_ends_at &&
-          err.response.data.server_time
-        ) {
-          const serverNow = new Date(err.response.data.server_time);
-          const cooldownEnd = new Date(err.response.data.cooldown_ends_at);
-          const diff = Math.max(
-            0,
-            Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000)
-          );
-          setSecondsLeft(diff);
-        }
-        alert(err.response.data.message || "Please wait before generating again.");
-      } else {
-        console.error(
-          "[AvatarUpload] Failed to generate random avatar",
-          err.response?.data || err
+        // Rate limit / cooldown
+        const serverNow = new Date(err.response.data.server_time);
+        const cooldownEnd = new Date(err.response.data.cooldown_ends_at);
+
+        setSecondsLeft(
+          Math.max(0, Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000))
         );
-        alert(err.response?.data?.message || "Could not generate avatar.");
+
+        setErrorMessage(err.response.data.message || "⏳ Please wait before generating again.");
+      } else {
+        console.error("[AvatarUpload] Failed to generate random avatar", err.response?.data || err);
+        setErrorMessage(err.response?.data?.message || "❌ Could not generate avatar.");
       }
+      setSuccessMessage(null);
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Format seconds into mm:ss
-   */
+  // --- Format cooldown ---
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
@@ -189,7 +160,7 @@ export default function AvatarUpload({ updateAvatar }: Props) {
           />
         </label>
 
-        {/* Generate Random button */}
+        {/* Generate random button */}
         <button
           type="button"
           disabled={loading || secondsLeft > 0}
