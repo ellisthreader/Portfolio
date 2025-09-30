@@ -5,7 +5,6 @@ interface Item {
   name: string;
   quantity: number;
   unit_price: number;
-  line_total: number;
   image?: string;
 }
 
@@ -20,22 +19,17 @@ export default function OrderConfirmed() {
   const vat = Number(props.vat ?? 0);
   const total = Number(props.total ?? 0);
 
-  const items: Item[] = (() => {
-    const rawItems = props.items as any[] ?? [];
-    if (rawItems.length && !("name" in rawItems[0])) {
-      return [
-        {
-          name: rawItems[1]?.title ?? "",
-          quantity: Number(rawItems[3]?.quantity ?? 0),
-          unit_price: Number(rawItems[2]?.price ?? 0),
-          line_total:
-            Number(rawItems[2]?.price ?? 0) * Number(rawItems[3]?.quantity ?? 0),
-          image: rawItems[4]?.image ?? undefined,
-        },
-      ];
-    }
-    return rawItems as Item[];
-  })();
+  // Repair the flat array into grouped items
+  const rawItems = (props.items as any[]) ?? [];
+  const items: Item[] = [];
+  for (let i = 0; i < rawItems.length; i += 5) {
+    items.push({
+      name: rawItems[i + 1]?.title ?? "Unknown",
+      quantity: Number(rawItems[i + 3]?.quantity ?? 0),
+      unit_price: Number(rawItems[i + 2]?.price ?? 0),
+      image: rawItems[i + 4]?.image,
+    });
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -50,16 +44,10 @@ export default function OrderConfirmed() {
               strokeWidth={2}
               viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 13l4 4L19 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-3xl font-extrabold text-gray-900">
-            Order Confirmed!
-          </h1>
+          <h1 className="text-3xl font-extrabold text-gray-900">Order Confirmed!</h1>
           <p className="mt-2 text-gray-600">
             Thank you for your purchase. Your order has been successfully processed.
           </p>
@@ -75,11 +63,7 @@ export default function OrderConfirmed() {
               {/* Picture */}
               <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
                 {item.image ? (
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-gray-400 text-xs">No Image</span>
                 )}
@@ -93,7 +77,7 @@ export default function OrderConfirmed() {
 
               {/* Price */}
               <div className="text-right font-semibold text-gray-900">
-                £{item.line_total.toFixed(2)}
+                £{(item.unit_price * item.quantity).toFixed(2)}
               </div>
             </div>
           ))}
@@ -117,9 +101,7 @@ export default function OrderConfirmed() {
 
         {/* Footer */}
         <div className="mt-10 text-center">
-          <p className="text-gray-500">
-            A confirmation email has been sent to your inbox.
-          </p>
+          <p className="text-gray-500">A confirmation email has been sent to your inbox.</p>
         </div>
       </div>
     </div>
