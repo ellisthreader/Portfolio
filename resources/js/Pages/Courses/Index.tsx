@@ -1,43 +1,53 @@
-"use client";
-
 import React from "react";
+import { Head, usePage } from "@inertiajs/react";
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import GuestLayout from "@/Layouts/GuestLayout";
+
 import HeroSection from "./HeroSection";
 import Courses from "./Courses";
 import Products from "./Products";
 import SuccessStories from "./Testimonials";
 import TrustSignals from "./TrustSignals";
 
+type User = {
+  id: number;
+  name: string;
+  email: string;
+};
+
+type PageProps = {
+  auth: {
+    user?: User;
+  };
+};
+
 export default function HomePage() {
+  const { props } = usePage<PageProps>();
+  const user = props.auth?.user;
+  const Layout = user ? AuthenticatedLayout : GuestLayout;
+
+  const bgGradient = "bg-gradient-to-b from-pink-400/10 to-blue-200/10";
+
   return (
-    <main
-      className="overflow-x-hidden"
-      style={{
-        // Pink at top → Light Blue at bottom
-        background: "linear-gradient(to bottom, rgba(236,72,153,0.1), rgba(191,219,254,0.1))",
-      }}
-    >
-      {/* Hero Section */}
-      <HeroSection />
+    <Layout>
+      <Head title="Home" />
 
-      {/* Courses Section */}
-      <section id="courses">
+      <main className={`overflow-x-hidden ${bgGradient}`}>
+        {/* Hero Section */}
+        <HeroSection />
+
+        {/* Courses */}
         <Courses />
-      </section>
 
-      {/* Products Section */}
-      <section id="products">
+        {/* Products */}
         <Products />
-      </section>
 
-      {/* Success Stories */}
-      <section id="testimonials">
+        {/* Success Stories */}
         <SuccessStories />
-      </section>
 
-      {/* Trust Signals */}
-      <section>
+        {/* Trust Signals */}
         <TrustSignals />
-      </section>
-    </main>
+      </main>
+    </Layout>
   );
 }

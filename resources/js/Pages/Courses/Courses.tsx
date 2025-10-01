@@ -91,11 +91,8 @@ export default function Courses() {
 
   return (
     <section
+      id="courses"  // 👈 anchor target for HeroSection button
       className="min-h-screen w-full py-24 px-6 backdrop-blur-sm"
-      style={{
-        background:
-          "linear-gradient(to bottom, rgba(236,72,153,0.1) 0%, rgba(191,219,254,0.1) 100%)",
-      }}
     >
       <h1 className="text-5xl font-extrabold mb-16 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 dark:from-blue-400 dark:via-purple-400 dark:to-pink-400">
         Courses
