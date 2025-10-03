@@ -37,7 +37,7 @@ export default function NavMenu() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -100, opacity: 0 }}
           transition={{ type: "spring", stiffness: 100, damping: 20 }}
-          className="fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md flex items-center justify-between px-6 py-4 shadow-md transition-colors duration-300"
+          className="fixed top-0 left-0 right-0 z-10 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md flex items-center justify-between px-6 py-4 shadow-md transition-colors duration-300"
         >
           {/* Center Links */}
           <div className="flex-1 flex justify-center gap-6 text-lg font-semibold text-gray-900 dark:text-gray-100">
