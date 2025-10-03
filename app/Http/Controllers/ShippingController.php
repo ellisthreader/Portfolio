@@ -8,42 +8,43 @@ use Illuminate\Support\Facades\Log;
 
 class ShippingController extends Controller
 {
-    protected $shippingService;
+    protected ShippingService $shippingService;
 
     public function __construct(ShippingService $shippingService)
     {
         $this->shippingService = $shippingService;
     }
 
+    /**
+     * Calculate shipping options or cost
+     */
     public function calculate(Request $request)
     {
-        try {
-            $method = $request->input('method');
-            $items = $request->input('items', []);
-            $country = $request->input('country', 'GB');
-            $postcode = $request->input('postcode', '');
+        $payload = $request->all();
+        Log::info('ShippingController@calculate called', ['payload' => $payload]);
 
-            if (!$method || empty($items)) {
-                return response()->json(['error' => 'Missing parameters'], 400);
-            }
+        $country = $request->input('country', '');
+        $postcode = $request->input('postcode', '');
+        $items = $request->input('items', []);
+        $service = $request->input('service', null);
 
-            $cost = $this->shippingService->calculate($method, $items, $country, $postcode);
+        // Get all services
+        $services = $this->shippingService->getServices($items, $country, $postcode);
 
-            Log::info('Shipping calculated', [
-                'method' => $method,
-                'items' => $items,
+        if ($service) {
+            $filtered = array_filter($services, fn($s) => $s['code'] === $service);
+            $cost = $filtered ? array_values($filtered)[0]['cost'] : 0;
+
+            Log::info('Shipping cost calculated', [
+                'method' => $service,
                 'country' => $country,
-                'postcode' => $postcode,
-                'cost' => $cost,
+                'cost' => $cost
             ]);
 
-            return response()->json([
-                'cost' => $cost,
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Shipping calculation error: ' . $e->getMessage());
-            return response()->json(['error' => 'Shipping calculation failed'], 500);
+            return response()->json(['cost' => $cost]);
         }
+
+        // Return all available services if no specific service selected
+        return response()->json(['services' => $services]);
     }
 }
