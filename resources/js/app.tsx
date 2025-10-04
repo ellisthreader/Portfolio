@@ -5,6 +5,8 @@ import { createRoot } from "react-dom/client";
 import React from "react";
 import { DarkModeProvider } from "@/Context/DarkModeContext";
 import { CartProvider } from "@/Context/CartContext";
+import "../css/google-autocomplete.css";
+
 
 createInertiaApp({
   resolve: (name: string) =>

@@ -6,7 +6,11 @@ import { router } from "@inertiajs/react";
 import { useDarkMode } from "@/Context/DarkModeContext";
 import { useLoadScript, Autocomplete } from "@react-google-maps/api";
 
+// ✅ Stripe key
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_KEY as string);
+
+// ✅ Google Maps libraries array (outside component to avoid reload warning)
+const libraries: ("places")[] = ["places"];
 
 const discountCodes: Record<string, number> = {
   DISCOUNT10: 0.1,
@@ -45,19 +49,29 @@ const CheckoutForm = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Google Maps Autocomplete
+  // ✅ Google Maps Autocomplete
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
   const { isLoaded } = useLoadScript({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY as string,
-    libraries: ["places"],
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string, // ✅ must match .env
+    libraries,
   });
 
-  const onLoadAutocomplete = (autoC: google.maps.places.Autocomplete) => setAutocomplete(autoC);
+  // Debug logs
+  console.log("Google API Key (from env):", import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+  console.log("Google Maps script loaded:", isLoaded);
+
+  const onLoadAutocomplete = (autoC: google.maps.places.Autocomplete) => {
+    console.log("Autocomplete loaded:", autoC);
+    setAutocomplete(autoC);
+  };
 
   const onPlaceChanged = () => {
     if (!autocomplete) return;
     const place = autocomplete.getPlace();
+    console.log("Place selected:", place);
+
     if (!place.address_components) return;
 
     const getComponent = (type: string) => {
@@ -78,7 +92,7 @@ const CheckoutForm = () => {
   const vat = discountedSubtotal * 0.2;
   const total = discountedSubtotal + vat + shippingCost;
 
-  // Fetch available shipping services after entering country + postcode
+  // Fetch available shipping services
   useEffect(() => {
     const fetchServices = async () => {
       if (!country || !postcode) {
@@ -97,18 +111,19 @@ const CheckoutForm = () => {
           }),
         });
         const data = await res.json();
+        console.log("Shipping services response:", data);
         setAvailableServices(data.services ?? []);
         setShippingMethod("");
         setShippingCost(0);
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching services:", err);
         setAvailableServices([]);
       }
     };
     fetchServices();
   }, [country, postcode, cart]);
 
-  // Fetch shipping cost when a service is selected
+  // Fetch shipping cost
   useEffect(() => {
     const fetchCost = async () => {
       if (!shippingMethod) return;
@@ -124,8 +139,10 @@ const CheckoutForm = () => {
           }),
         });
         const data = await res.json();
+        console.log("Shipping cost response:", data);
         setShippingCost(data.cost ?? 0);
-      } catch {
+      } catch (err) {
+        console.error("Error fetching cost:", err);
         setShippingCost(0);
       }
     };
@@ -174,6 +191,7 @@ const CheckoutForm = () => {
       });
 
       const data = await res.json();
+      console.log("Payment intent response:", data);
       if (!data.client_secret) throw new Error(data.error || "No client_secret returned");
 
       const card = elements.getElement(CardElement)!;
@@ -188,6 +206,8 @@ const CheckoutForm = () => {
           },
         },
       });
+
+      console.log("Stripe payment result:", result);
 
       if (result.error) setError(result.error.message || "Payment failed");
       else if (result.paymentIntent?.status === "succeeded") {
@@ -205,6 +225,7 @@ const CheckoutForm = () => {
         });
       }
     } catch (err: any) {
+      console.error("Payment error:", err);
       setError(err.message || "Payment failed");
     }
 

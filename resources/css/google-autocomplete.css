@@ -1,0 +1,40 @@
+/* Keep the suggestions visible */
+.pac-container {
+  border-radius: 0.75rem; /* rounded-xl */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border: none !important;
+  font-family: 'Inter', sans-serif;
+  margin-top: 0.25rem;
+  z-index: 9999 !important;
+  background: #fff;
+  overflow: hidden;
+}
+
+/* Style each suggestion */
+.pac-item {
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background 0.2s ease-in-out;
+}
+.pac-item:hover {
+  background-color: #f3f4f6;
+}
+
+/* Bold primary text */
+.pac-item .pac-item-query {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Secondary text */
+.pac-item span {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+/* ✅ Only hide the little "Powered by Google" image */
+.pac-icon {
+  display: none !important;
+}
