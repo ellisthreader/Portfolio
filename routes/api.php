@@ -26,11 +26,11 @@ Route::post('/create-payment-intent', [CheckoutController::class, 'createPayment
 // -----------------------------
 // Shipping
 // -----------------------------
-// Get available shipping services (after delivery info entered)
-Route::get('/shipping-services', [ShippingController::class, 'services']);
+// Get available shipping rates from Shippo
+Route::post('/shipping/rates', [ShippingController::class, 'rates']);
 
-// Calculate shipping cost based on selected service
-Route::post('/shipping-cost', [ShippingController::class, 'calculate']);
+// Optional: If you want a separate route to calculate cost for a selected service
+// Route::post('/shipping-cost', [ShippingController::class, 'calculate']);
 
 // -----------------------------
 // Authentication

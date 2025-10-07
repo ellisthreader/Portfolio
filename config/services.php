@@ -49,4 +49,11 @@ return [
         'secret' => env('STRIPE_SECRET'),
     ],
 
+    // ---------------------------
+    // Shippo API
+    // ---------------------------
+    'shippo' => [
+        'token' => env('SHIPPO_TOKEN'),
+    ],
+
 ];

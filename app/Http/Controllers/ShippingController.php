@@ -15,36 +15,46 @@ class ShippingController extends Controller
         $this->shippingService = $shippingService;
     }
 
-    /**
-     * Calculate shipping options or cost
-     */
-    public function calculate(Request $request)
+    public function rates(Request $request)
     {
-        $payload = $request->all();
-        Log::info('ShippingController@calculate called', ['payload' => $payload]);
+        // 👇 Add this line to confirm the controller and function were triggered
+        Log::info('ShippingController@rates called', [
+            'timestamp' => now()->toDateTimeString(),
+            'request_source' => $request->header('Referer'),
+        ]);
 
-        $country = $request->input('country', '');
-        $postcode = $request->input('postcode', '');
-        $items = $request->input('items', []);
-        $service = $request->input('service', null);
+        $request->validate([
+            'to_address' => 'required|array',
+            'parcel' => 'required|array',
+        ]);
 
-        // Get all services
-        $services = $this->shippingService->getServices($items, $country, $postcode);
+        // Fixed from address for Ellis' Courses
+        $fromAddress = [
+            'name' => "Ellis' Courses",
+            'street1' => '390 Springfield Road',
+            'city' => 'Chelmsford',
+            'state' => '',
+            'zip' => 'CM2 6AT',
+            'country' => 'GB',
+        ];
 
-        if ($service) {
-            $filtered = array_filter($services, fn($s) => $s['code'] === $service);
-            $cost = $filtered ? array_values($filtered)[0]['cost'] : 0;
+        $toAddress = $request->input('to_address');
+        $parcel = $request->input('parcel');
 
-            Log::info('Shipping cost calculated', [
-                'method' => $service,
-                'country' => $country,
-                'cost' => $cost
-            ]);
+        // Log incoming request from frontend
+        Log::info('ShippingController: Incoming request', [
+            'to_address' => $toAddress,
+            'parcel' => $parcel,
+        ]);
 
-            return response()->json(['cost' => $cost]);
-        }
+        // Get rates from Shippo (logs will also be in ShippingService)
+        $rates = $this->shippingService->getRates($fromAddress, $toAddress, $parcel);
 
-        // Return all available services if no specific service selected
-        return response()->json(['services' => $services]);
+        // Log the rates returned
+        Log::info('ShippingController: Shippo rates returned', [
+            'rates' => $rates,
+        ]);
+
+        return response()->json($rates);
     }
 }
