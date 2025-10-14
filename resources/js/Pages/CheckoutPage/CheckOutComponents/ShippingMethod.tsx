@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useDarkMode } from "@/Context/DarkModeContext";
 import { useCheckout } from "@/Context/CheckoutContext";
+import { getCountryCode } from "@/Utils/countryCodes";
 
 interface ShippoRate {
   object_id: string;
   provider: string;
   servicelevel: { name: string };
   amount: string;
+  estimated_days?: number;
 }
 
 export default function ShippingMethod() {
@@ -38,46 +40,47 @@ export default function ShippingMethod() {
     }
   })();
 
-  // ✅ Helper: check if address is complete enough to fetch rates
-  const isAddressComplete = () => {
-    return (
-      address.firstName &&
-      address.lastName &&
-      address.addressLine1 &&
-      address.city &&
-      address.postcode &&
-      address.country
-    );
-  };
+  const isAddressComplete = () =>
+    address.firstName &&
+    address.lastName &&
+    address.addressLine1 &&
+    address.city &&
+    address.postcode &&
+    address.country;
 
-  // ✅ Fetch shipping rates whenever address becomes complete
+  // ✅ Fetch rates when address is complete
   useEffect(() => {
-    if (!isAddressComplete()) {
-      console.log("[ShippingMethod] Address incomplete — skipping rate fetch.", address);
-      return;
-    }
+    if (!isAddressComplete()) return;
 
     async function fetchRates() {
-      console.log("[ShippingMethod] Fetching shipping rates...", { address, parcel });
       setLoading(true);
       setError("");
       setAvailableServices([]);
 
       try {
+        const isoCountry =
+          address.country?.length === 2
+            ? address.country.toUpperCase()
+            : getCountryCode(address.country) || address.country;
+
+        const payload = {
+          to_address: {
+            name: `${address.firstName || ""} ${address.lastName || ""}`.trim(),
+            street1: address.addressLine1,
+            street2: address.addressLine2 || "",
+            city: address.city,
+            zip: address.postcode,
+            country: isoCountry,
+          },
+          parcel,
+        };
+
+        console.log("[ShippingMethod] Sending payload:", payload);
+
         const response = await fetch("/api/shipping/rates", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to_address: {
-              name: `${address.firstName || ""} ${address.lastName || ""}`.trim(),
-              street1: address.addressLine1,
-              street2: address.addressLine2 || "",
-              city: address.city,
-              zip: address.postcode,
-              country: address.country,
-            },
-            parcel,
-          }),
+          body: JSON.stringify(payload),
         });
 
         const text = await response.text();
@@ -91,12 +94,10 @@ export default function ShippingMethod() {
         }
 
         if (!Array.isArray(data) || data.length === 0) {
-          console.warn("[ShippingMethod] No rates found in response:", data);
           setError("No shipping options available for this address");
           return;
         }
 
-        console.log("[ShippingMethod] Rates received:", data);
         setAvailableServices(data);
       } catch (err: any) {
         console.error("[ShippingMethod] Error fetching rates:", err);
@@ -117,13 +118,11 @@ export default function ShippingMethod() {
     product,
   ]);
 
-  // --- When user selects a rate ---
   const handleSelect = (rateId: string) => {
     setShippingMethod(rateId);
     const selected = availableServices.find((r) => r.object_id === rateId);
     if (selected) {
       setShippingCost(parseFloat(selected.amount));
-      console.log("[ShippingMethod] Selected shipping method:", selected);
     }
   };
 
@@ -157,23 +156,37 @@ export default function ShippingMethod() {
     >
       <h2 className="text-xl font-semibold mb-4">Shipping Method</h2>
 
-      <select
-        value={shippingMethod}
-        onChange={(e) => handleSelect(e.target.value)}
-        className={`w-full p-3 border rounded-lg transition-colors ${
-          darkMode
-            ? "bg-gray-800 border-gray-700 text-white"
-            : "bg-gray-50 border-gray-300 text-gray-900"
-        }`}
-        required
-      >
-        <option value="">Select shipping method</option>
-        {availableServices.map((s) => (
-          <option key={s.object_id} value={s.object_id}>
-            {s.provider} - {s.servicelevel?.name || "Unknown"} (£{parseFloat(s.amount).toFixed(2)})
-          </option>
-        ))}
-      </select>
+      <div className="grid gap-4">
+        {availableServices.map((s) => {
+          const isSelected = s.object_id === shippingMethod;
+          return (
+            <div
+              key={s.object_id}
+              onClick={() => handleSelect(s.object_id)}
+              className={`cursor-pointer border rounded-xl p-4 transition-all
+                ${darkMode ? "border-gray-700 bg-gray-800 hover:border-indigo-400" : "border-gray-300 bg-gray-50 hover:border-indigo-500"}
+                ${isSelected ? "ring-2 ring-indigo-500 shadow-lg" : "hover:shadow-md"}
+              `}
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium text-lg">
+                    {s.provider} — {s.servicelevel?.name || "Standard"}
+                  </p>
+                  {s.estimated_days && (
+                    <p className="text-sm text-gray-500">
+                      Estimated delivery: {s.estimated_days} day{s.estimated_days > 1 ? "s" : ""}
+                    </p>
+                  )}
+                </div>
+                <p className="font-semibold text-indigo-500 text-lg">
+                  £{parseFloat(s.amount).toFixed(2)}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

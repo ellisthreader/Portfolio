@@ -4,16 +4,11 @@ import { useCheckout } from "@/Context/CheckoutContext";
 
 export default function ContactInfo() {
   const { darkMode } = useDarkMode();
-  const { email, setEmail, phone, setPhone } = useCheckout();
+  const { email, setEmail } = useCheckout();
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("[ContactInfo] Email changed:", e.target.value);
     setEmail(e.target.value);
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("[ContactInfo] Phone changed:", e.target.value);
-    setPhone(e.target.value);
   };
 
   return (
@@ -41,26 +36,6 @@ export default function ContactInfo() {
             placeholder="you@example.com"
             value={email}
             onChange={handleEmailChange}
-            required
-          />
-        </div>
-
-        {/* PHONE */}
-        <div>
-          <label className="block text-sm font-medium mb-1" htmlFor="phone">
-            Phone Number
-          </label>
-          <input
-            id="phone"
-            type="tel"
-            className={`w-full rounded-lg border p-3 transition-colors duration-200 focus:ring-2 focus:ring-indigo-500 ${
-              darkMode
-                ? "bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-400"
-                : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500"
-            }`}
-            placeholder="+44 7911 123456"
-            value={phone}
-            onChange={handlePhoneChange}
             required
           />
         </div>

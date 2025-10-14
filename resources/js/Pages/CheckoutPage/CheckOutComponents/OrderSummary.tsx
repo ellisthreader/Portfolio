@@ -1,84 +1,86 @@
-// resources/js/Pages/CheckoutPage/CheckOutComponents/OrderSummary.tsx
-import React, { useEffect } from "react";
-import { useDarkMode } from "@/Context/DarkModeContext";
+// OrderSummary.tsx
+import React, { useMemo, useEffect } from "react";
 import { useCart } from "@/Context/CartContext";
 import { useCheckout } from "@/Context/CheckoutContext";
 
-export default function OrderSummary() {
-  const { darkMode } = useDarkMode();
+const OrderSummary: React.FC = () => {
   const { cart } = useCart();
-  const { appliedDiscount, shippingCost } = useCheckout();
+  const { shippingCost = 0, appliedDiscount } = useCheckout();
 
-  // --- Calculations ---
-  const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const discountAmount = subtotal * appliedDiscount;
-  const discountedSubtotal = subtotal - discountAmount;
+  // --- Ensure numeric values ---
+  const normalizedShipping = Number(shippingCost) || 0;
+
+  // --- Compute discount amount from appliedDiscount object ---
+  let discountAmount = 0;
+  if (appliedDiscount) {
+    if (appliedDiscount.type === "percent") {
+      const subtotal = cart.reduce(
+        (sum, item) => sum + Number(item.price) * Number(item.quantity),
+        0
+      );
+      discountAmount = subtotal * (appliedDiscount.value / 100);
+    } else if (appliedDiscount.type === "fixed") {
+      discountAmount = appliedDiscount.value;
+    }
+  }
+
+  // --- Compute subtotal, VAT, total ---
+  const subtotal = useMemo(() => {
+    return cart.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
+  }, [cart]);
+
+  const discountedSubtotal = Math.max(subtotal - discountAmount, 0);
   const vat = discountedSubtotal * 0.2;
-  const total = discountedSubtotal + vat + shippingCost;
+  const total = discountedSubtotal + vat + normalizedShipping;
 
-  // --- Debug Logging ---
+  // --- Debug logs ---
   useEffect(() => {
-    console.group("[OrderSummary] Data Update");
+    console.group("[OrderSummary]");
     console.log("Cart Items:", cart);
     console.log("Subtotal:", subtotal);
+    console.log("Applied Discount:", appliedDiscount);
     console.log("Discount Amount:", discountAmount);
+    console.log("Discounted Subtotal:", discountedSubtotal);
     console.log("VAT:", vat);
-    console.log("Shipping Cost:", shippingCost);
+    console.log("Shipping Cost:", normalizedShipping);
     console.log("Total:", total);
     console.groupEnd();
-  }, [cart, subtotal, discountAmount, vat, shippingCost, total]);
+  }, [cart, subtotal, appliedDiscount, discountAmount, discountedSubtotal, vat, normalizedShipping, total]);
 
   return (
-    <div
-      className={`p-6 rounded-xl shadow transition-colors ${
-        darkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
-      }`}
-    >
-      <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
+    <aside className="p-4 border rounded bg-white dark:bg-gray-800">
+      <h3 className="font-semibold mb-3">Payment Summary</h3>
 
-      {/* Cart Items */}
-      <ul className="space-y-2 mb-4">
-        {cart.map((item) => (
-          <li key={item.id || item.title} className="flex justify-between">
-            <span>
-              {item.title} × {item.quantity}
-            </span>
-            <span>£{(item.price * item.quantity).toFixed(2)}</span>
-          </li>
-        ))}
-      </ul>
-
-      {/* Subtotal */}
-      <div className="flex justify-between mb-2">
-        <span>Subtotal</span>
+      <div className="flex justify-between mb-1">
+        <span>Subtotal:</span>
         <span>£{subtotal.toFixed(2)}</span>
       </div>
 
-      {/* Discount */}
-      <div className="flex justify-between mb-2">
-        <span>Discount</span>
-        <span className={discountAmount > 0 ? "text-green-500" : ""}>
-          -£{discountAmount.toFixed(2)}
-        </span>
-      </div>
+      {discountAmount > 0 && (
+        <div className="flex justify-between mb-1 text-green-600">
+          <span>Discount:</span>
+          <span>-£{discountAmount.toFixed(2)}</span>
+        </div>
+      )}
 
-      {/* VAT */}
-      <div className="flex justify-between mb-2">
-        <span>VAT (20%)</span>
+      <div className="flex justify-between mb-1">
+        <span>VAT (20%):</span>
         <span>£{vat.toFixed(2)}</span>
       </div>
 
-      {/* Shipping */}
       <div className="flex justify-between mb-2">
-        <span>Shipping</span>
-        <span>£{shippingCost.toFixed(2)}</span>
+        <span>Shipping:</span>
+        <span>£{normalizedShipping.toFixed(2)}</span>
       </div>
 
-      {/* Total */}
-      <div className="flex justify-between font-bold text-lg mt-4 border-t pt-4">
-        <span>Total</span>
+      <hr className="my-2" />
+
+      <div className="flex justify-between font-bold text-lg">
+        <span>Total:</span>
         <span>£{total.toFixed(2)}</span>
       </div>
-    </div>
+    </aside>
   );
-}
+};
+
+export default OrderSummary;

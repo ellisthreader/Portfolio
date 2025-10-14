@@ -5,8 +5,10 @@ import { createRoot } from "react-dom/client";
 import React from "react";
 import { DarkModeProvider } from "@/Context/DarkModeContext";
 import { CartProvider } from "@/Context/CartContext";
-import "../css/google-autocomplete.css";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
+import "../css/google-autocomplete.css";
 
 createInertiaApp({
   resolve: (name: string) =>
@@ -21,14 +23,30 @@ createInertiaApp({
     ),
   setup: ({ el, App, props }) => {
     const root = createRoot(el as HTMLElement);
+
     root.render(
       <React.StrictMode>
         <CartProvider>
           <DarkModeProvider>
+            {/* Inertia main app */}
             <App {...props} />
+
+            {/* Global Toast notifications */}
+            <ToastContainer
+              position="top-center"
+              autoClose={3000}
+              hideProgressBar
+              newestOnTop
+              closeOnClick
+              pauseOnFocusLoss={false}
+              draggable={false}
+              pauseOnHover
+              theme="colored"
+            />
           </DarkModeProvider>
         </CartProvider>
       </React.StrictMode>
     );
   },
 });
+ 

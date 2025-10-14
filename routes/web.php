@@ -103,7 +103,8 @@ Route::get('/check-email', function (Request $request) {
 // -----------------------------
 // Stripe Checkout API
 // -----------------------------
-Route::post('/create-checkout-session', [CheckoutController::class, 'createCheckoutSession']);
+Route::post('/create-payment-intent', [CheckoutController::class, 'createPaymentIntent']);
+
 
 // -----------------------------
 // Dashboard (requires auth + verified email)

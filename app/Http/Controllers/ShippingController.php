@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\ShippingService;
-use Illuminate\Support\Facades\Log;
 
 class ShippingController extends Controller
 {
@@ -17,43 +16,27 @@ class ShippingController extends Controller
 
     public function rates(Request $request)
     {
-        // 👇 Add this line to confirm the controller and function were triggered
-        Log::info('ShippingController@rates called', [
-            'timestamp' => now()->toDateTimeString(),
-            'request_source' => $request->header('Referer'),
-        ]);
-
-        $request->validate([
+        $validated = $request->validate([
             'to_address' => 'required|array',
-            'parcel' => 'required|array',
+            'parcel'     => 'required|array',
         ]);
 
-        // Fixed from address for Ellis' Courses
+        // Your business' FROM address (fixed)
         $fromAddress = [
-            'name' => "Ellis' Courses",
+            'name'    => "Ellis' Courses",
             'street1' => '390 Springfield Road',
-            'city' => 'Chelmsford',
-            'state' => '',
-            'zip' => 'CM2 6AT',
+            'city'    => 'Chelmsford',
+            'zip'     => 'CM2 6AT',
             'country' => 'GB',
         ];
 
-        $toAddress = $request->input('to_address');
-        $parcel = $request->input('parcel');
+        // Use real TO address provided by the request
+        $toAddress = $validated['to_address'];
 
-        // Log incoming request from frontend
-        Log::info('ShippingController: Incoming request', [
-            'to_address' => $toAddress,
-            'parcel' => $parcel,
-        ]);
+        // Use real parcel dimensions from request
+        $parcel = $validated['parcel'];
 
-        // Get rates from Shippo (logs will also be in ShippingService)
         $rates = $this->shippingService->getRates($fromAddress, $toAddress, $parcel);
-
-        // Log the rates returned
-        Log::info('ShippingController: Shippo rates returned', [
-            'rates' => $rates,
-        ]);
 
         return response()->json($rates);
     }

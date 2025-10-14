@@ -12,7 +12,7 @@ class ShippingService
     public function __construct()
     {
         $this->shippoToken = config('services.shippo.token');
-        Log::info('ShippingService initialized with Shippo token'); // Log initialization
+        Log::info('ShippingService initialized', ['token_present' => !empty($this->shippoToken)]);
     }
 
     /**
@@ -26,48 +26,49 @@ class ShippingService
     public function getRates(array $fromAddress, array $toAddress, array $parcel): array
     {
         try {
-            // Log request data
-            Log::info('Shippo Request Data', [
-                'address_from' => $fromAddress,
-                'address_to' => $toAddress,
-                'parcel' => $parcel,
-            ]);
-
-            // Send POST request to Shippo
-            $response = Http::withHeaders([
-                'Authorization' => 'ShippoToken ' . $this->shippoToken,
-                'Content-Type' => 'application/json',
-            ])->post('https://api.shippo.com/v1/shipments', [
+            $payload = [
                 'address_from' => $fromAddress,
                 'address_to'   => $toAddress,
                 'parcels'      => [$parcel],
                 'async'        => false,
-            ]);
+            ];
 
-            // Log raw response
+            // Log the exact payload being sent
+            Log::info('Shippo Request Payload', ['payload' => $payload]);
+
+            $response = Http::withHeaders([
+                'Authorization' => 'ShippoToken ' . $this->shippoToken,
+                'Content-Type'  => 'application/json',
+            ])->post('https://api.goshippo.com/v1/shipments', $payload);
+
+
             Log::info('Shippo Raw Response', [
                 'status' => $response->status(),
-                'body' => $response->body(),
+                'body'   => $response->body(),
             ]);
 
             if ($response->failed()) {
-                Log::error('Shippo API Error', [
+                Log::error('Shippo API returned failed status', [
                     'status' => $response->status(),
-                    'body' => $response->body(),
+                    'body'   => $response->body(),
                 ]);
                 return [];
             }
 
-            // Parse rates from response
             $data = $response->json();
-            Log::info('Shippo Parsed Response', $data);
 
-            $rates = $data['rates'] ?? [];
-            Log::info('Shippo Rates Extracted', ['count' => count($rates), 'rates' => $rates]);
+            if (!isset($data['rates']) || !is_array($data['rates'])) {
+                Log::warning('Shippo response does not contain "rates"', $data);
+                return [];
+            }
 
-            return $rates;
+            return $data['rates'];
+
         } catch (\Exception $e) {
-            Log::error('Shippo API Exception', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Shippo API Exception', [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
             return [];
         }
     }

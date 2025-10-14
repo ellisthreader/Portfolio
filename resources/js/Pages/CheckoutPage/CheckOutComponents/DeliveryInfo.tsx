@@ -2,15 +2,11 @@ import React, { useEffect, useRef } from "react";
 import { useDarkMode } from "@/Context/DarkModeContext";
 import { useCheckout } from "@/Context/CheckoutContext";
 import { Autocomplete, useLoadScript } from "@react-google-maps/api";
+import { getCountryCode } from "@/Utils/countryCodes";
 
 export default function DeliveryInfo() {
   const { darkMode } = useDarkMode();
-  const {
-    address,
-    setAddress,
-    country,
-    setCountry,
-  } = useCheckout();
+  const { address, setAddress, country, setCountry } = useCheckout();
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -24,13 +20,13 @@ export default function DeliveryInfo() {
 
   // --- Countries List ---
   const countries = [
-    "Australia","Austria","Belgium","Canada","Croatia","Cyprus","Czech Republic",
-    "Denmark","Estonia","Finland","France","Germany","Greece","Hong Kong",
-    "Hungary","Iceland","India","Indonesia","Ireland","Israel","Italy","Japan",
-    "Latvia","Lithuania","Luxembourg","Malaysia","Malta","Mexico","Netherlands",
-    "New Zealand","Norway","Philippines","Poland","Portugal","Singapore",
-    "Slovakia","Slovenia","South Korea","Spain","Sweden","Switzerland","Taiwan",
-    "Thailand","Turkey","United Arab Emirates","United Kingdom","United States","Vietnam"
+    "Australia", "Austria", "Belgium", "Canada", "Croatia", "Cyprus", "Czech Republic",
+    "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hong Kong",
+    "Hungary", "Iceland", "India", "Indonesia", "Ireland", "Israel", "Italy", "Japan",
+    "Latvia", "Lithuania", "Luxembourg", "Malaysia", "Malta", "Mexico", "Netherlands",
+    "New Zealand", "Norway", "Philippines", "Poland", "Portugal", "Singapore",
+    "Slovakia", "Slovenia", "South Korea", "Spain", "Sweden", "Switzerland", "Taiwan",
+    "Thailand", "Turkey", "United Arab Emirates", "United Kingdom", "United States", "Vietnam"
   ];
 
   // --- Styling ---
@@ -48,6 +44,18 @@ export default function DeliveryInfo() {
     console.log(`${logPrefix} Autocomplete loaded, restricted to:`, country);
   };
 
+  // 🔁 Update restriction dynamically if user changes country
+  useEffect(() => {
+    const auto = autocompleteRef.current;
+    if (auto) {
+      const iso = getCountryCode(country);
+      if (iso) {
+        auto.setComponentRestrictions({ country: iso });
+        console.log(`${logPrefix} Autocomplete restriction updated to:`, iso);
+      }
+    }
+  }, [country]);
+
   const handlePlaceChanged = () => {
     const auto = autocompleteRef.current;
     if (!auto) return;
@@ -57,8 +65,9 @@ export default function DeliveryInfo() {
     const comps = place.address_components;
     const street_number = comps.find(c => c.types.includes("street_number"))?.long_name || "";
     const route = comps.find(c => c.types.includes("route"))?.long_name || "";
-    const locality = comps.find(c => c.types.includes("locality"))?.long_name ||
-                     comps.find(c => c.types.includes("postal_town"))?.long_name || "";
+    const locality =
+      comps.find(c => c.types.includes("locality"))?.long_name ||
+      comps.find(c => c.types.includes("postal_town"))?.long_name || "";
     const postal_code = comps.find(c => c.types.includes("postal_code"))?.long_name || "";
     const countryComp = comps.find(c => c.types.includes("country"))?.long_name;
 
@@ -170,32 +179,15 @@ export default function DeliveryInfo() {
         />
       </div>
 
-      {/* Phone */}
+      {/* Phone (optional) */}
       <div className="mt-4">
         <input
-          className={inputStyle}
+          className={inputStyle}  
           value={address.phone}
           onChange={handleChange("phone")}
-          placeholder="Phone number"
-          required
+          placeholder="Phone number (optional)"
         />
       </div>
     </div>
   );
-}
-
-// --- Helper ---
-function getCountryCode(name: string) {
-  const map: Record<string, string> = {
-    "United Arab Emirates":"AE","Australia":"AU","Austria":"AT","Belgium":"BE","Canada":"CA",
-    "Switzerland":"CH","Croatia":"HR","Cyprus":"CY","Czech Republic":"CZ","Germany":"DE",
-    "Denmark":"DK","Estonia":"EE","Spain":"ES","Finland":"FI","France":"FR","United Kingdom":"GB",
-    "Greece":"GR","Hong Kong":"HK","Hungary":"HU","Iceland":"IS","Ireland":"IE","Israel":"IL",
-    "India":"IN","Indonesia":"ID","Italy":"IT","Japan":"JP","South Korea":"KR","Lithuania":"LT",
-    "Latvia":"LV","Luxembourg":"LU","Malaysia":"MY","Malta":"MT","Mexico":"MX","Netherlands":"NL",
-    "New Zealand":"NZ","Norway":"NO","Philippines":"PH","Poland":"PL","Portugal":"PT",
-    "Singapore":"SG","Slovakia":"SK","Slovenia":"SI","Sweden":"SE","Taiwan":"TW","Thailand":"TH",
-    "Turkey":"TR","United States":"US","Vietnam":"VN"
-  };
-  return map[name] || "";
 }
