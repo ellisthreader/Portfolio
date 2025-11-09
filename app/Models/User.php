@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail; // Required for email verification
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -22,12 +22,13 @@ class User extends Authenticatable implements MustVerifyEmail
         'username',
         'email',
         'password',
-        'name',    
-        'phone',   
-        'bio',     
-        'avatar',  
-        'last_avatar_generated_at', 
-        'last_verification_sent_at', 
+        'name',
+        'phone',
+        'bio',
+        'avatar',
+        'last_avatar_generated_at',
+        'last_verification_sent_at',
+        'is_admin', // added for admin live chat access
     ];
 
     /**
@@ -48,8 +49,9 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $casts = [
         'email_verified_at' => 'datetime',
         'last_avatar_generated_at' => 'datetime:UTC',
-        'last_verification_sent_at' => 'datetime', 
+        'last_verification_sent_at' => 'datetime',
         'password' => 'hashed',
+        'is_admin' => 'boolean', // ensures true/false
     ];
 
     /**
@@ -94,5 +96,22 @@ class User extends Authenticatable implements MustVerifyEmail
     public function markVerificationEmailSent(): void
     {
         $this->update(['last_verification_sent_at' => now()]);
+    }
+
+    /**
+     * Relationship: chats the user participates in.
+     * Required for broadcast auth on chat.{chatId} channels.
+     */
+    public function chats()
+    {
+        return $this->belongsToMany(Chat::class, 'chat_user', 'user_id', 'chat_id');
+    }
+
+    /**
+     * Helper to check if the user is an admin.
+     */
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin;
     }
 }

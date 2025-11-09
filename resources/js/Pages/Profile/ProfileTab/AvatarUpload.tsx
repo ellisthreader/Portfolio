@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useProfile } from "@/Context/ProfileContext";
+import { toast } from "react-toastify";
 
 interface Props {
   updateAvatar?: (url: string) => void;
-  setSuccessMessage: (msg: string | null) => void;
-  setErrorMessage: (msg: string | null) => void;
 }
 
-export default function AvatarUpload({
-  updateAvatar,
-  setSuccessMessage,
-  setErrorMessage,
-}: Props) {
+export default function AvatarUpload({ updateAvatar }: Props) {
   const { user, setUser } = useProfile();
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
+
+  // 🔔 Reusable toast notifier
+  const notify = (type: "success" | "error", message: string) =>
+    toast[type](message, { position: "top-center", autoClose: 3000 });
 
   // --- Sync cooldown from server ---
   useEffect(() => {
@@ -75,13 +74,11 @@ export default function AvatarUpload({
           Math.max(0, Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000))
         );
 
-        setSuccessMessage("✅ Avatar successfully uploaded!");
-        setErrorMessage(null);
+        notify("success", " Avatar successfully uploaded!");
       }
     } catch (err: any) {
       console.error("[AvatarUpload] Failed to upload avatar", err.response?.data || err);
-      setErrorMessage("❌ Failed to upload avatar. Please try again.");
-      setSuccessMessage(null);
+      notify("error", " Failed to upload avatar. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -110,8 +107,7 @@ export default function AvatarUpload({
           Math.max(0, Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000))
         );
 
-        setSuccessMessage("✅ Random avatar generated!");
-        setErrorMessage(null);
+        notify("success", "Random avatar generated!");
       }
     } catch (err: any) {
       if (err.response?.status === 429 && err.response.data) {
@@ -123,19 +119,18 @@ export default function AvatarUpload({
           Math.max(0, Math.floor((cooldownEnd.getTime() - serverNow.getTime()) / 1000))
         );
 
-        setErrorMessage(err.response.data.message || "⏳ Please wait before generating again.");
+        notify("error", err.response.data.message || "Please wait before generating again.");
       } else {
         console.error("[AvatarUpload] Failed to generate random avatar", err.response?.data || err);
-        setErrorMessage(err.response?.data?.message || "❌ Could not generate avatar.");
+        notify("error", err.response?.data?.message || " Could not generate avatar.");
       }
-      setSuccessMessage(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Format cooldown ---
-  const formatTime = (sec: number) => {
+  // --- Format cooldown display ---
+  const formatTime = (sec: number) => { 
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;

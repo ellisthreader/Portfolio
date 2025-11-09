@@ -7,8 +7,12 @@ use App\Models\User;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\LiveChatController;
+use App\Http\Controllers\AdminChatController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
-use Illuminate\Support\Carbon;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,151 +23,162 @@ use Illuminate\Support\Carbon;
 // -----------------------------
 // Public Pages
 // -----------------------------
-Route::get('/', function () {
-    return Inertia::render('Welcome/Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-    ]);
-})->name('home');
+Route::get('/', fn() => Inertia::render('Welcome/Welcome', [
+    'canLogin' => Route::has('login'),
+    'canRegister' => Route::has('register'),
+]))->name('home');
 
 Route::get('/projects', fn() => Inertia::render('Projects/Projects'))->name('projects');
 Route::get('/courses', fn() => Inertia::render('Courses/Index'))->name('courses');
 Route::get('/checkout', fn() => Inertia::render('CheckoutPage'))->name('checkout');
 
-// ✅ Order confirmation page
-Route::get('/order-confirmed', function (Request $request) {
-    $items = $request->get('items', []);
-
-    return Inertia::render('OrderConfirmed', [
-        'email'    => $request->get('email'),
-        'items'    => $items, // array of purchased items [{id, title, image, price, quantity}]
-        'subtotal' => $request->get('subtotal'),
-        'vat'      => $request->get('vat'),
-        'total'    => $request->get('total'),
-    ]);
-})->name('order.confirmed');
+// -----------------------------
+// Order Confirmation Pages
+// -----------------------------
+Route::get('/order-confirmed/{orderNumber}', [CheckoutController::class, 'orderConfirmed'])->name('order.confirmed');
+Route::get('/order-confirmed', fn() => redirect('/'))->name('order.confirmed.redirect');
 
 // -----------------------------
-// Authentication Pages
+// Orders (auth required)
 // -----------------------------
-Route::get('/login', fn() => Inertia::render('Auth/Login'))->name('login');
-Route::get('/register', fn() => Inertia::render('Auth/Login'))->name('register');
-
-// -----------------------------
-// Password Reset Page (GET form)
-// -----------------------------
-Route::get('/reset-password/{token}', function (Request $request, $token) {
-    return Inertia::render('Auth/ResetPassword', [
-        'token' => $token,
-        'email' => $request->email,
-    ]);
-})->name('password.reset');
-
-// -----------------------------
-// Authentication API (POST)
-// -----------------------------
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
-// -----------------------------
-// Username & Email Availability Checks
-// -----------------------------
-Route::get('/check-username', function (Request $request) {
-    $username = $request->query('username');
-    $exists = User::where('username', $username)->exists();
-    $suggestions = [];
-
-    if ($exists) {
-        for ($i = 1; $i <= 5; $i++) {
-            $newName = $username . $i;
-            if (!User::where('username', $newName)->exists()) {
-                $suggestions[] = $newName;
-            }
-        }
-    }
-
-    return response()->json([
-        'exists' => $exists,
-        'suggestions' => $suggestions,
-    ]);
+Route::middleware('auth')->group(function () {
+    Route::get('/user-orders', [CheckoutController::class, 'userOrders'])->name('orders.list');
+    Route::get('/orders/{orderNumber}', [CheckoutController::class, 'showOrder'])->name('orders.show');
 });
 
-Route::get('/check-email', function (Request $request) {
-    $email = $request->query('email');
-    $exists = User::where('email', $email)->exists();
-
-    return response()->json([
-        'exists' => $exists,
-        'message' => $exists ? 'This email is already registered.' : 'Email is available.',
-    ]);
-});
+Route::get('/order-latest', [CheckoutController::class, 'latestOrder'])->name('order.latest');
 
 // -----------------------------
 // Stripe Checkout API
 // -----------------------------
 Route::post('/create-payment-intent', [CheckoutController::class, 'createPaymentIntent']);
-
-
-// -----------------------------
-// Dashboard (requires auth + verified email)
-// -----------------------------
-Route::get('/dashboard', fn() => Inertia::render('Dashboard'))
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
+Route::post('/checkout/store-order', [CheckoutController::class, 'storeOrder'])->name('checkout.store');
 
 // -----------------------------
-// Profile Routes (requires auth)
+// Auth Pages
+// -----------------------------
+Route::get('/login', fn() => Inertia::render('Auth/Login'))->name('login');
+Route::get('/register', fn() => Inertia::render('Auth/Login'))->name('register');
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// Password reset
+Route::get('/reset-password/{token}', fn(Request $request, $token) => Inertia::render('Auth/ResetPassword', [
+    'token' => $token,
+    'email' => $request->email,
+]))->name('password.reset');
+
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
+
+// -----------------------------
+// Dashboard (user)
+// -----------------------------
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard', fn() => Inertia::render('Dashboard'))->name('dashboard');
+});
+
+// -----------------------------
+// Admin Dashboard + Live Chat Manager
+// -----------------------------
+Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+
+    // Admin home dashboard
+    Route::get('/dashboard', fn() => Inertia::render('Admin/Dashboard'))->name('admin.dashboard');
+
+    // Live Chats Manager
+    Route::get('/livechats', [AdminChatController::class, 'index'])->name('admin.livechats');
+
+    // Active chats JSON API
+    Route::get('/active-chats', [AdminChatController::class, 'activeChats'])->name('admin.active.chats');
+
+    // Single chat page
+    Route::get('/livechats/{chat}', [AdminChatController::class, 'show'])->name('admin.livechats.show');
+
+    // Messages API
+    Route::get('/livechats/{chat}/messages', [AdminChatController::class, 'messages'])->name('admin.livechats.messages');
+
+    // Send message API
+    Route::post('/livechats/{chat}/send', [AdminChatController::class, 'sendMessage'])->name('admin.livechats.send');
+
+    // ✅ NEW: Admin joins chat (system message trigger)
+    Route::post('/livechats/{chat}/join', [AdminChatController::class, 'joinChat'])->name('admin.livechats.join');
+
+    // ✅ Optional: System message (if used elsewhere)
+    Route::post('/livechats/{chat}/system-message', [AdminChatController::class, 'sendSystemMessage'])->name('admin.livechats.system-message');
+
+    // Rename chat
+    Route::patch('/livechats/{chat}/rename', [AdminChatController::class, 'renameChat'])->name('admin.livechats.rename');
+
+    // ✅ FIXED: Delete chat route (correct name & method)
+    Route::delete('/livechats/{chat}', [AdminChatController::class, 'destroy'])
+        ->name('admin.livechats.destroy');
+});
+
+// -----------------------------
+// Profile Management
 // -----------------------------
 Route::middleware('auth')->group(function () {
     Route::get('/profile', fn() => redirect()->route('profile.edit'));
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update.custom');
     Route::post('/profile/generate-avatar', [ProfileController::class, 'generateRandomAvatar'])->name('profile.generate-avatar');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 // -----------------------------
-// Email Verification Routes
+// Email Verification
 // -----------------------------
 Route::get('/email/verify', fn() => Inertia::render('Auth/VerifyEmail'))
     ->middleware('auth')
     ->name('verification.notice');
 
-Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-    $request->fulfill();
-    return redirect()->route('profile.edit')->with('verified', 1);
-})->middleware(['auth', 'signed'])->name('verification.verify');
+Route::get('/email/verify/{id}/{hash}', fn(EmailVerificationRequest $request) => redirect()->route('profile.edit')->with('verified', 1))
+    ->middleware(['auth', 'signed'])
+    ->name('verification.verify');
 
-Route::post('/email/verification-notification', function (Request $request) {
-    $user = $request->user();
-    $cooldownMinutes = 1;
+Route::post('/email/verification-notification', fn(Request $request) => $request->user()->update(['last_verification_sent_at' => now()]))
+    ->middleware('auth')
+    ->name('verification.send');
 
-    $remaining = 0;
-    if ($user->last_verification_sent_at) {
-        $last = Carbon::parse($user->last_verification_sent_at);
-        $elapsed = $last->diffInSeconds(now());
-        $remaining = max(0, ($cooldownMinutes * 60) - $elapsed);
-    }
+// -----------------------------
+// Help Centre & FAQ Pages
+// -----------------------------
+Route::get('/help', fn() => Inertia::render('Help/HelpCentre'))->name('help');
+Route::get('/help/orders', fn() => Inertia::render('Help/OrdersShipping'))->name('help.orders');
+Route::get('/help/returns', fn() => Inertia::render('Help/ReturnsRefunds'))->name('help.returns');
+Route::get('/help/account', fn() => Inertia::render('Help/AccountManagement'))->name('help.account');
+Route::get('/help/payments', fn() => Inertia::render('Help/PaymentsBilling'))->name('help.payments');
+Route::get('/help/technical', fn() => Inertia::render('Help/TechnicalSupport'))->name('help.technical');
+Route::get('/help/privacy', fn() => Inertia::render('Help/PrivacySecurity'))->name('help.privacy');
+Route::get('/support', fn() => Inertia::render('Help/Support'))->name('support');
+Route::get('/faq', fn() => Inertia::render('Help/FAQ'))->name('faq');
 
-    if ($remaining > 0) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Please wait before resending.',
-            'remaining_seconds' => $remaining,
-            'cooldown_ends_at' => $user->last_verification_sent_at->addMinutes($cooldownMinutes)->toIso8601String(),
-            'server_time' => now()->toIso8601String(),
-        ], 429);
-    }
+// -----------------------------
+// Customer Livechat (frontend page + API)
+// -----------------------------
+Route::get('/help/livechat', fn() => Inertia::render('Help/Livechat'))->name('help.livechat');
 
-    $user->update(['last_verification_sent_at' => now()]);
+// Guest/User Livechat API Routes
+Route::get('/livechat/messages', [LiveChatController::class, 'fetchMessages'])->name('livechat.messages');
+Route::post('/livechat/message', [LiveChatController::class, 'sendMessage'])->name('livechat.send');
+Route::delete('/livechat/{chat}', [LiveChatController::class, 'deleteChat'])->name('livechat.delete');
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Verification email sent!',
-        'remaining_seconds' => $cooldownMinutes * 60,
-        'cooldown_ends_at' => now()->addMinutes($cooldownMinutes)->toIso8601String(),
-        'server_time' => now()->toIso8601String(),
-    ]);
-})->middleware(['auth'])->name('verification.send');
+// Optional Chat API
+Route::get('/api/chat', [ChatController::class, 'index'])->name('chat.index');
+
+// -----------------------------
+// Invoices
+// -----------------------------
+Route::get('/invoice/{orderId}', [InvoiceController::class, 'download'])->name('invoice.download');
+
+// -----------------------------
+// Username & Email Checks
+// -----------------------------
+Route::get('/check-username', fn(Request $request) => response()->json([
+    'exists' => User::where('username', $request->username)->exists(),
+]))->name('check.username');
+
+Route::get('/check-email', fn(Request $request) => response()->json([
+    'exists' => User::where('email', $request->email)->exists(),
+]))->name('check.email');

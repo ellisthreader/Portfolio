@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+// resources/js/Context/CheckoutContext.tsx
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useCart } from "@/Context/CartContext";
 import axios from "axios";
 
@@ -49,7 +50,7 @@ interface CheckoutContextType {
   setDiscountCode: (val: string) => void;
   appliedDiscount: DiscountData | null;
   validateDiscount: (code: string) => Promise<void>;
-  discountError: string | null; // ✅ separate error for discounts only
+  discountError: string | null;
 
   // General + specific errors
   loading: boolean;
@@ -69,9 +70,9 @@ const CheckoutContext = createContext<CheckoutContextType | undefined>(undefined
 export const CheckoutProvider = ({ children }: { children: ReactNode }) => {
   const { cart } = useCart();
 
+  // User info
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-
   const [address, setAddress] = useState<Address>({
     firstName: "",
     lastName: "",
@@ -92,7 +93,7 @@ export const CheckoutProvider = ({ children }: { children: ReactNode }) => {
   // Discounts
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<DiscountData | null>(null);
-  const [discountError, setDiscountError] = useState<string | null>(null); // ✅ new isolated state
+  const [discountError, setDiscountError] = useState<string | null>(null);
 
   // General + specific errors
   const [loading, setLoading] = useState(false);
@@ -101,49 +102,65 @@ export const CheckoutProvider = ({ children }: { children: ReactNode }) => {
   const [shippingError, setShippingError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState<string | null>(null);
 
+  // --- Persist / restore shipping only ---
+    useEffect(() => {
+      const storedShipping = localStorage.getItem("checkoutShipping");
+      if (storedShipping) setShippingCost(Number(storedShipping));
+    }, []);
+
+    useEffect(() => {
+      localStorage.setItem("checkoutShipping", String(shippingCost));
+    }, [shippingCost]);
+
+
   // Compute subtotal
   const subtotal = cart?.reduce((acc, item) => acc + item.price * item.quantity, 0) || 0;
 
-  // ✅ Validate discount via backend (isolated errors)
-  const validateDiscount = async (code: string) => {
-    if (!code.trim()) {
-      setDiscountError("Please enter a discount code.");
-      return;
-    }
-
-    setLoading(true);
-    setDiscountError(null);
-
-    try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/discount/validate`, {
-        code,
-        subtotal_cents: Math.round(subtotal * 100),
-      });
-
-      const data = res.data;
-
-      if (!data.valid) {
-        setAppliedDiscount(null);
-        setDiscountError(data.message || "Invalid or expired discount code.");
-        return;
+  // Validate discount via backend
+    const validateDiscount = async (code: string) => {
+      if (!code.trim()) {
+        setDiscountError("Please enter a discount code.");
+        return { success: false, message: "Please enter a discount code." };
       }
 
-      // Success
-      const discountValue = data.discount_cents / 100;
-      setAppliedDiscount({
-        code: data.code,
-        type: "fixed",
-        value: discountValue,
-      });
+      setLoading(true);
       setDiscountError(null);
-    } catch (err: any) {
-      console.error("Discount validation error:", err);
-      setAppliedDiscount(null);
-      setDiscountError("Invalid or expired discount code");
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      try {
+        const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/discount/validate`, {
+          code,
+          subtotal_cents: Math.round(subtotal * 100),
+        });
+
+        const data = res.data;
+
+        if (!data.valid) {
+          setAppliedDiscount(null);
+          setDiscountError(data.message || "Invalid or expired discount code.");
+          return { success: false, message: data.message || "Invalid or expired discount code." };
+        }
+
+        const discountValue = data.discount_cents / 100;
+        const discountData = {
+          code: data.code,
+          type: "fixed" as const,
+          value: discountValue,
+        };
+
+        setAppliedDiscount(discountData);
+        setDiscountError(null);
+
+        return { success: true, discount: discountData };
+      } catch (err: any) {
+        console.error("Discount validation error:", err);
+        setAppliedDiscount(null);
+        setDiscountError("Invalid or expired discount code");
+        return { success: false, message: "Invalid or expired discount code" };
+      } finally {
+        setLoading(false);
+      }
+    };
+
 
   return (
     <CheckoutContext.Provider
@@ -166,7 +183,7 @@ export const CheckoutProvider = ({ children }: { children: ReactNode }) => {
         setDiscountCode,
         appliedDiscount,
         validateDiscount,
-        discountError, // ✅ new
+        discountError,
         loading,
         setLoading,
         error,

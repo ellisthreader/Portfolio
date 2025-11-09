@@ -2,20 +2,11 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useProfile } from "@/Context/ProfileContext";
 import PasswordUpdate from "./PasswordUpdate";
+import { toast } from "react-toastify";
 
-interface Props {
-  flash?: any;
-  backendErrors?: any;
-  setSuccessMessage?: (msg: string | null) => void;
-  setErrorMessage?: (msg: string | null) => void;
-}
+interface Props {}
 
-export default function ProfileFields({
-  flash,
-  backendErrors,
-  setSuccessMessage,
-  setErrorMessage,
-}: Props) {
+export default function ProfileFields({}: Props) {
   const { user, setUser } = useProfile();
 
   const [name, setName] = useState(user?.name || "");
@@ -27,6 +18,9 @@ export default function ProfileFields({
   const [emailConfirm, setEmailConfirm] = useState(false);
   const [phone, setPhone] = useState(user?.phone || "");
   const [bio, setBio] = useState(user?.bio || "");
+
+  const notify = (type: "success" | "error", message: string) =>
+    toast[type](message, { position: "top-center", autoClose: 3000 });
 
   const updateField = async (field: string, value: any) => {
     setUser((prev) =>
@@ -52,8 +46,7 @@ export default function ProfileFields({
           avatar_url: res.data.user.avatar_url || prev?.avatar_url,
         }));
 
-        setSuccessMessage?.(`✅ Successfully updated ${field}`);
-        setErrorMessage?.(null);
+        notify("success", ` ${field.charAt(0).toUpperCase() + field.slice(1)} updated`);
 
         if (field === "username") {
           setUsernameError(null);
@@ -65,25 +58,24 @@ export default function ProfileFields({
         }
       }
     } catch (err: any) {
-      let message = "❌ Failed to update field.";
+      let message = " Failed to update field.";
 
       if (err.response?.status === 422) {
         const errors = err.response.data.errors;
 
         if (errors?.username) {
-          message = `❌ ${errors.username[0]}`;
+          message = ` ${errors.username[0]}`;
           setUsernameError(errors.username[0]);
           setUsernameSuggestions(err.response.data.suggestions || []);
         }
 
         if (errors?.email) {
-          message = `❌ ${errors.email[0]}`;
+          message = ` ${errors.email[0]}`;
           setEmailError(errors.email[0]);
         }
       }
 
-      setErrorMessage?.(message);
-      setSuccessMessage?.(null);
+      notify("error", message);
     }
   };
 
@@ -172,11 +164,7 @@ export default function ProfileFields({
       </div>
 
       {/* --- Password --- */}
-      <PasswordUpdate
-        updateField={updateField}
-        setSuccessMessage={setSuccessMessage}
-        setErrorMessage={setErrorMessage}
-      />
+      <PasswordUpdate updateField={updateField} />
 
       {/* --- Phone --- */}
       <div>

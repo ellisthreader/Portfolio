@@ -5,7 +5,7 @@ import { useCart } from "@/Context/CartContext";
 
 const products = [
   {
-    id: 201,
+    id: 4,
     title: "Web Dev Fundamentals (Paperback)",
     description: "A beginner-friendly paperback covering HTML, CSS, and JavaScript basics.",
     details: [
@@ -18,7 +18,7 @@ const products = [
     oldPrice: 25,
   },
   {
-    id: 202,
+    id: 5,
     title: "TikTok Creator Starter Pack",
     description:
       "Everything you need to start creating professional-quality TikToks and Reels.",
@@ -33,7 +33,7 @@ const products = [
     oldPrice: 70,
   },
   {
-    id: 203,
+    id: 6,
     title: "Marketing Productivity Pack",
     description:
       "Organize, plan, and stay motivated while building your brand and campaigns.",

@@ -1,10 +1,8 @@
 import React, { useState } from "react";
-import { Inertia } from "@inertiajs/inertia";
-import { usePage } from "@inertiajs/react";
+import { usePage, router } from "@inertiajs/react";
 import Register from "./Register";
 import ForgotPassword from "./ForgotPassword";
 import NavMenu from "@/Components/Menu/NavMenu";
-
 
 export default function Login() {
   const [tab, setTab] = useState<"login" | "register" | "forgot">("login");
@@ -14,15 +12,17 @@ export default function Login() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Access server-side errors from Inertia
-  const { errors: serverErrors } = usePage().props;
+  // Access server-side validation errors
+  const { errors: serverErrors } = usePage().props as {
+    errors: Record<string, string>;
+  };
 
-  // Handle login
-  const handleLogin = async (e: React.FormEvent) => {
+  // Handle login using router.post (modern Inertia method)
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
 
-    Inertia.post(
+    router.post(
       "/login",
       {
         email: loginEmail,
@@ -37,7 +37,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Navbar at the top */}
+      {/* Navbar */}
       <NavMenu />
 
       {/* Main content */}
@@ -77,7 +77,7 @@ export default function Login() {
             </button>
           </div>
 
-          {/* Login Tab */}
+          {/* Login Form */}
           {tab === "login" && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use App\Services\UnsplashService;
@@ -34,7 +35,7 @@ class ProfileController extends Controller
             'cooldown_ends_at' => $cooldownEnds,
         ]);
 
-        return inertia('Profile', [
+        return inertia('Profile/Profile', [
             'auth' => [
                 'user' => array_merge($user->toArray(), [
                     'remaining_seconds' => $remaining,
@@ -64,21 +65,20 @@ class ProfileController extends Controller
             ]);
         } catch (ValidationException $e) {
             $errors = $e->validator->errors()->toArray();
+            Log::warning("ProfileController: Validation failed for User ID {$user->id}", $errors);
 
-            // If username is taken, generate suggestions
+            // Username suggestions
             if (isset($errors['username'])) {
                 $username = $request->input('username');
                 $suggestions = [];
-
                 if ($username) {
                     for ($i = 1; $i <= 5; $i++) {
                         $newName = $username . $i;
                         $exists = User::where('username', $newName)->exists();
-                        if (!$exists) {
-                            $suggestions[] = $newName;
-                        }
+                        if (!$exists) $suggestions[] = $newName;
                     }
                 }
+                Log::info("ProfileController: Username suggestions for User ID {$user->id}", $suggestions);
 
                 return response()->json([
                     'errors' => $errors,
@@ -86,20 +86,30 @@ class ProfileController extends Controller
                 ], 422);
             }
 
-            throw $e; // default Laravel behavior for other errors
+            throw $e;
         }
 
         if ($request->hasFile('avatar')) {
+            Log::info("ProfileController: Avatar file uploaded for User ID {$user->id}", [
+                'file_name' => $request->file('avatar')->getClientOriginalName(),
+                'file_size' => $request->file('avatar')->getSize(),
+                'file_type' => $request->file('avatar')->getClientMimeType(),
+            ]);
+
             if ($user->avatar && !str_starts_with($user->avatar, 'http')) {
                 Storage::disk('public')->delete($user->avatar);
+                Log::info("ProfileController: Deleted old avatar for User ID {$user->id}", ['old_avatar' => $user->avatar]);
             }
+
             $path = $request->file('avatar')->store('avatars', 'public');
             $validated['avatar'] = $path;
             $validated['avatar_url'] = asset("storage/{$path}");
+            Log::info("ProfileController: Stored new avatar for User ID {$user->id}", ['path' => $path]);
         }
 
         $user->update($validated);
         $user->refresh();
+        Log::info("ProfileController: Profile updated for User ID {$user->id}", ['user' => $user->toArray()]);
 
         $remaining = $this->getRemainingCooldown($user);
         $cooldownEnds = $this->getCooldownEndsAt($user);
@@ -115,7 +125,7 @@ class ProfileController extends Controller
     }
 
     /**
-     * Generate a random avatar from Unsplash.
+     * Generate a random avatar from Unsplash and save locally.
      */
     public function generateRandomAvatar(Request $request)
     {
@@ -142,6 +152,7 @@ class ProfileController extends Controller
 
         $randomAvatarUrl = $this->unsplash->getRandomMushroomImage();
         if (!$randomAvatarUrl) {
+            Log::error("ProfileController: Failed to fetch Unsplash avatar for User ID {$user->id}");
             return response()->json([
                 'success' => false,
                 'message' => 'Could not fetch avatar from Unsplash.',
@@ -151,19 +162,40 @@ class ProfileController extends Controller
             ], 500);
         }
 
+        // Download and store locally
+        try {
+            $contents = Http::get($randomAvatarUrl)->body();
+            $filename = 'avatars/' . uniqid() . '.jpg';
+            Storage::disk('public')->put($filename, $contents);
+            $avatarPath = $filename;
+            $avatarUrl = asset("storage/{$filename}");
+            Log::info("ProfileController: Unsplash avatar downloaded for User ID {$user->id}", [
+                'local_path' => $avatarPath,
+                'remote_url' => $randomAvatarUrl
+            ]);
+        } catch (\Exception $e) {
+            Log::error("ProfileController: Failed to download Unsplash avatar", [
+                'exception' => $e->getMessage()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to download avatar.',
+                'remaining_seconds' => 0,
+            ], 500);
+        }
+
         $user->update([
-            'avatar' => $randomAvatarUrl,
-            'avatar_url' => $randomAvatarUrl,
+            'avatar' => $avatarPath,
+            'avatar_url' => $avatarUrl,
             'last_avatar_generated_at' => Carbon::now('UTC'),
         ]);
-
         $user->refresh();
 
         $remaining = $this->getRemainingCooldown($user);
         $cooldownEnds = $this->getCooldownEndsAt($user);
 
         Log::info("ProfileController: Random avatar generated for User ID {$user->id}", [
-            'avatar_url' => $randomAvatarUrl,
+            'avatar_url' => $avatarUrl,
             'remaining_seconds' => $remaining
         ]);
 
@@ -177,21 +209,13 @@ class ProfileController extends Controller
         ]);
     }
 
-    /**
-     * Helper: remaining seconds until cooldown ends
-     */
     private function getRemainingCooldown($user): int
     {
-        if (!$user->last_avatar_generated_at) {
-            return 0;
-        }
+        if (!$user->last_avatar_generated_at) return 0;
 
         $last = Carbon::parse($user->last_avatar_generated_at, 'UTC');
         $now = Carbon::now('UTC');
-
-        // elapsed = now - last
         $elapsed = $last->diffInSeconds($now);
-
         $remaining = max(0, ($this->cooldownMinutes * 60) - $elapsed);
 
         Log::info("Cooldown debug", [
@@ -204,14 +228,9 @@ class ProfileController extends Controller
         return $remaining;
     }
 
-    /**
-     * Helper: cooldown end timestamp ISO
-     */
     private function getCooldownEndsAt($user): ?string
     {
-        if (!$user->last_avatar_generated_at) {
-            return null;
-        }
+        if (!$user->last_avatar_generated_at) return null;
 
         return Carbon::parse($user->last_avatar_generated_at, 'UTC')
             ->addMinutes($this->cooldownMinutes)

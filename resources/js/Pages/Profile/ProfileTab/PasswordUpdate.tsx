@@ -31,7 +31,7 @@ export default function PasswordUpdate() {
         password: newPassword,
         password_confirmation: confirmPassword,
       });
-      setPasswordMessage("✅ Password updated successfully!");
+      setPasswordMessage("Password updated successfully!");
       setEditingPassword(false);
       setCurrentPassword("");
       setNewPassword("");

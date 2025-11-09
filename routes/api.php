@@ -3,18 +3,22 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CheckoutController;
-use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\CouponController;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\AdminChatController;
+use App\Models\Order;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
 |
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within the "api" middleware group.
+| These routes are loaded by the RouteServiceProvider within the "api"
+| middleware group. CSRF protection is NOT applied here, which is ideal
+| for SPA / React requests.
 |
 */
 
@@ -22,20 +26,68 @@ use App\Http\Controllers\CouponController;
 // Checkout / Payments
 // -----------------------------
 Route::post('/create-payment-intent', [CheckoutController::class, 'createPaymentIntent']);
+Route::post('/store-order', [CheckoutController::class, 'storeOrder']);
+
+// -----------------------------
+// Retrieve latest order (for OrderConfirmed page)
+// -----------------------------
+Route::get('/order-latest', function (Request $request) {
+    $email = $request->query('email');
+
+    if (!$email) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Email parameter is required.',
+        ], 400);
+    }
+
+    $order = Order::with('items')
+        ->where('email', $email)
+        ->latest()
+        ->first();
+
+    if (!$order) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No order found for that email.',
+        ], 404);
+    }
+
+    return response()->json([
+        'success' => true,
+        'order' => [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'email' => $order->email,
+            'items' => $order->items->map(function ($item) {
+                return [
+                    'product_name' => $item->product_name,
+                    'quantity' => $item->quantity,
+                    'unit_price' => (float) $item->unit_price,
+                    'line_total' => (float) $item->line_total,
+                ];
+            }),
+            'totals' => [
+                'subtotal' => (float) $order->subtotal,
+                'discount' => (float) ($order->discount_amount ?? 0),
+                'vat' => (float) $order->vat,
+                'shipping' => (float) $order->shipping,
+                'total' => (float) $order->total,
+            ],
+            'created_at' => $order->created_at->toDateTimeString(),
+        ],
+    ]);
+});
 
 // -----------------------------
 // Discounts
 // -----------------------------
-// ✅ Validate discount code (new)
-Route::post('/discount/validate', [CouponController::class, 'apply']); // <-- updated to 'apply'
+Route::post('/discount/validate', [CouponController::class, 'apply']);
 
 // -----------------------------
 // Shipping
 // -----------------------------
 Route::post('/shipping/rates', [ShippingController::class, 'rates']);
-
-// Optional: If you want a separate route to calculate cost for a selected service
-// Route::post('/shipping-cost', [ShippingController::class, 'calculate']);
 
 // -----------------------------
 // Authentication
@@ -44,12 +96,22 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
 // -----------------------------
-// Protected routes (require auth)
+// Protected routes (require auth via Sanctum)
 // -----------------------------
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-
+    Route::get('/user', fn (Request $request) => $request->user());
     Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
 });
+
+// -----------------------------
+// Livechat (user)
+// -----------------------------
+Route::get('/chat', [ChatController::class, 'index']);
+Route::post('/chat/send', [ChatController::class, 'send']);
+
+// -----------------------------
+// Admin livechat (active chats)
+// -----------------------------
+// For now, just require auth:sanctum.
+// You can later add 'admin' middleware if you have an admin role
+Route::middleware(['auth:sanctum', 'admin'])->get('/admin/active-chats', [AdminChatController::class, 'activeChats']);

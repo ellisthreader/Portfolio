@@ -67,7 +67,7 @@ export default function ProfileTab({ flash, backendErrors, updateAvatar }: Profi
 
         const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
         const valueText = field === "password" ? "" : `: ${value}`;
-        setSuccessMessage(`✅ Successfully changed ${fieldName}${valueText}`);
+        setSuccessMessage(`Successfully changed ${fieldName}${valueText}`);
         setErrorMessage(null);
         setTimeout(() => setSuccessMessage(null), 3000);
 

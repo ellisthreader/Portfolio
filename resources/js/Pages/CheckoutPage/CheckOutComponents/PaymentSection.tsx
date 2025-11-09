@@ -1,5 +1,5 @@
 // PaymentSection.tsx
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { CardElement } from "@stripe/react-stripe-js";
 import { useDarkMode } from "@/Context/DarkModeContext";
 import { useCheckout } from "@/Context/CheckoutContext";
@@ -10,18 +10,15 @@ export default function PaymentSection() {
   const {
     discountCode,
     setDiscountCode,
-    validateDiscount,
     appliedDiscount,
-    discountError,
+    validateDiscount,
     loading,
   } = useCheckout();
 
-  // Prevent duplicate toast firing
-  const lastDiscountCode = useRef<string | null>(null);
-
-  // Apply discount
   const handleApplyDiscount = async () => {
-    if (!discountCode.trim()) {
+    const trimmedCode = discountCode.trim();
+
+    if (!trimmedCode) {
       toast.error("Please enter a discount code.", {
         position: "top-center",
         autoClose: 3000,
@@ -30,35 +27,34 @@ export default function PaymentSection() {
       return;
     }
 
-    await validateDiscount(discountCode);
-  };
-
-  // Toast feedback
-  useEffect(() => {
-    // Avoid repeat notifications for the same code
-    if (appliedDiscount && lastDiscountCode.current !== appliedDiscount.code) {
-      toast.success(
-        `Discount code '${appliedDiscount.code}' applied successfully!`,
-        {
-          position: "top-center",
-          autoClose: 3000,
-          theme: darkMode ? "dark" : "light",
-        }
-      );
-      lastDiscountCode.current = appliedDiscount.code;
-    }
-
-    if (discountError && discountCode !== lastDiscountCode.current) {
-      toast.error(discountError, {
+    // ✅ Already applied check
+    if (appliedDiscount?.code === trimmedCode) {
+      toast.info(`Discount code '${trimmedCode}' is already applied.`, {
         position: "top-center",
         autoClose: 3000,
         theme: darkMode ? "dark" : "light",
       });
-      lastDiscountCode.current = discountCode;
+      return;
     }
-  }, [discountError, appliedDiscount, discountCode, darkMode]);
 
-  // Stripe card style
+    // Validate discount via context
+    const result = await validateDiscount(trimmedCode);
+
+    if (result.success) {
+      toast.success(`Discount code '${trimmedCode}' applied successfully!`, {
+        position: "top-center",
+        autoClose: 3000,
+        theme: darkMode ? "dark" : "light",
+      });
+    } else {
+      toast.error(result.message, {
+        position: "top-center",
+        autoClose: 3000,
+        theme: darkMode ? "dark" : "light",
+      });
+    }
+  };
+
   const cardStyle = {
     style: {
       base: {

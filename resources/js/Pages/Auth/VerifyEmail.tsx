@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Inertia } from "@inertiajs/inertia";
+import { router } from "@inertiajs/react";
 import { Transition } from "@headlessui/react";
 
 export default function VerifyEmail() {
@@ -7,7 +7,7 @@ export default function VerifyEmail() {
   const [isCooldown, setIsCooldown] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
-  // Optional: countdown timer for cooldown display
+  // Countdown timer for resend cooldown
   useEffect(() => {
     if (!isCooldown || remainingSeconds <= 0) return;
 
@@ -25,31 +25,29 @@ export default function VerifyEmail() {
     return () => clearInterval(interval);
   }, [isCooldown, remainingSeconds]);
 
+  // Handle resend verification link
   const handleResend = () => {
     if (isCooldown) return;
 
-    Inertia.post(
+    router.post(
       "/email/verification-notification",
       {},
       {
-        onSuccess: (response: any) => {
-          setMessage("Verification link sent! Please check your inbox.");
+        onSuccess: () => {
+          setMessage("✅ Verification link sent! Please check your inbox.");
           setIsCooldown(true);
-
-          // Start cooldown counter (assumes 60 seconds)
-          setRemainingSeconds(60);
+          setRemainingSeconds(60); // 1-minute cooldown
         },
         onError: (errors: any) => {
-          // Handle throttle 429 errors gracefully
           if (errors?.response?.status === 429) {
-            setMessage("Please wait before resending.");
+            // Throttle protection
+            setMessage("⏳ Please wait before resending another email.");
             setIsCooldown(true);
 
-            // Optional: parse remaining_seconds from backend
             const remaining = errors?.response?.data?.remaining_seconds ?? 60;
             setRemainingSeconds(remaining);
           } else {
-            setMessage("Something went wrong. Please try again.");
+            setMessage("⚠️ Something went wrong. Please try again later.");
           }
         },
       }
@@ -62,11 +60,11 @@ export default function VerifyEmail() {
         <h1 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
           Verify Your Email
         </h1>
+
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Thanks for signing up! Please check your email to verify your account.
+          Thanks for signing up! Please check your email inbox and verify your account to continue.
         </p>
 
-        {/* Resend button */}
         <button
           onClick={handleResend}
           disabled={isCooldown}
@@ -79,7 +77,7 @@ export default function VerifyEmail() {
           {isCooldown ? `Sent (${remainingSeconds}s)` : "Resend Verification Email"}
         </button>
 
-        {/* Success / Error message with smooth animation */}
+        {/* Animated feedback message */}
         <Transition
           show={!!message}
           enter="transition ease-out duration-300"
@@ -89,7 +87,13 @@ export default function VerifyEmail() {
           leaveFrom="opacity-100 translate-y-0"
           leaveTo="opacity-0 translate-y-2"
         >
-          <div className="mt-4 text-green-600 dark:text-green-400 font-medium">
+          <div
+            className={`mt-4 font-medium ${
+              message?.includes("✅")
+                ? "text-green-600 dark:text-green-400"
+                : "text-yellow-600 dark:text-yellow-400"
+            }`}
+          >
             {message}
           </div>
         </Transition>

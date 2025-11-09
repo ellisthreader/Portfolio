@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { usePage } from "@inertiajs/react";
-import { Inertia } from "@inertiajs/inertia";
+import { usePage, router } from "@inertiajs/react";
 import axios from "axios";
 import { ProfileProvider, useProfile } from "@/Context/ProfileContext";
 import AvatarUpload from "./ProfileTab/AvatarUpload";
@@ -8,8 +7,9 @@ import ProfileFields from "./ProfileTab/ProfileFields";
 import OrdersTab from "./OrdersTab";
 import SettingsTab from "./SettingsTab";
 import { getAvatarSrc } from "@/Utils/avatar";
-import { Transition } from "@headlessui/react";
+import { toast } from "react-toastify";
 
+// ---------------- Sidebar Component ----------------
 function Sidebar({
   activeTab,
   setActiveTab,
@@ -20,7 +20,7 @@ function Sidebar({
   const { user, setUser } = useProfile();
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
-  // --- Fetch server cooldown ---
+  // Fetch email verification cooldown
   useEffect(() => {
     const fetchCooldown = async () => {
       if (!user) return;
@@ -49,7 +49,7 @@ function Sidebar({
     fetchCooldown();
   }, [setUser, user]);
 
-  // --- Countdown timer ---
+  // Handle countdown timer for resend cooldown
   useEffect(() => {
     if (secondsLeft <= 0) return;
     const interval = setInterval(
@@ -59,24 +59,40 @@ function Sidebar({
     return () => clearInterval(interval);
   }, [secondsLeft]);
 
-  // --- Resend verification ---
-  const handleResend = async () => {
+  // Handle resend verification email using Inertia router
+  const handleResend = () => {
     if (!user || secondsLeft > 0) return;
 
-    try {
-      await axios.post("/email/verification-notification");
-      setSecondsLeft(60); // start 1-min cooldown
-    } catch (err: any) {
-      if (err.response?.status === 429) {
-        const remaining = err.response.data?.remaining_seconds
-          ? Math.ceil(err.response.data.remaining_seconds)
-          : 60;
-        setSecondsLeft(remaining);
-        console.warn(err.response.data.message);
-      } else {
-        console.error("[Sidebar] Resend verification failed", err);
+    router.post(
+      "/email/verification-notification",
+      {},
+      {
+        onSuccess: () => {
+          setSecondsLeft(60);
+          toast.success("Verification email sent!", {
+            position: "top-center",
+            autoClose: 3000,
+          });
+        },
+        onError: (errors: any) => {
+          if (errors?.response?.status === 429) {
+            const remaining = errors?.response?.data?.remaining_seconds
+              ? Math.ceil(errors.response.data.remaining_seconds)
+              : 60;
+            setSecondsLeft(remaining);
+            toast.error(errors?.response?.data?.message || "Please wait before resending.", {
+              position: "top-center",
+              autoClose: 3000,
+            });
+          } else {
+            toast.error("Failed to send verification email.", {
+              position: "top-center",
+              autoClose: 3000,
+            });
+          }
+        },
       }
-    }
+    );
   };
 
   return (
@@ -93,7 +109,6 @@ function Sidebar({
         />
       </div>
 
-      {/* User Info */}
       <h2 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">
         {user?.name || "Anonymous"}
       </h2>
@@ -102,7 +117,7 @@ function Sidebar({
         Joined: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"}
       </p>
 
-      {/* Account Verified Badge or Resend */}
+      {/* Email Verification */}
       {user && user.email_verified_at ? (
         <div className="mt-2 inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
           ✅ Account Verified
@@ -122,7 +137,7 @@ function Sidebar({
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Sidebar Tabs */}
       <div className="mt-8 w-full">
         {["profile", "orders", "settings"].map((tab) => (
           <button
@@ -139,6 +154,7 @@ function Sidebar({
         ))}
       </div>
 
+      {/* Logout */}
       <button
         onClick={handleLogout}
         className="mt-auto px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition"
@@ -149,33 +165,31 @@ function Sidebar({
   );
 }
 
+// ---------------- Main Profile Page ----------------
 export default function Profile() {
-  const { auth, flash } = usePage().props as any;
+  const { auth } = usePage().props as any;
   const [activeTab, setActiveTab] = useState<"profile" | "orders" | "settings">("profile");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string>(
     auth.user?.avatar_url || auth.user?.avatar || null
   );
-  const [successMessage, setSuccessMessage] = useState<string | null>(flash?.success || null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleLogout = () => Inertia.post("/logout");
+  // ✅ Replaced Inertia.post with router.post
+  const handleLogout = () => router.post("/logout");
 
-  // Keep avatar in sync
+  // Auto-open tab based on ?tab=orders etc.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
+    if (tabParam === "orders" || tabParam === "settings" || tabParam === "profile") {
+      setActiveTab(tabParam as any);
+    }
+  }, []);
+
+  // Keep avatar updated
   useEffect(() => {
     setAvatarUrl(auth.user?.avatar_url || auth.user?.avatar || null);
   }, [auth.user?.avatar_url, auth.user?.avatar]);
-
-  // Auto-clear notifications
-  useEffect(() => {
-    if (successMessage || errorMessage) {
-      const timeout = setTimeout(() => {
-        setSuccessMessage(null);
-        setErrorMessage(null);
-      }, 5000);
-      return () => clearTimeout(timeout);
-    }
-  }, [successMessage, errorMessage]);
 
   if (!auth.user) {
     return (
@@ -193,7 +207,7 @@ export default function Profile() {
     <ProfileProvider initialUser={auth.user}>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-20 px-6">
         <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 flex gap-8">
-          {/* LEFT */}
+          {/* LEFT: Sidebar */}
           <Sidebar
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -202,38 +216,15 @@ export default function Profile() {
             handleLogout={handleLogout}
           />
 
-          {/* RIGHT */}
+          {/* RIGHT: Main content */}
           <div className="flex-1 pl-6 space-y-6">
-            {/* Notifications */}
-            <Transition
-              as="div"
-              show={!!successMessage || !!errorMessage}
-              enter="transition ease-out duration-300 transform"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="transition-opacity duration-300"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-            >
-              <div
-                className={`mb-4 px-4 py-2 rounded-md ${
-                  successMessage ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}
-              >
-                {successMessage || errorMessage}
-              </div>
-            </Transition>
-
             {activeTab === "profile" && (
               <>
-                <AvatarUpload
-                  updateAvatar={setAvatarUrl}
-                  setSuccessMessage={setSuccessMessage}
-                  setErrorMessage={setErrorMessage}
-                />
+                <AvatarUpload updateAvatar={setAvatarUrl} />
                 <ProfileFields
-                  setSuccessMessage={setSuccessMessage}
-                  setErrorMessage={setErrorMessage}
+                  notify={(type: "success" | "error", message: string) =>
+                    toast[type](message, { position: "top-center", autoClose: 3000 })
+                  }
                 />
               </>
             )}
@@ -242,7 +233,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Zoom Modal */}
+        {/* Zoomed Avatar Overlay */}
         {zoomImage && (
           <div
             className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 cursor-zoom-out"
