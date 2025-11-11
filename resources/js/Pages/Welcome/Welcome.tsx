@@ -1,8 +1,12 @@
 import { Head, usePage } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import HeroSection from "./HeroSection";
-import SkillsSection from "./SkillsSection";
 import GuestLayout from "@/Layouts/GuestLayout";
+
+// Import your components
+import HeroSection from "./HeroSection";
+import CategorySection from "./CategorySection";
+import BrandsSection from "./BrandsSection";
+import SaleHeroSection from "./SaleHeroSections";
 
 type User = {
   id: number;
@@ -24,8 +28,20 @@ export default function Welcome() {
   return (
     <Layout>
       <Head title="Welcome" />
+
+      {/* Hero carousel at the top */}
       <HeroSection />
-      <SkillsSection />
+
+      {/* Category circles row */}
+      <CategorySection />
+
+      {/* Brands carousel section */}
+      <BrandsSection />
+
+      {/* 🆕 Sale hero section (auto-sliding like HeroSection) */}
+      <SaleHeroSection />
     </Layout>
   );
 }
+
+
