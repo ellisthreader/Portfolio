@@ -1,16 +1,18 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useState, useRef } from "react";
 import { useDarkMode } from "@/Context/DarkModeContext";
 import { useCart } from "@/Context/CartContext";
 import { Link } from "@inertiajs/react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { DarkModeSwitch } from "react-toggle-dark-mode";
 import { ShoppingCart, Search, User, Heart } from "lucide-react";
 
-// Import sidebars
-import WomenSidebar from "./WomenSidebar";
-import MenSidebar from "./MenSidebar";
-import KidsSidebar from "./KidsSidebar";
-import SaleSidebar from "./SaleSidebar";
+// --- Import Sidebar Content Only ---
+import WomenSidebarContent from "@/Components/Menu/WomenSidebar/WomenSidebarContent";
+import MenSidebarContent from "@/Components/Menu/MenSidebar/MenSidebarContent";
+import KidsSidebarContent from "@/Components/Menu/KidsSidebar/KidsSidebarContent";
+import SaleSidebarContent from "@/Components/Menu/SaleSidebar/SaleSidebarContent";
 
 export default function NavMenu() {
   const { darkMode, toggleDarkMode } = useDarkMode();
@@ -18,87 +20,120 @@ export default function NavMenu() {
 
   const [activeSidebar, setActiveSidebar] = useState<string | null>(null);
   const [previousSidebar, setPreviousSidebar] = useState<string | null>(null);
-  const [isHoveringNav, setIsHoveringNav] = useState(false);
-  const [isHoveringSidebar, setIsHoveringSidebar] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false); // Prevent rapid tab spam
+  const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const totalItems = cart.reduce(
     (acc: number, item: { quantity: number }) => acc + item.quantity,
     0
   );
 
-  // When hovering a nav link
-  const handleHoverNav = (category: string) => {
-    setPreviousSidebar(activeSidebar);
-    setActiveSidebar(category);
-    setIsHoveringNav(true);
+  const categories = ["Women", "Men", "Kids", "Sale"];
+
+  // ---------- Hover/category detection (one top-level handler) ----------
+  const detectCategory = (event: React.MouseEvent<HTMLDivElement>) => {
+    // find nearest ancestor with data-category attribute
+    const el = (event.target as HTMLElement).closest("[data-category]");
+    return el ? el.getAttribute("data-category") : null;
   };
 
-  // When leaving nav links
-  const handleLeaveNav = () => {
-    setIsHoveringNav(false);
-    setTimeout(() => {
-      if (!isHoveringNav && !isHoveringSidebar) {
-        setActiveSidebar(null);
-      }
-    }, 50); // slight delay prevents flicker when moving to sidebar
+  const handleNavMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    const category = detectCategory(event);
+    if (!category) return;
+
+    if (isAnimating) return;
+    if (category === activeSidebar) return;
+
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+
+    hoverTimeout.current = setTimeout(() => {
+      setPreviousSidebar(activeSidebar);
+      setActiveSidebar(category);
+      setIsHovering(true); // keep this for internal state but we won't render sidebar based on it
+    }, 120);
   };
 
-  // When hovering sidebar
-  const handleHoverSidebar = () => {
-    setIsHoveringSidebar(true);
+  const handleMouseEnter = () => {
+    // entering the nav area
+    setIsHovering(true);
+    if (hoverTimeout.current) {
+      clearTimeout(hoverTimeout.current);
+      hoverTimeout.current = null;
+    }
   };
 
-  // When leaving sidebar
-  const handleLeaveSidebar = () => {
-    setIsHoveringSidebar(false);
-    setTimeout(() => {
-      if (!isHoveringNav && !isHoveringSidebar) {
-        setActiveSidebar(null);
-      }
-    }, 50);
+  const handleMouseLeave = () => {
+    // leaving the nav area entirely — schedule close
+    if (hoverTimeout.current) {
+      clearTimeout(hoverTimeout.current);
+      hoverTimeout.current = null;
+    }
+
+    hoverTimeout.current = setTimeout(() => {
+      setIsHovering(false);
+      setActiveSidebar(null); // IMPORTANT: only close when timeout finishes
+      setPreviousSidebar(null);
+    }, 180);
   };
 
-  const isSwitching =
-    !!(activeSidebar && previousSidebar && activeSidebar !== previousSidebar);
+  const closeSidebar = () => {
+    if (hoverTimeout.current) {
+      clearTimeout(hoverTimeout.current);
+      hoverTimeout.current = null;
+    }
+    setIsHovering(false);
+    setActiveSidebar(null);
+    setPreviousSidebar(null);
+  };
+
+  // --- Sidebar animation variants ---
+  const sidebarVariants = {
+    hidden: { x: "-100%", opacity: 0 },
+    visible: { x: 0, opacity: 1 },
+    exit: { x: "-100%", opacity: 0 },
+  };
 
   return (
     <>
       {/* NAVBAR */}
       <motion.nav
-        className="fixed top-0 left-0 right-0 z-20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md flex items-center justify-between px-8 py-3 shadow-sm transition-colors duration-300"
+        className="fixed top-0 left-0 right-0 z-20 bg-white/90 dark:bg-gray-900/90 
+        backdrop-blur-md flex items-center justify-between px-8 py-3 shadow-sm 
+        transition-colors duration-300"
       >
         {/* LEFT: LOGO + NAV LINKS */}
         <div className="flex items-center gap-14">
-          {/* Logo */}
           <Link href="/" className="flex items-center">
             <div className="h-11 min-h-[44px] flex items-center">
               <img
-                src={
-                  darkMode
-                    ? "/images/DarkModeLogo.png"
-                    : "/images/vaire-logo.png"
-                }
+                src={darkMode ? "/images/DarkModeLogo.png" : "/images/vaire-logo.png"}
                 alt="Vairé Logo"
                 className="h-11 w-auto object-contain transition-all duration-300"
               />
             </div>
           </Link>
 
-          {/* NAV LINKS with bigger hover zones */}
+          {/* Single top-level handlers only */}
           <div
             className="flex items-center gap-10 font-medium tracking-wide text-[17px] uppercase relative"
-            onMouseLeave={handleLeaveNav}
+            onMouseMove={handleNavMouseMove}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
           >
-            {["Women", "Men", "Kids", "Sale"].map((category) => (
+            {categories.map((category) => (
               <div
                 key={category}
-                onMouseEnter={() => handleHoverNav(category)}
-                className="relative"
+                data-category={category}
+                className="relative px-6 py-3 cursor-pointer"
               >
-                <div className="absolute inset-x-[-25px] top-[-20px] bottom-[-20px]" />
+                {/* full hit area behind the text */}
+                <div className="absolute inset-0 -mx-4 -my-3 z-0 pointer-events-none" />
                 <Link
                   href={`/${category.toLowerCase()}`}
-                  className="relative z-10 px-3 py-2 text-gray-500 hover:text-black dark:hover:text-white hover:font-semibold transition-all duration-200"
+                  className="relative z-10 text-gray-500 
+                  hover:text-black dark:hover:text-white hover:font-semibold 
+                  transition-all duration-200"
                 >
                   {category}
                 </Link>
@@ -109,28 +144,15 @@ export default function NavMenu() {
 
         {/* RIGHT: ICONS */}
         <div className="flex items-center gap-6 text-gray-900 dark:text-gray-100">
-          <button
-            aria-label="Search"
-            className="hover:text-gray-500 dark:hover:text-white transition"
-          >
+          <button aria-label="Search" className="hover:text-gray-500 dark:hover:text-white transition">
             <Search className="w-5 h-5" />
           </button>
-
-          <button
-            aria-label="Wishlist"
-            className="hover:text-gray-500 dark:hover:text-white transition"
-          >
+          <button aria-label="Wishlist" className="hover:text-gray-500 dark:hover:text-white transition">
             <Heart className="w-5 h-5" />
           </button>
-
-          <Link
-            href="/profile"
-            aria-label="Profile"
-            className="hover:text-gray-500 dark:hover:text-white transition"
-          >
+          <Link href="/profile" aria-label="Profile" className="hover:text-gray-500 dark:hover:text-white transition">
             <User className="w-5 h-5" />
           </Link>
-
           <div className="relative cursor-pointer" onClick={toggleCart}>
             <ShoppingCart className="w-5 h-5 hover:text-gray-500 dark:hover:text-white transition" />
             {totalItems > 0 && (
@@ -139,44 +161,70 @@ export default function NavMenu() {
               </span>
             )}
           </div>
-
-          <DarkModeSwitch
-            checked={darkMode}
-            onChange={toggleDarkMode}
-            size={18}
-          />
+          <DarkModeSwitch checked={darkMode} onChange={toggleDarkMode} size={18} />
         </div>
       </motion.nav>
 
-      {/* SIDEBARS */}
-      <WomenSidebar
-        isOpen={activeSidebar === "Women"}
-        instant={isSwitching}
-        onClose={() => setActiveSidebar(null)}
-        onMouseEnter={handleHoverSidebar}
-        onMouseLeave={handleLeaveSidebar}
-      />
-      <MenSidebar
-        isOpen={activeSidebar === "Men"}
-        instant={isSwitching}
-        onClose={() => setActiveSidebar(null)}
-        onMouseEnter={handleHoverSidebar}
-        onMouseLeave={handleLeaveSidebar}
-      />
-      <KidsSidebar
-        isOpen={activeSidebar === "Kids"}
-        instant={isSwitching}
-        onClose={() => setActiveSidebar(null)}
-        onMouseEnter={handleHoverSidebar}
-        onMouseLeave={handleLeaveSidebar}
-      />
-      <SaleSidebar
-        isOpen={activeSidebar === "Sale"}
-        instant={isSwitching}
-        onClose={() => setActiveSidebar(null)}
-        onMouseEnter={handleHoverSidebar}
-        onMouseLeave={handleLeaveSidebar}
-      />
+      {/* OVERLAY + SIDEBAR: only render when we have an activeSidebar */}
+      <AnimatePresence>
+        {activeSidebar && (
+          <>
+            {/* Overlay */}
+            <motion.div
+              key="overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={closeSidebar}
+              className="fixed top-[64px] left-0 w-full h-[calc(100%-64px)] bg-black z-20 cursor-pointer"
+            />
+
+            {/* Sidebar Panel */}
+            <motion.div
+              key="sidebar-wrapper"
+              variants={sidebarVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              transition={{ type: "tween", duration: 0.28 }}
+              onAnimationStart={() => setIsAnimating(true)}
+              onAnimationComplete={() => setIsAnimating(false)}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              className="fixed top-[64px] left-0 h-[calc(100%-64px)] w-[35%]  bg-white dark:bg-gray-900 shadow-xl z-30 p-10 overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-bold uppercase text-gray-900 dark:text-white">
+                  {activeSidebar}
+                </h2>
+                <button
+                  onClick={closeSidebar}
+                  className="text-xl text-gray-500 hover:text-black dark:text-gray-300 dark:hover:text-white transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Only animate content (use sync so new content can appear smoothly) */}
+              <AnimatePresence mode="sync">
+                <motion.div
+                  key={activeSidebar}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.22 }}
+                >
+                  {activeSidebar === "Women" && <WomenSidebarContent />}
+                  {activeSidebar === "Men" && <MenSidebarContent />}
+                  {activeSidebar === "Kids" && <KidsSidebarContent />}
+                  {activeSidebar === "Sale" && <SaleSidebarContent />}
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }

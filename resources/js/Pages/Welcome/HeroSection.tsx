@@ -1,105 +1,122 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const images = [
-  "/hero-clothing1.jpg",
-  "/hero-clothing2.jpg",
-  "/hero-clothing3.jpg",
-  "/hero-clothing4.jpg",
+  "/images/HeroSection/hero-clothing1.png",
+  "/images/HeroSection/hero-clothing2.png",
+  "/images/HeroSection/hero-clothing3.png",
+  "/images/HeroSection/hero-clothing4.png",
 ];
 
 export default function HeroSection() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [isDisabled, setIsDisabled] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-slide every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % images.length);
+  const resetAutoSlide = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      handleNext(true);
     }, 5000);
-    return () => clearInterval(interval);
+  };
+
+  useEffect(() => {
+    resetAutoSlide();
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, []);
 
-  const handleScroll = (id: string) => {
-    const section = document.getElementById(id);
-    if (section) section.scrollIntoView({ behavior: "smooth", block: "start" });
+  const handleNext = (auto = false) => {
+    if (isDisabled && !auto) return; // prevent spam clicks
+    setDirection(1);
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+    if (!auto) {
+      setIsDisabled(true);
+      setTimeout(() => setIsDisabled(false), 800);
+      resetAutoSlide();
+    }
+  };
+
+  const handlePrev = () => {
+    if (isDisabled) return;
+    setDirection(-1);
+    setCurrentIndex((prev) =>
+      prev === 0 ? images.length - 1 : prev - 1
+    );
+    setIsDisabled(true);
+    setTimeout(() => setIsDisabled(false), 800);
+    resetAutoSlide();
   };
 
   return (
-    <div className="relative h-screen w-full overflow-hidden">
-      {/* Background Images */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentIndex}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1 }}
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url('${images[currentIndex]}')` }}
-        >
-          {/* Overlay */}
-          <div className="absolute inset-0 bg-black/40"></div>
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-6">
-        <motion.h1
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-4"
-        >
-          Style Your Life
-          <span className="block text-blue-200 dark:text-blue-300 mt-2">
-            Trendy clothing & exclusive collections
-          </span>
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-          className="text-lg md:text-xl text-gray-200 max-w-xl mb-8"
-        >
-          Discover the latest fashion, limited edition drops, and premium apparel
-          designed to elevate your wardrobe.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4, duration: 0.5 }}
-          className="flex gap-4 flex-wrap justify-center"
-        >
-          <button
-            onClick={() => handleScroll("shop")}
-            className="px-8 py-4 bg-white text-blue-600 rounded-lg font-semibold shadow hover:opacity-90 transition"
-          >
-            Shop Now
-          </button>
-          <button
-            onClick={() => handleScroll("collections")}
-            className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-semibold shadow hover:opacity-90 transition"
-          >
-            Explore Collections
-          </button>
-        </motion.div>
-      </div>
-
-      {/* Navigation Dots */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-        {images.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => setCurrentIndex(idx)}
-            className={`w-3 h-3 rounded-full transition-colors ${
-              idx === currentIndex ? "bg-white" : "bg-gray-400/50"
-            }`}
+    <div className="relative w-full" style={{ paddingTop: "37px" }}>
+      {/* Hero container */}
+      <div className="relative w-full aspect-video max-h-[91vh] overflow-hidden">
+        <AnimatePresence initial={false} custom={direction}>
+          <motion.img
+            key={currentIndex}
+            src={images[currentIndex]}
+            alt={`Hero image ${currentIndex + 1}`}
+            custom={direction}
+            initial={{ x: direction > 0 ? "100%" : "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: direction > 0 ? "-100%" : "100%" }}
+            transition={{ duration: 0.7, ease: "easeInOut" }}
+            className="absolute top-0 left-0 w-full h-full object-cover"
           />
-        ))}
+        </AnimatePresence>
+
+        {/* Backup image to prevent white flash */}
+        <img
+          src={
+            images[
+              (currentIndex - direction + images.length) % images.length
+            ]
+          }
+          alt="Previous hero"
+          className="absolute top-0 left-0 w-full h-full object-cover -z-10"
+        />
+
+        {/* Left Arrow */}
+        <button
+          onClick={handlePrev}
+          disabled={isDisabled}
+          className={`absolute left-6 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-gray-900 p-3 rounded-full shadow-md transition z-20 ${
+            isDisabled ? "opacity-50 cursor-not-allowed" : ""
+          }`}
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+
+        {/* Right Arrow */}
+        <button
+          onClick={() => handleNext()}
+          disabled={isDisabled}
+          className={`absolute right-6 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-gray-900 p-3 rounded-full shadow-md transition z-20 ${
+            isDisabled ? "opacity-50 cursor-not-allowed" : ""
+          }`}
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+
+        {/* Dots (non-clickable visual indicators) */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+          {images.map((_, idx) => (
+            <div
+              key={idx}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                idx === currentIndex
+                  ? "bg-gray-900 scale-110"
+                  : "bg-gray-400/50"
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

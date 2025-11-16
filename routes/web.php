@@ -12,6 +12,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\LiveChatController;
 use App\Http\Controllers\AdminChatController;
+use App\Http\Controllers\ProductController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 
 /*
@@ -31,6 +32,12 @@ Route::get('/', fn() => Inertia::render('Welcome/Welcome', [
 Route::get('/projects', fn() => Inertia::render('Projects/Projects'))->name('projects');
 Route::get('/courses', fn() => Inertia::render('Courses/Index'))->name('courses');
 Route::get('/checkout', fn() => Inertia::render('CheckoutPage'))->name('checkout');
+
+// -----------------------------
+// ✅ Product Pages (Dynamic from Database)
+// -----------------------------
+Route::get('/products/{type}', [ProductController::class, 'index'])->name('products.index');
+Route::get('/product/{slug}', [ProductController::class, 'show'])->name('product.show');
 
 // -----------------------------
 // Order Confirmation Pages
@@ -88,31 +95,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     // Live Chats Manager
     Route::get('/livechats', [AdminChatController::class, 'index'])->name('admin.livechats');
-
-    // Active chats JSON API
     Route::get('/active-chats', [AdminChatController::class, 'activeChats'])->name('admin.active.chats');
-
-    // Single chat page
     Route::get('/livechats/{chat}', [AdminChatController::class, 'show'])->name('admin.livechats.show');
-
-    // Messages API
     Route::get('/livechats/{chat}/messages', [AdminChatController::class, 'messages'])->name('admin.livechats.messages');
-
-    // Send message API
     Route::post('/livechats/{chat}/send', [AdminChatController::class, 'sendMessage'])->name('admin.livechats.send');
-
-    // ✅ NEW: Admin joins chat (system message trigger)
     Route::post('/livechats/{chat}/join', [AdminChatController::class, 'joinChat'])->name('admin.livechats.join');
-
-    // ✅ Optional: System message (if used elsewhere)
     Route::post('/livechats/{chat}/system-message', [AdminChatController::class, 'sendSystemMessage'])->name('admin.livechats.system-message');
-
-    // Rename chat
     Route::patch('/livechats/{chat}/rename', [AdminChatController::class, 'renameChat'])->name('admin.livechats.rename');
-
-    // ✅ FIXED: Delete chat route (correct name & method)
-    Route::delete('/livechats/{chat}', [AdminChatController::class, 'destroy'])
-        ->name('admin.livechats.destroy');
+    Route::delete('/livechats/{chat}', [AdminChatController::class, 'destroy'])->name('admin.livechats.destroy');
 });
 
 // -----------------------------

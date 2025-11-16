@@ -7,6 +7,7 @@ import HeroSection from "./HeroSection";
 import CategorySection from "./CategorySection";
 import BrandsSection from "./BrandsSection";
 import SaleHeroSection from "./SaleHeroSections";
+import TrendingNowPage from "./TrendingNowPage"; // <-- Import it
 
 type User = {
   id: number;
@@ -38,10 +39,11 @@ export default function Welcome() {
       {/* Brands carousel section */}
       <BrandsSection />
 
+      {/* Trending Now section */}
+      <TrendingNowPage /> {/* <-- Added here */}
+
       {/* 🆕 Sale hero section (auto-sliding like HeroSection) */}
       <SaleHeroSection />
     </Layout>
   );
 }
-
-

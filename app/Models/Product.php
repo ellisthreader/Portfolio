@@ -10,14 +10,22 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
+        'brand',
         'name',
-        'description',
+        'slug',
+        'type',
         'price',
-        'image_url',
+        'original_price',
+        'description',
+        'images',
+        'sizes',
+        'colour',
+        'product_specifications',
     ];
 
-    public function orderItems()
-    {
-        return $this->hasMany(OrderItem::class);
-    }
+    protected $casts = [
+        'images' => 'array',
+        'sizes' => 'array',
+        'colour' => 'array',
+    ];
 }
