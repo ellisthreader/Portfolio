@@ -2,161 +2,157 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Product;
+use App\Models\ProductVariant;
+use App\Models\Image;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class ProductSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        // -------------------------
-        // Shoes
-        // -------------------------
-        $shoes = [
+        $products = [
+
+            // 🔥 CLOUDMONSTER BLACK
             [
-                'slug' => 'cloudmonster',
-                'brand' => 'ON',
-                'name' => 'Cloudmonster',
-                'price' => 160.00,
+                'category_id'    => 1,
+                'brand'          => 'On Running',
+                'name'           => 'Cloudmonster',
+                'slug'           => 'cloudmonster-black',
+                'description'    => 'The Cloudmonster running shoe from On Running.',
+                'price'          => 160,
                 'original_price' => null,
-                'colours' => ['White', 'Black'],
+                'is_trending'    => false,
+
                 'images' => [
-                    'White' => [
-                        '/images/Trending/cloudtecW1.png',
-                        '/images/Trending/cloudtecW2.png',
-                        '/images/Trending/cloudtecW3.png',
-                        '/images/Trending/cloudtecW4.png',
-                    ],
-                    'Black' => [
-                        '/images/Trending/cloudtecB1.png',
-                        '/images/Trending/cloudtecB2.png',
-                        '/images/Trending/cloudtecB3.png',
-                        '/images/Trending/cloudtecB4.png',
+                    'images/Trending/cloudtecB1.png',
+                    'images/Trending/cloudtecB2.png',
+                    'images/Trending/cloudtecB3.png',
+                    'images/Trending/cloudtecB4.png',
+                ],
+
+                'variants' => [
+                    [
+                        'colour' => 'Black',
+                        'sizes'  => ['7', '9', '11'],
                     ],
                 ],
-                'sizes' => [
-                    'White' => ['UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10'],
-                    'Black' => ['UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11', 'UK 12'],
-                ],
-                'specifications' =>
-                    "Lace up in a sports-inspired style with these men's Cloudmonster trainers from On Running. ".
-                    "Smooth, breathable textile upper for lasting wear. ".
-                    "Secure lace fastening with plush padding around the ankle collar. ".
-                    "Ultra-lightweight chunky midsole with CloudTec cushioning. Tough rubber sole. Finished with On Running branding.",
             ],
+
+            // 🔥 CLOUDMONSTER WHITE
             [
-                'slug' => 'low-vulcanized',
-                'brand' => 'Off White',
-                'name' => 'Low Vulcanized Leather Trainers',
-                'price' => 149.99,
-                'original_price' => 300.00,
-                'colours' => ['White', 'Black'],
+                'category_id'    => 1,
+                'brand'          => 'On Running',
+                'name'           => 'Cloudmonster',
+                'slug'           => 'cloudmonster-white',
+                'description'    => 'The Cloudmonster running shoe from On Running.',
+                'price'          => 160,
+                'original_price' => null,
+                'is_trending'    => true,
+
                 'images' => [
-                    'White' => ['/images/Trending/offwhiteV1.avif', '/images/Trending/offwhiteV2.avif'],
-                    'Black' => ['/images/Trending/offwhiteV1.avif', '/images/Trending/offwhiteV2.avif'],
+                    'images/Trending/cloudtecW1.png',
+                    'images/Trending/cloudtecW2.png',
+                    'images/Trending/cloudtecW3.png',
+                    'images/Trending/cloudtecW4.png',
                 ],
-                'sizes' => [
-                    'White' => ['UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10'],
-                    'Black' => ['UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10'],
+
+                'variants' => [
+                    [
+                        'colour' => 'White',
+                        'sizes'  => ['7', '8', '9', '10', '11'],
+                    ],
                 ],
-                'specifications' => "Specifications placeholder for Low Vulcanized Leather Trainers.",
+            ],
+
+            // ------------------------------------------------------------
+            // EXAMPLE: Pegasus (kept same structure)
+            // ------------------------------------------------------------
+            [
+                'category_id'    => 1,
+                'brand'          => 'Nike',
+                'name'           => 'Air Zoom Pegasus 40 - Blue',
+                'slug'           => 'air-zoom-pegasus-40-blue',
+                'description'    => 'The Nike Air Zoom Pegasus 40 for everyday running.',
+                'price'          => 140,
+                'original_price' => 170,
+                'is_trending'    => false,
+
+                'images' => [
+                    'images/Trending/pegasusB1.png',
+                    'images/Trending/pegasusB2.png',
+                ],
+
+                'variants' => [
+                    [
+                        'colour' => 'Blue',
+                        'sizes'  => ['7','8','9','10','11','12'],
+                    ],
+                ],
+            ],
+
+            [
+                'category_id'    => 1,
+                'brand'          => 'Nike',
+                'name'           => 'Air Zoom Pegasus 40 - Red',
+                'slug'           => 'air-zoom-pegasus-40-red',
+                'description'    => 'The Nike Air Zoom Pegasus 40 for everyday running.',
+                'price'          => 140,
+                'original_price' => 170,
+                'is_trending'    => false,
+
+                'images' => [
+                    'images/Trending/pegasusR1.png',
+                    'images/Trending/pegasusR2.png',
+                ],
+
+                'variants' => [
+                    [
+                        'colour' => 'Red',
+                        'sizes'  => ['7','8','9','10','11','12'],
+                    ],
+                ],
             ],
         ];
 
-        foreach ($shoes as $item) {
-            // Use first colour's images for default
-            $firstColour = $item['colours'][0];
+        foreach ($products as $data) {
 
-            Product::create([
-                'brand' => $item['brand'],
-                'name' => $item['name'],
-                'slug' => $item['slug'],
-                'type' => 'Trending Shoes',
-                'price' => $item['price'],
-                'original_price' => $item['original_price'],
-                'description' => 'Detailed description for '.$item['name'].'.',
-                'images' => json_encode($item['images'][$firstColour]),
-                'sizes' => json_encode($item['sizes'][$firstColour]),
-                'colour' => json_encode($item['colours']),
-                'specifications' => $item['specifications'],
+            // Create product
+            $product = Product::create([
+                'category_id'    => $data['category_id'],
+                'brand'          => $data['brand'],
+                'name'           => $data['name'],
+                'slug'           => $data['slug'],
+                'description'    => $data['description'],
+                'price'          => $data['price'],
+                'original_price' => $data['original_price'],
+                'is_trending'    => $data['is_trending'],
             ]);
-        }
 
-        // -------------------------
-        // Coats & Jackets
-        // -------------------------
-        $coats = [
-            [
-                'slug' => 'moncler-maya-puffer',
-                'brand' => 'MONCLER',
-                'name' => "Men's Nylon Maya Down Puffer Jacket",
-                'price' => 1300.00,
-                'colours' => ['Black', 'Navy'],
-            ],
-            [
-                'slug' => 'polo-ralph-lauren-elcap',
-                'brand' => 'Polo Ralph Lauren',
-                'name' => 'El Cap Puffer Down Jacket',
-                'price' => 445.00,
-                'colours' => ['Black', 'Navy'],
-            ],
-        ];
+            // Save images
+            foreach ($data['images'] as $img) {
+                Image::create([
+                    'imageable_id'   => $product->id,
+                    'imageable_type' => Product::class,
+                    'path'           => $img,
+                ]);
+            }
 
-        foreach ($coats as $item) {
-            Product::create([
-                'brand' => $item['brand'],
-                'name' => $item['name'],
-                'slug' => $item['slug'],
-                'type' => 'Coats & Jackets',
-                'price' => $item['price'],
-                'original_price' => $item['original_price'] ?? null,
-                'description' => 'Detailed description for '.$item['name'].'.',
-                'images' => json_encode([
-                    '/images/Trending/'.$item['slug'].'1.avif',
-                    '/images/Trending/'.$item['slug'].'2.avif',
-                ]),
-                'sizes' => json_encode(['S', 'M', 'L', 'XL']),
-                'colour' => json_encode($item['colours']),
-                'specifications' => 'Specifications placeholder for '.$item['name'].'.',
-            ]);
-        }
-
-        // -------------------------
-        // Hoodies
-        // -------------------------
-        $hoodies = [
-            [
-                'slug' => 'polo-tech-hoodie',
-                'brand' => 'POLO RALPH LAUREN',
-                'name' => "Men's Full-Zip Tech Hoodie",
-                'price' => 145.00,
-                'colours' => ['Black', 'White'],
-            ],
-        ];
-
-        foreach ($hoodies as $item) {
-            Product::create([
-                'brand' => $item['brand'],
-                'name' => $item['name'],
-                'slug' => $item['slug'],
-                'type' => 'Hoodies',
-                'price' => $item['price'],
-                'original_price' => $item['original_price'] ?? null,
-                'description' => 'Detailed description for '.$item['name'].'.',
-                'images' => json_encode([
-                    '/images/Trending/'.$item['slug'].'1.avif',
-                    '/images/Trending/'.$item['slug'].'2.avif',
-                ]),
-                'sizes' => json_encode([
-                    'Black' => ['S', 'M', 'L', 'XL'],
-                    'White' => ['S', 'M', 'L', 'XL'],
-                ]),
-                'colour' => json_encode($item['colours']),
-                'specifications' => 'Specifications placeholder for '.$item['name'].'.',
-            ]);
+            // Save variants
+            foreach ($data['variants'] as $variant) {
+                foreach ($variant['sizes'] as $size) {
+                    ProductVariant::create([
+                        'product_id'     => $product->id,
+                        'sku'            => strtoupper(Str::random(10)),
+                        'colour'         => $variant['colour'],
+                        'size'           => $size,
+                        'price'          => $data['price'],
+                        'original_price' => $data['original_price'],
+                        'stock'          => 10,
+                    ]);
+                }
+            }
         }
     }
 }

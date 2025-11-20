@@ -31,6 +31,7 @@ return new class extends Migration
             $table->decimal('shipping', 10, 2)->default(0);
             $table->decimal('total', 10, 2);
 
+            $table->string('invoice_path')->nullable();
             // Payment
             $table->string('payment_intent_id')->nullable();
 

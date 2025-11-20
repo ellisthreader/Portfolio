@@ -35,6 +35,9 @@ class Order extends Model
         'invoice_path', // store PDF location
     ];
 
+    // Append computed attributes automatically
+    protected $appends = ['invoice_url'];
+
     /**
      * Relationships
      */
@@ -49,28 +52,39 @@ class Order extends Model
     }
 
     /**
+     * Accessor for invoice URL
+     */
+    public function getInvoiceUrlAttribute()
+    {
+        if ($this->invoice_path) {
+            return asset('storage/' . $this->invoice_path);
+        }
+        return null;
+    }
+
+    /**
      * Automatically generate PDF invoice when order is created
      */
     protected static function booted()
     {
         static::created(function ($order) {
             try {
-                // ✅ Use the correct Blade view
+                // Load the invoice Blade view
                 $pdf = Pdf::loadView('invoices.invoice', ['order' => $order]);
 
-                // ✅ Define save location in public storage so it can be accessed via asset()
+                // Define save location in storage/app/public/invoices
                 $filePath = 'public/invoices/invoice-' . $order->order_number . '.pdf';
 
-                // ✅ Save PDF
+                // Save the PDF
                 Storage::put($filePath, $pdf->output());
 
-                // ✅ Update order with file path (without 'public/' prefix for asset())
+                // Update order with file path (without 'public/' prefix for asset())
                 $order->update([
                     'invoice_path' => str_replace('public/', '', $filePath),
                 ]);
 
             } catch (\Exception $e) {
-                Log::error('Invoice generation failed: ' . $e->getMessage());
+                Log::error('Invoice generation failed for order ' . $order->order_number . ': ' . $e->getMessage());
             }
         });
     }

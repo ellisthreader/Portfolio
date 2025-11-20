@@ -1,27 +1,34 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useState, ReactNode } from "react";
 
 type CartItem = {
-  id: number;
+  slug: string;
   title: string;
   price: number;
   quantity: number;
+  colour: string;
+  size: string;
   image?: string;
+  availableSizes: string[]; // sizes user can choose
 };
 
 type AddToCartPayload = {
-  id: number;
+  slug: string;
   title: string;
   price: number | string;
+  colour: string;
+  size: string;
   image?: string;
+  availableSizes?: string[];
 };
 
 type CartContextType = {
   cart: CartItem[];
   addToCart: (item: AddToCartPayload) => void;
-  updateQuantity: (id: number, quantity: number) => void;
-  removeFromCart: (id: number) => void;
+  updateQuantity: (slug: string, colour: string, size: string, quantity: number) => void;
+  removeFromCart: (slug: string, colour: string, size: string) => void;
+  updateSize: (slug: string, colour: string, oldSize: string, newSize: string) => void;
   clearCart: () => void;
   totalPrice: number;
   showCart: boolean;
@@ -36,7 +43,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
 
-  const normalizePrice = (p: number | string): number => {
+  const normalizePrice = (p: number | string) => {
     if (typeof p === "number") return p;
     if (typeof p === "string") return parseFloat(p.replace(/[^0-9.]/g, "")) || 0;
     return 0;
@@ -44,45 +51,76 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const addToCart = (item: AddToCartPayload) => {
     const price = normalizePrice(item.price);
+    const availableSizes = item.availableSizes || [item.size];
+
     setCart((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      const existing = prev.find(
+        (i) => i.slug === item.slug && i.colour === item.colour && i.size === item.size
+      );
       if (existing) {
         return prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+          i.slug === item.slug && i.colour === item.colour && i.size === item.size
+            ? { ...i, quantity: i.quantity + 1 }
+            : i
         );
       }
-      return [...prev, { id: item.id, title: item.title, price, quantity: 1, image: item.image }];
+      return [...prev, { ...item, price, quantity: 1, availableSizes }];
     });
     openCart();
   };
 
-  const updateQuantity = (id: number, quantity: number) => {
+  const updateQuantity = (slug: string, colour: string, size: string, quantity: number) => {
     setCart((prev) =>
-      quantity <= 0 ? prev.filter((i) => i.id !== id) : prev.map((i) => (i.id === id ? { ...i, quantity } : i))
+      quantity <= 0
+        ? prev.filter((i) => !(i.slug === slug && i.colour === colour && i.size === size))
+        : prev.map((i) =>
+            i.slug === slug && i.colour === colour && i.size === size ? { ...i, quantity } : i
+          )
     );
   };
 
-  const removeFromCart = (id: number) => {
-    setCart((prev) => prev.filter((i) => i.id !== id));
+  const removeFromCart = (slug: string, colour: string, size: string) => {
+    setCart((prev) =>
+      prev.filter((i) => !(i.slug === slug && i.colour === colour && i.size === size))
+    );
   };
 
-  const clearCart = () => {
-    setCart([]);
+  const updateSize = (slug: string, colour: string, oldSize: string, newSize: string) => {
+    setCart((prev) => {
+      const exists = prev.find(
+        (i) => i.slug === slug && i.colour === colour && i.size === newSize
+      );
+      if (exists) {
+        // merge quantities if new size already exists
+        return prev
+          .map((i) =>
+            i.slug === slug && i.colour === colour && i.size === oldSize
+              ? { ...i, quantity: 0 } // will remove later
+              : i
+          )
+          .filter((i) => i.quantity > 0)
+          .map((i) =>
+            i.slug === slug && i.colour === colour && i.size === newSize
+              ? { ...i, quantity: i.quantity + prev.find((x) => x.slug === slug && x.colour === colour && x.size === oldSize)?.quantity! }
+              : i
+          );
+      } else {
+        return prev.map((i) =>
+          i.slug === slug && i.colour === colour && i.size === oldSize
+            ? { ...i, size: newSize }
+            : i
+        );
+      }
+    });
   };
+
+  const clearCart = () => setCart([]);
 
   const totalPrice = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-  const openCart = () => {
-    setShowCart(true);
-  };
-
-  const closeCart = () => {
-    setShowCart(false);
-  };
-
-  const toggleCart = () => {
-    setShowCart((prev) => !prev);
-  };
+  const openCart = () => setShowCart(true);
+  const closeCart = () => setShowCart(false);
+  const toggleCart = () => setShowCart((prev) => !prev);
 
   return (
     <CartContext.Provider
@@ -91,6 +129,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         addToCart,
         updateQuantity,
         removeFromCart,
+        updateSize,
         clearCart,
         totalPrice,
         showCart,

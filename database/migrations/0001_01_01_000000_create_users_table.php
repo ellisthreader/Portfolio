@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('username')->unique();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
+            $table->timestamp('last_verification_sent_at')->nullable();
             $table->string('phone', 20)->nullable();         // optional phone
             $table->text('bio')->nullable();                // optional bio
             $table->string('password');
@@ -27,6 +28,7 @@ return new class extends Migration
             $table->rememberToken();
             $table->string('avatar')->default('avatars/default.png');
             $table->string('avatar_url')->nullable();       // optional avatar URL
+            $table->timestamp('last_avatar_generated_at')->nullable();
             $table->timestamps();
         });
 

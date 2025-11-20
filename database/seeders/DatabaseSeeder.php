@@ -12,13 +12,11 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // -------------------------------------------
-        // ✅ Register all your seeders here
+        // ✅ Register all your seeders in correct order
         // -------------------------------------------
         $this->call([
-            ProductSeeder::class, // Seeds product data
-            // You can add more later, e.g.:
-            // UsersTableSeeder::class,
-            // OrdersTableSeeder::class,
+            CategorySeeder::class, // MUST run first
+            ProductSeeder::class,  // Depends on categories
         ]);
     }
 }

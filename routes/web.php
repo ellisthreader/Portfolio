@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Product;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\Auth\AuthController;
@@ -24,20 +25,65 @@ use Illuminate\Foundation\Auth\EmailVerificationRequest;
 // -----------------------------
 // Public Pages
 // -----------------------------
-Route::get('/', fn() => Inertia::render('Welcome/Welcome', [
-    'canLogin' => Route::has('login'),
-    'canRegister' => Route::has('register'),
-]))->name('home');
+Route::get('/', function () {
+    $products = Product::where('is_trending', true)
+        ->get()
+        ->map(function ($product) {
+            $product->images = is_string($product->images)
+                ? json_decode($product->images, true)
+                : $product->images;
+
+            $product->sizes = is_string($product->sizes)
+                ? json_decode($product->sizes, true)
+                : $product->sizes;
+
+            $product->colour = is_string($product->colour)
+                ? json_decode($product->colour, true)
+                : $product->colour;
+
+            $product->type = $product->type ?? 'Misc';
+
+            $product->colourProducts = collect($product->colour)->map(function ($colour) use ($product) {
+                $images = $product->images;
+                if (isset($product->images[$colour])) {
+                    $images = $product->images[$colour];
+                }
+                return [
+                    'colour' => $colour,
+                    'slug' => $product->slug,
+                    'firstImage' => is_array($images) ? $images[0] : $images,
+                ];
+            })->toArray();
+
+            return $product;
+        });
+
+    return Inertia::render('Welcome/Welcome', [
+        'products' => $products,
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('register'),
+    ]);
+})->name('home');
 
 Route::get('/projects', fn() => Inertia::render('Projects/Projects'))->name('projects');
 Route::get('/courses', fn() => Inertia::render('Courses/Index'))->name('courses');
-Route::get('/checkout', fn() => Inertia::render('CheckoutPage'))->name('checkout');
+Route::get('/checkout', fn() => Inertia::render('CheckoutPage/CheckoutPage'))->name('checkout');
 
 // -----------------------------
-// ✅ Product Pages (Dynamic from Database)
+// Product Pages
 // -----------------------------
 Route::get('/products/{type}', [ProductController::class, 'index'])->name('products.index');
 Route::get('/product/{slug}', [ProductController::class, 'show'])->name('product.show');
+
+// -----------------------------
+// Dynamic Category/Subcategory Pages
+// -----------------------------
+Route::get('/category/{category}', function ($category) {
+    // Send to a default layout page showing the category name in big bold
+    return Inertia::render('CategoryPage', [
+        'category' => strtoupper($category),
+    ]);
+})->name('category.show');
 
 // -----------------------------
 // Order Confirmation Pages
@@ -90,10 +136,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // -----------------------------
 Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
-    // Admin home dashboard
     Route::get('/dashboard', fn() => Inertia::render('Admin/Dashboard'))->name('admin.dashboard');
 
-    // Live Chats Manager
     Route::get('/livechats', [AdminChatController::class, 'index'])->name('admin.livechats');
     Route::get('/active-chats', [AdminChatController::class, 'activeChats'])->name('admin.active.chats');
     Route::get('/livechats/{chat}', [AdminChatController::class, 'show'])->name('admin.livechats.show');
@@ -145,16 +189,17 @@ Route::get('/support', fn() => Inertia::render('Help/Support'))->name('support')
 Route::get('/faq', fn() => Inertia::render('Help/FAQ'))->name('faq');
 
 // -----------------------------
-// Customer Livechat (frontend page + API)
+// Customer Livechat
 // -----------------------------
 Route::get('/help/livechat', fn() => Inertia::render('Help/Livechat'))->name('help.livechat');
 
-// Guest/User Livechat API Routes
 Route::get('/livechat/messages', [LiveChatController::class, 'fetchMessages'])->name('livechat.messages');
 Route::post('/livechat/message', [LiveChatController::class, 'sendMessage'])->name('livechat.send');
 Route::delete('/livechat/{chat}', [LiveChatController::class, 'deleteChat'])->name('livechat.delete');
 
-// Optional Chat API
+// -----------------------------
+// Chat API
+// -----------------------------
 Route::get('/api/chat', [ChatController::class, 'index'])->name('chat.index');
 
 // -----------------------------

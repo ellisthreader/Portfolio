@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import { useDarkMode } from "@/Context/DarkModeContext";
 import { FileText } from "lucide-react";
@@ -7,6 +7,10 @@ export default function OrderConfirmed() {
   const { darkMode } = useDarkMode();
   const { props } = usePage();
   const order = props.order;
+
+  useEffect(() => {
+    console.log("Order props:", order);
+  }, [order]);
 
   if (!order) {
     return (
@@ -111,15 +115,31 @@ export default function OrderConfirmed() {
 
           {/* Items */}
           <div className="divide-y divide-gray-300 dark:divide-gray-700 mb-8">
-            {order.items.map((item: any) => (
-              <div key={item.id} className="flex justify-between py-4">
-                <div>
-                  <p className="font-medium">{item.product_name}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Qty: {item.quantity}
-                  </p>
+            {order.items.map((item) => (
+              <div key={item.id} className="flex justify-between items-center py-4">
+                <div className="flex items-center gap-4">
+                  {item.image_url && (
+                    <img
+                      src={item.image_url}
+                      alt={item.product_name}
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                  )}
+
+                  <div>
+                    {item.product_brand && (
+                      <p className="font-bold text-base">{item.product_brand}</p>
+                    )}
+                    <p className="font-medium text-sm">{item.product_name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Qty: {item.quantity}
+                    </p>
+                  </div>
                 </div>
-                <p className="font-semibold">£{Number(item.line_total).toFixed(2)}</p>
+
+                <p className="font-semibold">
+                  £{Number(item.line_total).toFixed(2)}
+                </p>
               </div>
             ))}
           </div>
@@ -148,21 +168,23 @@ export default function OrderConfirmed() {
                 <span>VAT (20%):</span>
                 <span>£{Number(order.vat).toFixed(2)}</span>
               </div>
+
               <div className="flex justify-between">
                 <span>Shipping:</span>
                 <span>£{Number(order.shipping).toFixed(2)}</span>
               </div>
+
               <div className="flex justify-between font-bold text-lg mt-3 border-t pt-3">
                 <span>Total:</span>
                 <span>£{Number(order.total).toFixed(2)}</span>
               </div>
             </div>
 
-            {/* 🧾 Polished Invoice + Orders Buttons */}
+            {/* Invoice + Orders Buttons */}
             <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
               {order.invoice_url && (
                 <a
-                  href={order.invoice_url}
+                  href={order.invoice_url} // ✅ Use the relative URL directly
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 ${
@@ -176,7 +198,6 @@ export default function OrderConfirmed() {
                 </a>
               )}
 
-              {/* ✅ Go to Orders — links to profile/edit with a query param */}
               <Link
                 href="/profile/edit?tab=orders"
                 className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 ${
@@ -191,7 +212,6 @@ export default function OrderConfirmed() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="text-center text-sm md:text-base text-gray-500 dark:text-gray-400">
           A confirmation email has been sent to{" "}
           <span className="font-medium">{order.email}</span>.

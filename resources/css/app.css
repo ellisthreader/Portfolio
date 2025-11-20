@@ -12,3 +12,26 @@
   opacity: 0;
   animation: fadeInUp 0.5s ease-out forwards;
 }
+
+/* ---------------------------------------------------- */
+/* FIX FIREFOX ORANGE HOVER ON <option> ELEMENTS        */
+/* ---------------------------------------------------- */
+
+select option:hover,
+select option:focus,
+select option:active {
+  background: #2563eb !important; /* Tailwind blue-600 */
+  color: white !important;
+}
+
+/* Default option appearance */
+select option {
+  background-color: white;
+  color: black;
+}
+
+/* Dark mode option appearance */
+.dark select option {
+  background-color: #1f2937; /* gray-800 */
+  color: white;
+}

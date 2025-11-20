@@ -40,20 +40,9 @@ const CheckoutForm = () => {
     postcode,
   } = address || {};
 
-  // CSRF token from meta
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
 
-  // Identify digital-only orders
-  const isDigitalOnly = useMemo(() => {
-    const physicalTitles = [
-      "Web Dev Fundamentals (Paperback)",
-      "TikTok Creator Starter Pack",
-      "Marketing Productivity Pack",
-    ];
-    return cart.every((item) => !physicalTitles.includes(item.title));
-  }, [cart]);
-
-  // Compute totals
+  // --- Compute totals ---
   const totals = useMemo(() => {
     return computeTotalsInCents({
       items: cart.map((item) => ({
@@ -65,30 +54,28 @@ const CheckoutForm = () => {
     });
   }, [cart, shippingCost, appliedDiscount]);
 
-  // Validate contact info
+  // --- Validate contact info ---
   const validateContact = () => {
     const missing: string[] = [];
     if (!email) missing.push("email");
     if (!firstName) missing.push("first name");
     if (!lastName) missing.push("last name");
-    if (!addressLine1 && !isDigitalOnly) missing.push("address line 1");
-    if (!city && !isDigitalOnly) missing.push("city");
-    if (!postcode && !isDigitalOnly) missing.push("postcode");
-    if (!country && !isDigitalOnly) missing.push("country");
+    if (!addressLine1) missing.push("address line 1");
+    if (!city) missing.push("city");
+    if (!postcode) missing.push("postcode");
+    if (!country) missing.push("country");
 
     if (missing.length > 0) {
-      toast.error(`Please fill in: ${missing.join(", ")}`, {
-        position: "top-center",
-      });
+      toast.error(`Please fill in: ${missing.join(", ")}`, { position: "top-center" });
       return false;
     }
     return true;
   };
 
-  // Step handlers
+  // --- Step handlers ---
   const handleInfoContinue = () => {
     if (!validateContact()) return;
-    setCheckoutStep(isDigitalOnly ? 3 : 2);
+    setCheckoutStep(2);
   };
 
   const handleShippingContinue = () => {
@@ -99,7 +86,7 @@ const CheckoutForm = () => {
     setCheckoutStep(3);
   };
 
-  // Handle payment & order
+  // --- Handle payment & order ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) {
@@ -119,7 +106,7 @@ const CheckoutForm = () => {
     }
 
     if (!validateContact()) return;
-    if (!isDigitalOnly && !shippingMethod) {
+    if (!shippingMethod) {
       toast.error("Please select a shipping method.", { position: "top-center" });
       return;
     }
@@ -128,25 +115,30 @@ const CheckoutForm = () => {
     setError(null);
 
     try {
-      // --- Create payment intent ---
-      const paymentRes = await fetch(`${import.meta.env.VITE_API_URL}/api/create-payment-intent`, {
+      // --- Create Stripe payment intent ---
+      const paymentRes = await fetch(`/create-payment-intent`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": csrfToken || "",
+        },
         body: JSON.stringify({
           email,
           items: cart.map((i) => ({
+            id: i.id, // must be numeric database ID
             name: i.title,
             quantity: i.quantity,
             unit_price_cents: Math.round(i.price * 100),
           })),
           discount_code: appliedDiscount?.code || null,
-          shipping: isDigitalOnly ? null : { method: shippingMethod, cost: totals.shipping_cents },
+          shipping: { method: shippingMethod, cost: totals.shipping_cents },
         }),
       });
+
       const paymentData = await paymentRes.json();
       if (!paymentData.client_secret) throw new Error(paymentData.error || "Failed to create payment intent.");
 
-      // --- Confirm payment ---
+      // --- Confirm Stripe payment ---
       const result = await stripe.confirmCardPayment(paymentData.client_secret, {
         payment_method: {
           card,
@@ -168,11 +160,13 @@ const CheckoutForm = () => {
       if (result.error) {
         toast.error(result.error.message || "Invalid card details.", { position: "top-center" });
         setError(result.error.message);
-      } else if (result.paymentIntent?.status === "succeeded") {
+        setLoading(false);
+        return;
+      }
 
-        
-        // --- Store order in DB ---
-        const orderRes = await fetch(`${import.meta.env.VITE_API_URL}/checkout/store-order`, {
+      if (result.paymentIntent?.status === "succeeded") {
+        // --- Store order in backend ---
+        const orderRes = await fetch(`/checkout/store-order`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -180,7 +174,13 @@ const CheckoutForm = () => {
           },
           body: JSON.stringify({
             email,
-            items: cart,
+            items: cart.map(i => ({
+              id: i.id,
+              title: i.title,
+              price: i.price,
+              quantity: i.quantity,
+              image: i.image,
+            })),
             totals,
             appliedDiscount,
             delivery: {
@@ -202,10 +202,9 @@ const CheckoutForm = () => {
         if (!orderData.success) throw new Error(orderData.error || "Failed to save order.");
 
         toast.success("Payment successful! Order saved.", { position: "top-center" });
-
         router.visit(`/order-confirmed/${orderData.order_number}`);
-
       }
+
     } catch (err: any) {
       toast.error(err.message || "Payment failed. Try again.", { position: "top-center" });
       setError(err.message);
@@ -214,27 +213,6 @@ const CheckoutForm = () => {
     setLoading(false);
   };
 
-  // --- Digital-only checkout ---
-  if (isDigitalOnly) {
-    return (
-      <form onSubmit={handleSubmit} className="space-y-10">
-        <div className="bg-gray-50 border rounded-xl p-6 shadow-sm">
-          <OrderSummary />
-        </div>
-        <div className="bg-gray-50 border rounded-xl p-6 shadow-sm">
-          <ContactInfo />
-        </div>
-        <div className="bg-gray-50 border rounded-xl p-6 shadow-sm">
-          <PaymentSection />
-        </div>
-        <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold text-lg">
-          Pay £{totals.total}
-        </button>
-      </form>
-    );
-  }
-
-  // --- Physical products multi-step checkout ---
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {checkoutStep === 1 && (
