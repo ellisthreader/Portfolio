@@ -76,12 +76,17 @@ Route::get('/products/{type}', [ProductController::class, 'index'])->name('produ
 Route::get('/product/{slug}', [ProductController::class, 'show'])->name('product.show');
 
 // -----------------------------
-// Dynamic Category/Subcategory Pages
+// ✔ FIXED CATEGORY ROUTING
+// Supports:
+//   /category/women
+//   /category/women/clothing
+//   /category/women/clothing/dresses
 // -----------------------------
-Route::get('/category/{category}', function ($category) {
-    // Send to a default layout page showing the category name in big bold
+Route::get('/category/{category}/{subcategory?}/{item?}', function ($category, $subcategory = null, $item = null) {
     return Inertia::render('CategoryPage', [
-        'category' => strtoupper($category),
+        'category'    => ucfirst($category),
+        'subcategory' => $subcategory ? ucfirst($subcategory) : null,
+        'item'        => $item ? str_replace('-', ' ', ucfirst($item)) : null,
     ]);
 })->name('category.show');
 
@@ -112,15 +117,17 @@ Route::post('/checkout/store-order', [CheckoutController::class, 'storeOrder'])-
 // -----------------------------
 Route::get('/login', fn() => Inertia::render('Auth/Login'))->name('login');
 Route::get('/register', fn() => Inertia::render('Auth/Login'))->name('register');
+
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// Password reset
-Route::get('/reset-password/{token}', fn(Request $request, $token) => Inertia::render('Auth/ResetPassword', [
-    'token' => $token,
-    'email' => $request->email,
-]))->name('password.reset');
+Route::get('/reset-password/{token}', fn(Request $request, $token) => 
+    Inertia::render('Auth/ResetPassword', [
+        'token' => $token,
+        'email' => $request->email,
+    ])
+)->name('password.reset');
 
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 
@@ -167,13 +174,13 @@ Route::get('/email/verify', fn() => Inertia::render('Auth/VerifyEmail'))
     ->middleware('auth')
     ->name('verification.notice');
 
-Route::get('/email/verify/{id}/{hash}', fn(EmailVerificationRequest $request) => redirect()->route('profile.edit')->with('verified', 1))
-    ->middleware(['auth', 'signed'])
-    ->name('verification.verify');
+Route::get('/email/verify/{id}/{hash}', fn(EmailVerificationRequest $request) => 
+    redirect()->route('profile.edit')->with('verified', 1)
+)->middleware(['auth', 'signed'])->name('verification.verify');
 
-Route::post('/email/verification-notification', fn(Request $request) => $request->user()->update(['last_verification_sent_at' => now()]))
-    ->middleware('auth')
-    ->name('verification.send');
+Route::post('/email/verification-notification', fn(Request $request) => 
+    $request->user()->update(['last_verification_sent_at' => now()])
+)->middleware('auth')->name('verification.send');
 
 // -----------------------------
 // Help Centre & FAQ Pages
@@ -188,9 +195,6 @@ Route::get('/help/privacy', fn() => Inertia::render('Help/PrivacySecurity'))->na
 Route::get('/support', fn() => Inertia::render('Help/Support'))->name('support');
 Route::get('/faq', fn() => Inertia::render('Help/FAQ'))->name('faq');
 
-// -----------------------------
-// Customer Livechat
-// -----------------------------
 Route::get('/help/livechat', fn() => Inertia::render('Help/Livechat'))->name('help.livechat');
 
 Route::get('/livechat/messages', [LiveChatController::class, 'fetchMessages'])->name('livechat.messages');

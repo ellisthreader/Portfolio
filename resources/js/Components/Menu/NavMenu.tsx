@@ -9,7 +9,6 @@ import { DarkModeSwitch } from "react-toggle-dark-mode";
 import { ShoppingCart, Search, User, Heart } from "lucide-react";
 
 // WRAPPERS
-import WomenSidebarWrapper from "../WomenSidebarWrapper";
 
 
 export default function NavMenu() {
@@ -115,16 +114,12 @@ export default function NavMenu() {
               <div
                 key={category}
                 data-category={category}
-                className="relative px-6 py-3 cursor-pointer"
+                className="relative px-6 py-3 cursor-pointer z-10"
+                onClick={() => setActiveSidebar(category)} // ✅ Only opens sidebar
               >
-                <Link
-                  href={`/${category.toLowerCase()}`}
-                  className="relative z-10 text-gray-500 
-                  hover:text-black dark:hover:text-white hover:font-semibold 
-                  transition-all duration-200"
-                >
+                <div className="text-gray-500 hover:text-black dark:hover:text-white hover:font-semibold transition-all duration-200">
                   {category}
-                </Link>
+                </div>
               </div>
             ))}
           </div>
@@ -169,7 +164,7 @@ export default function NavMenu() {
               className="fixed top-[64px] left-0 w-full h-[calc(100%-64px)] bg-black z-20 cursor-pointer"
             />
 
-            {/* SIDEBAR PANEL */}
+            {/* Sidebar */}
             <motion.div
               key="sidebar-wrapper"
               variants={sidebarVariants}
@@ -192,9 +187,6 @@ export default function NavMenu() {
                   transition={{ duration: 0.22 }}
                 >
                   {activeSidebar === "Women" && <WomenSidebarWrapper />}
-                  {activeSidebar === "Men" && <MenSidebarWrapper />}
-                  {activeSidebar === "Kids" && <KidsSidebarWrapper />}
-                  {activeSidebar === "Sale" && <SaleSidebarWrapper />}
                 </motion.div>
               </AnimatePresence>
             </motion.div>

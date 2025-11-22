@@ -7,29 +7,32 @@ import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { DarkModeProvider } from "@/Context/DarkModeContext";
 import { CartProvider } from "@/Context/CartContext";
 import { CheckoutProvider } from "@/Context/CheckoutContext";
-import { ToastContainer } from "react-toastify";
 
+import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../css/google-autocomplete.css";
 
-// Vite page import map
+// Import all pages for Vite
 const pages = import.meta.glob("./Pages/**/*.tsx");
 
-// Initialize Inertia
+// Boot Inertia
 createInertiaApp({
   resolve: (name) =>
     resolvePageComponent(
-      `./Pages/${name}.tsx`, // Supports flat pages like Pages/Login.tsx
+      `./Pages/${name}.tsx`, 
       pages
     ),
+
   setup: ({ el, App, props }) => {
     const root = createRoot(el as HTMLElement);
+
     root.render(
       <React.StrictMode>
         <CartProvider>
           <DarkModeProvider>
             <CheckoutProvider>
               <App {...props} />
+
               <ToastContainer
                 position="top-center"
                 autoClose={3000}
@@ -48,3 +51,4 @@ createInertiaApp({
     );
   },
 });
+ 
