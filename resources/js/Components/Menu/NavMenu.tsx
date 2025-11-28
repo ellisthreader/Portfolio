@@ -8,23 +8,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import { DarkModeSwitch } from "react-toggle-dark-mode";
 import { ShoppingCart, Search, User, Heart } from "lucide-react";
 
-// WRAPPERS
-
+// SIDEBAR COMPONENTS
+import WomenSidebar from "@/Components/Menu/WomenSidebar/WomenSidebar";
+import MenSidebar from "@/Components/Menu/MenSidebar/MenSidebar";
+import KidsSidebar from "@/Components/Menu/KidsSidebar/KidsSidebar";
+import SaleSidebar from "@/Components/Menu/SaleSidebar/SaleSidebar";
 
 export default function NavMenu() {
   const { darkMode, toggleDarkMode } = useDarkMode();
-  const { cart, toggleCart } = useCart();
+  const { toggleCart } = useCart();
 
   const [activeSidebar, setActiveSidebar] = useState<string | null>(null);
-  const [previousSidebar, setPreviousSidebar] = useState<string | null>(null);
   const [isHovering, setIsHovering] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const totalItems = cart.reduce(
-    (acc: number, item: { quantity: number }) => acc + item.quantity,
-    0
-  );
+  const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const categories = ["Women", "Men", "Kids", "Sale"];
 
@@ -35,14 +33,11 @@ export default function NavMenu() {
 
   const handleNavMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
     const category = detectCategory(event);
-    if (!category) return;
-    if (isAnimating) return;
-    if (category === activeSidebar) return;
+    if (!category || isAnimating || category === activeSidebar) return;
 
     if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
 
     hoverTimeout.current = setTimeout(() => {
-      setPreviousSidebar(activeSidebar);
       setActiveSidebar(category);
       setIsHovering(true);
     }, 120);
@@ -57,26 +52,18 @@ export default function NavMenu() {
   };
 
   const handleMouseLeave = () => {
-    if (hoverTimeout.current) {
-      clearTimeout(hoverTimeout.current);
-      hoverTimeout.current = null;
-    }
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
 
     hoverTimeout.current = setTimeout(() => {
       setIsHovering(false);
       setActiveSidebar(null);
-      setPreviousSidebar(null);
     }, 180);
   };
 
   const closeSidebar = () => {
-    if (hoverTimeout.current) {
-      clearTimeout(hoverTimeout.current);
-      hoverTimeout.current = null;
-    }
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
     setIsHovering(false);
     setActiveSidebar(null);
-    setPreviousSidebar(null);
   };
 
   const sidebarVariants = {
@@ -85,67 +72,75 @@ export default function NavMenu() {
     exit: { x: "-100%", opacity: 0 },
   };
 
+  const renderSidebar = () => {
+    switch (activeSidebar?.toLowerCase()) {
+      case "women":
+        return <WomenSidebar closeSidebar={closeSidebar} />;
+      case "men":
+        return <MenSidebar closeSidebar={closeSidebar} />;
+      case "kids":
+        return <KidsSidebar closeSidebar={closeSidebar} />;
+      case "sale":
+        return <SaleSidebar closeSidebar={closeSidebar} />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <>
       {/* NAVBAR */}
       <motion.nav
-        className="fixed top-0 left-0 right-0 z-20 bg-white/90 dark:bg-gray-900/90 
-        backdrop-blur-md flex items-center justify-between px-8 py-3 shadow-sm 
-        transition-colors duration-300"
+        className="
+          fixed top-0 left-0 right-0 z-20
+          bg-white/70 dark:bg-gray-900/70 
+          backdrop-blur-xl 
+          flex items-center justify-between 
+          px-10 py-4 
+          shadow-sm 
+          border-b border-white/20 dark:border-gray-700/30
+        "
       >
-        <div className="flex items-center gap-14">
-          <Link href="/" className="flex items-center">
-            <div className="h-11 min-h-[44px] flex items-center">
-              <img
-                src={darkMode ? "/images/DarkModeLogo.png" : "/images/vaire-logo.png"}
-                alt="Vairé Logo"
-                className="h-11 w-auto object-contain transition-all duration-300"
-              />
-            </div>
+        <div className="flex items-center gap-16">
+          {/* LOGO */}
+          <Link href="/">
+            <img src="/images/vaire-logo.png" className="h-11" />
           </Link>
 
+          {/* NAV LINKS */}
           <div
-            className="flex items-center gap-10 font-medium tracking-wide text-[17px] uppercase relative"
+            className="flex items-center gap-12 text-[17px] uppercase tracking-wide text-black dark:text-gray-200"
             onMouseMove={handleNavMouseMove}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            {categories.map((category) => (
+            {categories.map((cat) => (
               <div
-                key={category}
-                data-category={category}
-                className="relative px-6 py-3 cursor-pointer z-10"
-                onClick={() => setActiveSidebar(category)} // ✅ Only opens sidebar
+                key={cat}
+                data-category={cat}
+                onClick={() => setActiveSidebar(cat)}
+                className="cursor-pointer px-4 py-2 transition-colors hover:text-gray-400 dark:hover:text-gray-300"
               >
-                <div className="text-gray-500 hover:text-black dark:hover:text-white hover:font-semibold transition-all duration-200">
-                  {category}
-                </div>
+                {cat}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-6 text-gray-900 dark:text-gray-100">
-          <button aria-label="Search" className="hover:text-gray-500 dark:hover:text-white transition">
-            <Search className="w-5 h-5" />
-          </button>
-          <button aria-label="Wishlist" className="hover:text-gray-500 dark:hover:text-white transition">
-            <Heart className="w-5 h-5" />
-          </button>
-          <Link href="/profile" aria-label="Profile" className="hover:text-gray-500 dark:hover:text-white transition">
-            <User className="w-5 h-5" />
+        {/* RIGHT ICONS */}
+        <div className="flex items-center gap-6 text-black dark:text-gray-200">
+          <Search className="w-5 h-5 cursor-pointer hover:text-gray-400 dark:hover:text-gray-300 transition-colors" />
+          <Heart className="w-5 h-5 cursor-pointer hover:text-gray-400 dark:hover:text-gray-300 transition-colors" />
+
+          <Link href="/profile">
+            <User className="w-5 h-5 cursor-pointer hover:text-gray-400 dark:hover:text-gray-300 transition-colors" />
           </Link>
 
-          <div className="relative cursor-pointer" onClick={toggleCart}>
-            <ShoppingCart className="w-5 h-5 hover:text-gray-500 dark:hover:text-white transition" />
-            {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 text-[10px] bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center">
-                {totalItems}
-              </span>
-            )}
+          <div className="cursor-pointer" onClick={toggleCart}>
+            <ShoppingCart className="w-5 h-5 hover:text-gray-400 dark:hover:text-gray-300 transition-colors" />
           </div>
 
-          <DarkModeSwitch checked={darkMode} onChange={toggleDarkMode} size={18} />
+          <DarkModeSwitch checked={darkMode} onChange={toggleDarkMode} size={20} />
         </div>
       </motion.nav>
 
@@ -153,42 +148,68 @@ export default function NavMenu() {
       <AnimatePresence>
         {activeSidebar && (
           <>
-            {/* Overlay */}
+            {/* OVERLAY */}
             <motion.div
               key="overlay"
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
+              animate={{ opacity: darkMode ? 0.6 : 0.5 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
+              transition={{ duration: 0.2 }}
               onClick={closeSidebar}
-              className="fixed top-[64px] left-0 w-full h-[calc(100%-64px)] bg-black z-20 cursor-pointer"
+              className="fixed top-[72px] left-0 w-full h-[calc(100%-72px)] bg-black z-20"
             />
 
-            {/* Sidebar */}
+            {/* SIDEBAR PANEL */}
             <motion.div
-              key="sidebar-wrapper"
+              key="sidebar"
               variants={sidebarVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              transition={{ type: "tween", duration: 0.28 }}
+              transition={{ duration: 0.27 }}
               onAnimationStart={() => setIsAnimating(true)}
               onAnimationComplete={() => setIsAnimating(false)}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
-              className="fixed top-[64px] left-0 h-[calc(100%-64px)] w-[35%] bg-white dark:bg-gray-900 shadow-xl z-30 p-6 overflow-y-auto"
+              className="
+                fixed top-[72px] left-0 
+                h-[calc(100%-72px)] w-[35%] 
+                bg-white dark:bg-gray-900 
+                shadow-2xl 
+                z-30 
+                p-7 
+                overflow-y-auto 
+                flex flex-col
+              "
             >
-              <AnimatePresence mode="sync">
-                <motion.div
-                  key={activeSidebar}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.22 }}
-                >
-                  {activeSidebar === "Women" && <WomenSidebarWrapper />}
-                </motion.div>
-              </AnimatePresence>
+              {renderSidebar()}
+
+              {/* BOTTOM NAV LINKS */}
+              <div className="mt-10 pt-6  space-y-4 uppercase tracking-wide text-[15px]">
+                <Link href="/help" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
+                  HELP
+                </Link>
+
+                <Link href="/faq" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
+                  FAQS
+                </Link>
+
+                <Link href="/support" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
+                  CONTACT US
+                </Link>
+
+                <Link href="/help/privacy" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
+                  PRIVACY & SECURITY
+                </Link>
+
+                <Link href="/company" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
+                  COMPANY
+                </Link>
+
+                <button className="block text-left hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
+                  CHANGE REGION
+                </button>
+              </div>
             </motion.div>
           </>
         )}

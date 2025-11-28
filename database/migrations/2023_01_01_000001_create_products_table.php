@@ -10,9 +10,11 @@ return new class extends Migration {
         Schema::create('products', function (Blueprint $table) {
             $table->id();
 
+            // Optional FK category field (Option 2)
             $table->foreignId('category_id')
+                ->nullable()
                 ->constrained()
-                ->cascadeOnDelete();
+                ->nullOnDelete();
 
             $table->string('brand');
             $table->string('name');

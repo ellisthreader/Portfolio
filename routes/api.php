@@ -8,7 +8,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\ChatController;
-use App\Http\Controllers\AdminChatController;
+use App\Http\Controllers\Admin\AdminChatController;
 use App\Models\Order;
 
 /*

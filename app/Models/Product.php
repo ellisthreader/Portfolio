@@ -6,13 +6,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Image;
 use App\Models\ProductVariant;
+use App\Models\Category;
 
 class Product extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'category_id',
         'brand',
         'name',
         'slug',
@@ -29,11 +29,11 @@ class Product extends Model
     ];
 
     /**
-     * Category relationship
+     * Many-to-many relationship with categories
      */
-    public function category()
+    public function categories()
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsToMany(Category::class, 'category_product');
     }
 
     /**

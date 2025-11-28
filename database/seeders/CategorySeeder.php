@@ -3,71 +3,66 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\Category;
 use Illuminate\Support\Str;
+use App\Models\Category;
 
 class CategorySeeder extends Seeder
 {
     public function run(): void
     {
-        // Top-level category
-        $women = Category::create([
-            'name' => 'Women',
-            'slug' => 'women',
-            'level' => 1
-        ]);
+        $categories = [
+            // ---------------- WOMEN ----------------
+            ['id' => 1,  'section' => 'Women', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats'],
+            ['id' => 2,  'section' => 'Women', 'subsection' => 'Clothing', 'name' => 'Hoodies & Sweatshirts'],
+            ['id' => 3,  'section' => 'Women', 'subsection' => 'Shoes', 'name' => 'Trainers'],
+            ['id' => 4,  'section' => 'Women', 'subsection' => 'Accessories', 'name' => 'Scarves'],
 
-        // Second-level categories under WOMEN
-        $secondLevel = [
-            'Clothing',
-            'Shoes',
-            'Accessories',
-            'Best Selling',
-            'Sale',
-            'New In',
-            'Brands'
+            // ---------------- MEN ----------------
+            ['id' => 5,  'section' => 'Men', 'subsection' => 'Clothing', 'name' => 'T-Shirts'],
+            ['id' => 6,  'section' => 'Men', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats'],
+            ['id' => 7,  'section' => 'Men', 'subsection' => 'Shoes', 'name' => 'Trainers'],
+            ['id' => 8,  'section' => 'Men', 'subsection' => 'Accessories', 'name' => 'Hats'],
+
+            // ---------------- GIRL & BOY BABY & NEWBORN ----------------
+            ['id' => 79, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => 'Baby & Newborn'],
+            ['id' => 80, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => 'Baby & Newborn'],
+            ['id' => 127,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => 'Baby & Newborn'],
+            ['id' => 128,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => 'Baby & Newborn'],
+
+            // ---------------- GIRL & BOY 2-8 ----------------
+            ['id' => 95, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => '2-8'],
+            ['id' => 96, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => '2-8'],
+            ['id' => 129,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => '2-8'],
+            ['id' => 130,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => '2-8'],
+
+            // ---------------- GIRL & BOY 9-14 ----------------
+            ['id' => 111,'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => '9-14'],
+            ['id' => 112,'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => '9-14'],
+            ['id' => 127,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => '9-14'],
+            ['id' => 128,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => '9-14'],
         ];
 
-        $secondLevelIds = [];
+        foreach ($categories as &$category) {
+            // Build slug: include age_group only if exists
+            $slugParts = [];
+            if (isset($category['age_group'])) {
+                $slugParts[] = $category['age_group'];
+            }
+            $slugParts[] = $category['section'];
+            $slugParts[] = $category['subsection'];
+            $slugParts[] = $category['name'];
 
-        foreach ($secondLevel as $category) {
-            $cat = Category::create([
-                'name' => $category,
-                'slug' => Str::slug($category),
-                'parent_id' => $women->id,
-                'level' => 2
-            ]);
-            $secondLevelIds[$category] = $cat->id;
+            $category['slug'] = Str::slug(implode('-', $slugParts)); // e.g., men-shoes-trainers or 2-8-girl-clothing-nightwear
         }
 
-        // Third-level categories under CLOTHING
-        $clothingChildren = [
-            'Dresses',
-            'Tops',
-            'Coats & Jackets',
-            'Hoodies & Sweatshirts',
-            'Knitwear',
-            'Co-Ords',
-            'Jeans',
-            'Trousers',
-            'Tracksuits',
-            'Joggers',
-            'Sports',
-            'Playsuits & Jumpsuits',
-            'Denim',
-            'Skirts',
-            'Blazers'
-        ];
-
-        foreach ($clothingChildren as $child) {
-            Category::create([
-                'name' => $child,
-                'slug' => Str::slug($child),
-                'parent_id' => $secondLevelIds['Clothing'],
-                'level' => 3
-            ]);
+        // Insert into DB preserving IDs
+        foreach ($categories as $cat) {
+            Category::updateOrCreate(
+                ['id' => $cat['id']],
+                $cat
+            );
         }
 
-        // Optional: you can also add Lingerie section later similarly
+        $this->command->info("✅ Categories seeded successfully with IDs and proper slugs!");
     }
 }
