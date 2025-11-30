@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Head } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { useCart } from "@/Context/CartContext";
 
@@ -33,34 +33,34 @@ export default function ProductLayout({ product }: Props) {
   const Layout = AuthenticatedLayout;
   const { addToCart } = useCart();
 
+  // List of available colours
   const colours = product.colourProducts.map((p) => p.colour);
 
+  // Initial variant based on slug or fallback
   const initialVariant =
     product.colourProducts.find((p) => p.slug === product.slug) ??
     product.colourProducts[0];
 
   const [selectedColour, setSelectedColour] = useState<string>(
-    initialVariant.colour
+    initialVariant?.colour ?? colours[0] ?? ""
   );
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [showSizeError, setShowSizeError] = useState<boolean>(false);
 
+  // Current variant based on selected colour
   const currentVariant =
     product.colourProducts.find((p) => p.colour === selectedColour) ??
-    product.colourProducts[0];
+    initialVariant;
 
-  const images = currentVariant?.images ?? product.images;
-  const sizes = currentVariant?.sizes ?? product.sizes;
+  const images = currentVariant?.images ?? product.images ?? [];
+  const sizes = currentVariant?.sizes ?? product.sizes ?? [];
 
-  const [openTab, setOpenTab] = useState<number | null>(null);
-
-  const price = Number(product.price);
+  const price = Number(product.price ?? 0);
   const originalPrice =
     product.original_price !== undefined && product.original_price !== null
       ? Number(product.original_price)
       : undefined;
 
-  // ✅ FIXED — brand is now passed to cart
   const handleAddToBag = () => {
     if (!selectedSize) {
       setShowSizeError(true);
@@ -70,9 +70,9 @@ export default function ProductLayout({ product }: Props) {
     addToCart({
       id: product.slug,
       title: product.name,
-      brand: product.brand,          // <-- BRAND NOW INCLUDED
+      brand: product.brand,
       price: price,
-      image: images[0],
+      image: images[0] ?? "",
       colour: selectedColour,
       size: selectedSize,
       availableSizes: sizes,
@@ -80,6 +80,20 @@ export default function ProductLayout({ product }: Props) {
     });
 
     setShowSizeError(false);
+  };
+
+  const handleStartDesigning = () => {
+    if (!selectedSize) {
+      setShowSizeError(true);
+      return;
+    }
+
+    // Option 1: Pass only slug + colour + size to server
+    router.get("/design", {
+      slug: product.slug,
+      colour: selectedColour,
+      size: selectedSize,
+    });
   };
 
   return (
@@ -120,12 +134,11 @@ export default function ProductLayout({ product }: Props) {
             )}
           </p>
 
-          {/* COLOUR SECTION */}
+          {/* COLOUR SELECTION */}
           {colours.length > 0 && (
             <div className="mt-6">
               <p className="font-semibold mb-2 text-lg">
-                Colour:{" "}
-                <span className="font-bold text-gray-900">{selectedColour}</span>
+                Colour: <span className="font-bold text-gray-900">{selectedColour}</span>
               </p>
 
               <div className="flex gap-3 mt-3">
@@ -146,11 +159,7 @@ export default function ProductLayout({ product }: Props) {
                             : "border-gray-300 hover:scale-105 hover:shadow-sm"
                         } transition-transform`}
                     >
-                      <img
-                        src={preview}
-                        alt={cp.colour}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={preview} alt={cp.colour} className="w-full h-full object-cover" />
                     </div>
                   );
                 })}
@@ -158,7 +167,7 @@ export default function ProductLayout({ product }: Props) {
             </div>
           )}
 
-          {/* SIZES */}
+          {/* SIZE SELECTION */}
           {sizes.length > 0 && (
             <div className="mt-6">
               <p className="font-semibold mb-3 text-lg">Size</p>
@@ -182,59 +191,27 @@ export default function ProductLayout({ product }: Props) {
                 ))}
               </div>
               {showSizeError && (
-                <p className="mt-2 text-red-500 font-medium">
-                  Please select a size
-                </p>
+                <p className="mt-2 text-red-500 font-medium">Please select a size</p>
               )}
             </div>
           )}
 
+          {/* ACTION BUTTONS */}
+          <button
+            onClick={handleStartDesigning}
+            className="bg-blue-600 text-white px-6 py-3 rounded-full mt-6 hover:bg-blue-700 transition-colors w-full"
+          >
+            Start Designing
+          </button>
+
           <button
             onClick={handleAddToBag}
-            className="bg-black text-white px-6 py-3 rounded-full mt-6 hover:bg-gray-900 transition-colors"
+            className="bg-black text-white px-6 py-3 rounded-full mt-4 hover:bg-gray-900 transition-colors w-full"
           >
             Add to Bag
           </button>
 
-          <p className="mt-8 text-gray-700 leading-relaxed">
-            {product.description}
-          </p>
-
-          {/* ACCORDION */}
-          <div className="mt-8 pt-4">
-            {[
-              {
-                title: "Product Specifications",
-                content: product.specifications || "No specifications added.",
-              },
-              {
-                title: "Delivery",
-                content:
-                  "Standard delivery: 3–5 working days. Next-day delivery available.",
-              },
-              {
-                title: "Returns",
-                content:
-                  "30-day free returns. Item must be unworn with tags attached.",
-              },
-            ].map((tab, i) => (
-              <div key={i} className="mb-4">
-                <button
-                  className="w-full text-left font-semibold flex justify-between items-center pb-2"
-                  onClick={() => setOpenTab(openTab === i ? null : i)}
-                >
-                  {tab.title}
-                  <span>{openTab === i ? "-" : "+"}</span>
-                </button>
-
-                {openTab === i && (
-                  <p className="mt-2 text-gray-600 whitespace-pre-line">
-                    {tab.content}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+          <p className="mt-8 text-gray-700 leading-relaxed">{product.description}</p>
         </div>
       </div>
     </Layout>

@@ -65,16 +65,19 @@ export default function MenSidebar({ closeSidebar }: Props) {
     Brands: [],
   };
 
-  const slugify = (str: string) =>
-    str.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
+  const slugify = (str: string) => str.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
 
+  // Big links (like "new-arrivals") — prepend "men" for slug
   const handleBigLink = (key: string) => {
-    router.get(`/category/men/${key}`);
+    router.get(`/category/men-${slugify(key)}`);
     closeSidebar();
   };
 
+  // Subcategories → generate slug: section-subsection-name
   const handleSubcategory = (cat: string, sub: string) => {
-    router.get(`/category/men/${slugify(cat)}/${slugify(sub)}`);
+    // DB slugs: men-shoes-trainers
+    const slug = `men-${slugify(cat)}-${slugify(sub)}`;
+    router.get(`/category/${slug}`);
     closeSidebar();
   };
 

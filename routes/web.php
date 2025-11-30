@@ -90,19 +90,14 @@ Route::get('/product/{slug}', [ProductController::class, 'show'])->name('product
 | CATEGORY ROUTES
 |--------------------------------------------------------------------------
 */
-// Kids categories (special route)
-Route::get('/category/kids/{gender}/{category}/{age}/{sub?}', 
-    [CategoryController::class, 'kids']
-)->name('category.kids.show');
+Route::get('/category/kids/{gender}/{category}/{age}/{sub?}', [CategoryController::class, 'kids'])
+    ->name('category.kids.show');
 
-// Multi-level category (men/women with section/category/subcategory)
-Route::get('/category/{heading}/{category}/{subcategory}', 
-    [CategoryController::class, 'showMulti']
-)->name('category.multi.show');
+Route::get('/category/{heading}/{category}/{subcategory}', [CategoryController::class, 'showMulti'])
+    ->name('category.multi.show');
 
-// Generic category route for slugs with slashes (catch-all)
 Route::get('/category/{slug}', [CategoryController::class, 'show'])
-     ->where('slug', '.*') // <--- FIX for slashed URLs
+     ->where('slug', '[A-Za-z0-9-]+')
      ->name('category.show');
 
 /*
@@ -248,3 +243,31 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::get('/users', fn() => inertia('Admin/Users'))->name('admin.users');
     Route::get('/livechats', fn() => inertia('Admin/LiveChats'))->name('admin.livechats');
 });
+
+/*
+|--------------------------------------------------------------------------
+| DESIGN PAGE
+|--------------------------------------------------------------------------
+*/
+Route::get('/design', function (\Illuminate\Http\Request $request) {
+    $slug = $request->query('slug');
+    $selectedColour = $request->query('colour');
+    $selectedSize = $request->query('size');
+
+    if (!$slug) {
+        abort(404, 'Product not specified');
+    }
+
+    // Load product from DB (with images and variants)
+    $product = Product::with(['images', 'variants'])->where('slug', $slug)->first();
+
+    if (!$product) {
+        abort(404, 'Product not found');
+    }
+
+    return Inertia::render('Design/Design', [
+        'product'        => $product->toArray(), // send full product
+        'selectedColour' => $selectedColour,
+        'selectedSize'   => $selectedSize,
+    ]);
+})->name('design');

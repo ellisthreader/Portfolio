@@ -1,0 +1,68 @@
+"use client";
+
+import React from "react";
+
+interface ImageProps {
+  productImage: string;
+  safeName: string;
+  productImages?: string[];
+  onSelectImage?: (img: string) => void;
+}
+
+const labels = ["Front", "Back", "R.Sleeve", "L.Sleeve"];
+
+export default function DesignImage({
+  productImage,
+  safeName,
+  productImages = [],
+  onSelectImage,
+}: ImageProps) {
+  return (
+    <div className="w-full h-full flex items-center justify-center relative">
+      {/* Main Product Image */}
+      {productImage ? (
+        <img
+          src={productImage}
+          alt={safeName}
+          className="object-contain w-full h-full"
+        />
+      ) : (
+        <span className="text-gray-500">No product image available</span>
+      )}
+
+      {/* Right-side vertical rectangle with additional product images */}
+      {productImages.length > 0 && (
+        <div className="absolute top-4 right-4 bg-white shadow-2xl rounded-xl p-3 flex flex-col gap-3 max-h-[65%] overflow-y-auto items-center border border-gray-200">
+          {productImages.slice(0, 4).map((img, index) => {
+            const isSelected = productImage === img;
+            return (
+              <div key={index} className="flex flex-col items-center gap-1">
+                <button
+                  onClick={() => onSelectImage?.(img)}
+                  className={`transition-all duration-300 rounded-lg border
+                    ${isSelected
+                      ? "border-blue-500 scale-110 shadow-xl"
+                      : "border-gray-300 hover:border-blue-400 hover:scale-105 shadow-sm"}
+                  `}
+                >
+                  <img
+                    src={img}
+                    alt={`Product ${index + 1}`}
+                    className="h-14 w-14 object-contain rounded-lg"
+                  />
+                </button>
+                <span
+                  className={`text-xs font-medium text-gray-600 ${
+                    isSelected ? "text-blue-600" : ""
+                  }`}
+                >
+                  {labels[index]}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

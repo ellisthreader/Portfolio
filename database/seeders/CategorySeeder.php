@@ -26,8 +26,8 @@ class CategorySeeder extends Seeder
             // ---------------- GIRL & BOY BABY & NEWBORN ----------------
             ['id' => 79, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => 'Baby & Newborn'],
             ['id' => 80, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => 'Baby & Newborn'],
-            ['id' => 127,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => 'Baby & Newborn'],
-            ['id' => 128,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => 'Baby & Newborn'],
+            ['id' => 90,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => 'Baby & Newborn'],
+            ['id' => 91,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => 'Baby & Newborn'],
 
             // ---------------- GIRL & BOY 2-8 ----------------
             ['id' => 95, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => '2-8'],

@@ -9,7 +9,10 @@ class ProductController extends Controller
 {
     public function index()
     {
-        $categories = Category::orderBy('name')->get();
+        // Load categories WITH their assigned products
+        $categories = Category::with('products')
+            ->orderBy('name')
+            ->get();
 
         return inertia('Admin/Products', [
             'categories' => $categories,

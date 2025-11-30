@@ -24,10 +24,7 @@ class ProductSeeder extends Seeder
                 'price'          => 160,
                 'original_price' => null,
                 'is_trending'    => false,
-
-                // ✅ Fixed: real slug from CategorySeeder
-                'categories'     => ['men-trainers-shoes'],
-
+                'categories'     => ['men-shoes-trainers'],
                 'images' => [
                     'images/Trending/cloudtecB1.png',
                     'images/Trending/cloudtecB2.png',
@@ -51,10 +48,7 @@ class ProductSeeder extends Seeder
                 'price'          => 160,
                 'original_price' => null,
                 'is_trending'    => true,
-
-                // ✅ Fixed
-                'categories'     => ['women-trainers-shoes'],
-
+                'categories'     => ['women-shoes-trainers'],
                 'images' => [
                     'images/Trending/cloudtecW1.png',
                     'images/Trending/cloudtecW2.png',
@@ -78,10 +72,7 @@ class ProductSeeder extends Seeder
                 'price'          => 140,
                 'original_price' => 170,
                 'is_trending'    => false,
-
-                // ✅ Fixed
-                'categories'     => ['men-trainers-shoes'],
-
+                'categories'     => ['men-shoes-trainers'],
                 'images' => [
                     'images/Trending/pegasusB1.png',
                     'images/Trending/pegasusB2.png',
@@ -103,10 +94,7 @@ class ProductSeeder extends Seeder
                 'price'          => 140,
                 'original_price' => 170,
                 'is_trending'    => false,
-
-                // ✅ Fixed
-                'categories'     => ['men-trainers-shoes'],
-
+                'categories'     => ['men-shoes-trainers'],
                 'images' => [
                     'images/Trending/pegasusR1.png',
                     'images/Trending/pegasusR2.png',
@@ -128,13 +116,10 @@ class ProductSeeder extends Seeder
                 'price'          => 1000,
                 'original_price' => 1400,
                 'is_trending'    => true,
-
-                // ✅ Fixed (correct slugs)
                 'categories'     => [
                     'men-shirts-clothing',
                     'women-shirts-clothing',
                 ],
-
                 'images' => [
                     'images/Products/GG/GGSilkShirt1.avif',
                     'images/Products/GG/GGSilkShirt2.avif',
@@ -146,10 +131,33 @@ class ProductSeeder extends Seeder
                     ],
                 ],
             ],
+
+            // ✅ New Men’s T-Shirt: White Tee
+            [
+                'brand'          => 'Basic Apparel',
+                'name'           => 'White Tee',
+                'slug'           => 'white-tee',
+                'description'    => 'Classic white T-shirt for everyday wear.',
+                'price'          => 25.99,
+                'original_price' => null,
+                'is_trending'    => false,
+                'categories'     => ['men-clothing-t-shirts'],
+                'images' => [
+                    'images/Products/WhiteTee1.png',
+                    'images/Products/WhiteTee2.png',
+                    'images/Products/WhiteTee3.png',
+                    'images/Products/WhiteTee4.png',
+                ],
+                'variants' => [
+                    [
+                        'colour' => 'White',
+                        'sizes'  => ['S', 'M', 'L', 'XL', 'XXL'],
+                    ],
+                ],
+            ],
         ];
 
         foreach ($products as $data) {
-
             $categorySlugs = $data['categories'] ?? [];
             unset($data['categories']);
 
@@ -167,7 +175,6 @@ class ProductSeeder extends Seeder
             // Attach categories
             if (!empty($categorySlugs)) {
                 $categoryIds = Category::whereIn('slug', $categorySlugs)->pluck('id')->toArray();
-
                 if (!empty($categoryIds)) {
                     $product->categories()->syncWithoutDetaching($categoryIds);
                 }
