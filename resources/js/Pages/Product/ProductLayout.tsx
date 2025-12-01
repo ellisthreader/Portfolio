@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Head, router } from "@inertiajs/react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { useCart } from "@/Context/CartContext";
@@ -33,34 +33,43 @@ export default function ProductLayout({ product }: Props) {
   const Layout = AuthenticatedLayout;
   const { addToCart } = useCart();
 
-  // List of available colours
-  const colours = product.colourProducts.map((p) => p.colour);
-
-  // Initial variant based on slug or fallback
-  const initialVariant =
-    product.colourProducts.find((p) => p.slug === product.slug) ??
-    product.colourProducts[0];
-
+  // ---------------------------------------------
+  // STATE
+  // ---------------------------------------------
   const [selectedColour, setSelectedColour] = useState<string>(
-    initialVariant?.colour ?? colours[0] ?? ""
+    product.colourProducts[0]?.colour ?? ""
   );
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [showSizeError, setShowSizeError] = useState<boolean>(false);
+  const [displayImages, setDisplayImages] = useState<string[]>(
+    product.colourProducts[0]?.images ?? product.images ?? []
+  );
 
-  // Current variant based on selected colour
+  // ---------------------------------------------
+  // Update images & sizes when colour changes
+  // ---------------------------------------------
+  useEffect(() => {
+    const variant = product.colourProducts.find(
+      (v) => v.colour === selectedColour
+    );
+    if (variant) {
+      setDisplayImages(variant.images ?? []);
+      setSelectedSize(variant.sizes[0] ?? null);
+    }
+  }, [selectedColour]);
+
+  // ---------------------------------------------
+  // Current variant helper
+  // ---------------------------------------------
   const currentVariant =
-    product.colourProducts.find((p) => p.colour === selectedColour) ??
-    initialVariant;
+    product.colourProducts.find((v) => v.colour === selectedColour) ??
+    product.colourProducts[0];
 
-  const images = currentVariant?.images ?? product.images ?? [];
-  const sizes = currentVariant?.sizes ?? product.sizes ?? [];
+  const sizes = currentVariant?.sizes ?? [];
 
-  const price = Number(product.price ?? 0);
-  const originalPrice =
-    product.original_price !== undefined && product.original_price !== null
-      ? Number(product.original_price)
-      : undefined;
-
+  // ---------------------------------------------
+  // ACTIONS
+  // ---------------------------------------------
   const handleAddToBag = () => {
     if (!selectedSize) {
       setShowSizeError(true);
@@ -68,15 +77,15 @@ export default function ProductLayout({ product }: Props) {
     }
 
     addToCart({
-      id: product.slug,
+      id: currentVariant.slug,
       title: product.name,
       brand: product.brand,
-      price: price,
-      image: images[0] ?? "",
+      price: Number(product.price ?? 0),
+      image: displayImages[0] ?? "",
       colour: selectedColour,
       size: selectedSize,
       availableSizes: sizes,
-      slug: product.slug,
+      slug: currentVariant.slug,
     });
 
     setShowSizeError(false);
@@ -88,9 +97,8 @@ export default function ProductLayout({ product }: Props) {
       return;
     }
 
-    // Option 1: Pass only slug + colour + size to server
     router.get("/design", {
-      slug: product.slug,
+      slug: currentVariant.slug,
       colour: selectedColour,
       size: selectedSize,
     });
@@ -104,8 +112,8 @@ export default function ProductLayout({ product }: Props) {
         {/* LEFT — IMAGES */}
         <div className="flex-[3]">
           <div className="grid grid-cols-2 gap-1">
-            {images.length > 0 ? (
-              images.map((img, i) => (
+            {displayImages.length > 0 ? (
+              displayImages.map((img, i) => (
                 <div key={i} className="w-full h-[600px] relative bg-gray-100">
                   <img
                     src={img}
@@ -126,43 +134,40 @@ export default function ProductLayout({ product }: Props) {
           <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
 
           <p className="text-2xl font-semibold">
-            £{isNaN(price) ? "0.00" : price.toFixed(2)}
-            {originalPrice !== undefined && !isNaN(originalPrice) && (
+            £{Number(product.price ?? 0).toFixed(2)}
+            {product.original_price && (
               <span className="text-gray-400 line-through ml-2">
-                £{originalPrice.toFixed(2)}
+                £{Number(product.original_price).toFixed(2)}
               </span>
             )}
           </p>
 
           {/* COLOUR SELECTION */}
-          {colours.length > 0 && (
+          {product.colourProducts.length > 0 && (
             <div className="mt-6">
               <p className="font-semibold mb-2 text-lg">
                 Colour: <span className="font-bold text-gray-900">{selectedColour}</span>
               </p>
 
               <div className="flex gap-3 mt-3">
-                {product.colourProducts.map((cp) => {
-                  const preview = cp.images?.[0] ?? product.images?.[0] ?? "";
-                  return (
-                    <div
-                      key={cp.colour}
-                      onClick={() => {
-                        setSelectedColour(cp.colour);
-                        setSelectedSize(null);
-                        setShowSizeError(false);
-                      }}
-                      className={`w-16 h-16 border cursor-pointer flex items-center justify-center overflow-hidden rounded-lg
-                        ${
-                          selectedColour === cp.colour
-                            ? "border-black scale-105 shadow-md"
-                            : "border-gray-300 hover:scale-105 hover:shadow-sm"
-                        } transition-transform`}
-                    >
-                      <img src={preview} alt={cp.colour} className="w-full h-full object-cover" />
-                    </div>
-                  );
-                })}
+                {product.colourProducts.map((cp) => (
+                  <div
+                    key={cp.colour}
+                    onClick={() => setSelectedColour(cp.colour)}
+                    className={`w-16 h-16 border cursor-pointer flex items-center justify-center overflow-hidden rounded-lg
+                      ${
+                        selectedColour === cp.colour
+                          ? "border-black scale-105 shadow-md"
+                          : "border-gray-300 hover:scale-105 hover:shadow-sm"
+                      } transition-transform`}
+                  >
+                    <img
+                      src={cp.images?.[0] ?? product.images?.[0] ?? ""}
+                      alt={cp.colour}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}

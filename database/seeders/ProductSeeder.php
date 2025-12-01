@@ -15,50 +15,45 @@ class ProductSeeder extends Seeder
     {
         $products = [
 
-            // 🔥 CLOUDMONSTER BLACK
+            // 🔥 CLOUDMONSTER (ONE PRODUCT, 2 COLOURS)
             [
                 'brand'          => 'On Running',
                 'name'           => 'Cloudmonster',
-                'slug'           => 'cloudmonster-black',
+                'slug'           => 'cloudmonster', // merged slug
                 'description'    => 'The Cloudmonster running shoe from On Running.',
                 'price'          => 160,
                 'original_price' => null,
-                'is_trending'    => false,
-                'categories'     => ['men-shoes-trainers'],
+                'is_trending'    => true,
+                'categories'     => ['men-shoes-trainers','women-shoes-trainers'],
+
+                // Base images (neutral, not colour-specific)
                 'images' => [
                     'images/Trending/cloudtecB1.png',
                     'images/Trending/cloudtecB2.png',
                     'images/Trending/cloudtecB3.png',
                     'images/Trending/cloudtecB4.png',
                 ],
+
                 'variants' => [
                     [
                         'colour' => 'Black',
-                        'sizes'  => ['7', '9', '11'],
+                        'sizes'  => ['7','8','9','10','11','12'],
+                        'images' => [
+                            'images/Trending/cloudtecB1.png',
+                            'images/Trending/cloudtecB2.png',
+                            'images/Trending/cloudtecB3.png',
+                            'images/Trending/cloudtecB4.png',
+                        ],
                     ],
-                ],
-            ],
-
-            // 🔥 CLOUDMONSTER WHITE
-            [
-                'brand'          => 'On Running',
-                'name'           => 'Cloudmonster',
-                'slug'           => 'cloudmonster-white',
-                'description'    => 'The Cloudmonster running shoe from On Running.',
-                'price'          => 160,
-                'original_price' => null,
-                'is_trending'    => true,
-                'categories'     => ['women-shoes-trainers'],
-                'images' => [
-                    'images/Trending/cloudtecW1.png',
-                    'images/Trending/cloudtecW2.png',
-                    'images/Trending/cloudtecW3.png',
-                    'images/Trending/cloudtecW4.png',
-                ],
-                'variants' => [
                     [
                         'colour' => 'White',
-                        'sizes'  => ['7','8','9','10','11'],
+                        'sizes'  => ['7','8','9','10','11','12'],
+                        'images' => [
+                            'images/Trending/cloudtecW1.png',
+                            'images/Trending/cloudtecW2.png',
+                            'images/Trending/cloudtecW3.png',
+                            'images/Trending/cloudtecB4.png',
+                        ],
                     ],
                 ],
             ],
@@ -81,6 +76,12 @@ class ProductSeeder extends Seeder
                     [
                         'colour' => 'Blue',
                         'sizes'  => ['7','8','9','10','11','12'],
+                        'images' => [
+                            'images/Products/BlueTee1.png',
+                            'images/Products/BlueTee2.png',
+                            'images/Products/BlueTee3.png',
+                            'images/Products/BlueTee4.png',
+                        ],
                     ],
                 ],
             ],
@@ -103,6 +104,12 @@ class ProductSeeder extends Seeder
                     [
                         'colour' => 'Red',
                         'sizes'  => ['7','8','9','10','11','12'],
+                        'images' => [
+                            'images/Products/RedTee1.png',
+                            'images/Products/RedTee2.png',
+                            'images/Products/RedTee3.png',
+                            'images/Products/RedTee4.png',
+                        ],
                     ],
                 ],
             ],
@@ -116,10 +123,7 @@ class ProductSeeder extends Seeder
                 'price'          => 1000,
                 'original_price' => 1400,
                 'is_trending'    => true,
-                'categories'     => [
-                    'men-shirts-clothing',
-                    'women-shirts-clothing',
-                ],
+                'categories'     => ['men-shirts-clothing','women-shirts-clothing'],
                 'images' => [
                     'images/Products/GG/GGSilkShirt1.avif',
                     'images/Products/GG/GGSilkShirt2.avif',
@@ -127,12 +131,18 @@ class ProductSeeder extends Seeder
                 'variants' => [
                     [
                         'colour' => 'Brown Blue Mc',
-                        'sizes'  => ['6', '8', '10'],
+                        'sizes'  => ['6','8','10'],
+                        'images' => [
+                            'images/Products/BrownTee1.png',
+                            'images/Products/BrownTee2.png',
+                            'images/Products/BrownTee3.png',
+                            'images/Products/BrownTee4.png',
+                        ],
                     ],
                 ],
             ],
 
-            // ✅ New Men’s T-Shirt: White Tee
+            // WHITE TEE WITH FULL COLOUR SET
             [
                 'brand'          => 'Basic Apparel',
                 'name'           => 'White Tee',
@@ -151,37 +161,133 @@ class ProductSeeder extends Seeder
                 'variants' => [
                     [
                         'colour' => 'White',
-                        'sizes'  => ['S', 'M', 'L', 'XL', 'XXL'],
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/WhiteTee1.png',
+                            'images/Products/WhiteTee2.png',
+                            'images/Products/WhiteTee3.png',
+                            'images/Products/WhiteTee4.png',
+                        ],
+                    ],
+                    [
+                        'colour' => 'Red',
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/RedTee1.png',
+                            'images/Products/RedTee2.png',
+                            'images/Products/RedTee3.png',
+                            'images/Products/RedTee4.png',
+                        ],
+                    ],
+                    [
+                        'colour' => 'Blue',
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/BlueTee1.png',
+                            'images/Products/BlueTee2.png',
+                            'images/Products/BlueTee3.png',
+                            'images/Products/BlueTee4.png',
+                        ],
+                    ],
+                    [
+                        'colour' => 'Green',
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/GreenTee1.png',
+                            'images/Products/GreenTee2.png',
+                            'images/Products/GreenTee3.png',
+                            'images/Products/GreenTee4.png',
+                        ],
+                    ],
+                    [
+                        'colour' => 'Purple',
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/PurpleTee1.png',
+                            'images/Products/PurpleTee2.png',
+                            'images/Products/PurpleTee3.png',
+                            'images/Products/PurpleTee4.png',
+                        ],
+                    ],
+                    [
+                        'colour' => 'Grey',
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/GreyTee1.png',
+                            'images/Products/GreyTee2.png',
+                            'images/Products/GreyTee3.png',
+                            'images/Products/GreyTee4.png',
+                        ],
+                    ],
+                    [
+                        'colour' => 'Black',
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/BlackTee1.png',
+                            'images/Products/BlackTee2.png',
+                            'images/Products/BlackTee3.png',
+                            'images/Products/BlackTee4.png',
+                        ],
+                    ],
+                    [
+                        'colour' => 'Yellow',
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/YellowTee1.png',
+                            'images/Products/YellowTee2.png',
+                            'images/Products/YellowTee3.png',
+                            'images/Products/YellowTee4.png',
+                        ],
+                    ],
+                    [
+                        'colour' => 'Orange',
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/OrangeTee1.png',
+                            'images/Products/OrangeTee2.png',
+                            'images/Products/OrangeTee3.png',
+                            'images/Products/OrangeTee4.png',
+                        ],
+                    ],
+                    [
+                        'colour' => 'Brown',
+                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'images' => [
+                            'images/Products/BrownTee1.png',
+                            'images/Products/BrownTee2.png',
+                            'images/Products/BrownTee3.png',
+                            'images/Products/BrownTee4.png',
+                        ],
                     ],
                 ],
             ],
         ];
 
+        // ------------------------------------------------------------
+        // CREATE PRODUCTS + CATEGORY LINKS + IMAGES + VARIANTS
+        // ------------------------------------------------------------
+
         foreach ($products as $data) {
-            $categorySlugs = $data['categories'] ?? [];
+
+            $variantData = $data['variants'];
+            unset($data['variants']);
+
+            $categorySlugs = $data['categories'];
             unset($data['categories']);
 
+            // Extract base images & remove before Product::create()
+            $baseImages = $data['images'];
+            unset($data['images']);
+
             // Create product
-            $product = Product::create([
-                'brand'          => $data['brand'],
-                'name'           => $data['name'],
-                'slug'           => $data['slug'],
-                'description'    => $data['description'],
-                'price'          => $data['price'],
-                'original_price' => $data['original_price'],
-                'is_trending'    => $data['is_trending'],
-            ]);
+            $product = Product::create($data);
 
-            // Attach categories
-            if (!empty($categorySlugs)) {
-                $categoryIds = Category::whereIn('slug', $categorySlugs)->pluck('id')->toArray();
-                if (!empty($categoryIds)) {
-                    $product->categories()->syncWithoutDetaching($categoryIds);
-                }
-            }
+            // Categories
+            $categoryIds = Category::whereIn('slug', $categorySlugs)->pluck('id');
+            $product->categories()->syncWithoutDetaching($categoryIds);
 
-            // Save images
-            foreach ($data['images'] as $img) {
+            // Base images
+            foreach ($baseImages as $img) {
                 Image::create([
                     'imageable_id'   => $product->id,
                     'imageable_type' => Product::class,
@@ -189,18 +295,27 @@ class ProductSeeder extends Seeder
                 ]);
             }
 
-            // Save variants
-            foreach ($data['variants'] as $variant) {
+            // Variants
+            foreach ($variantData as $variant) {
                 foreach ($variant['sizes'] as $size) {
-                    ProductVariant::create([
+
+                    $variantModel = ProductVariant::create([
                         'product_id'     => $product->id,
                         'sku'            => strtoupper(Str::random(10)),
                         'colour'         => $variant['colour'],
                         'size'           => $size,
-                        'price'          => $data['price'],
-                        'original_price' => $data['original_price'],
+                        'price'          => $product->price,
+                        'original_price' => $product->original_price,
                         'stock'          => 10,
                     ]);
+
+                    foreach ($variant['images'] as $variantImg) {
+                        Image::create([
+                            'imageable_id'   => $variantModel->id,
+                            'imageable_type' => ProductVariant::class,
+                            'path'           => $variantImg,
+                        ]);
+                    }
                 }
             }
         }

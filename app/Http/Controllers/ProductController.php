@@ -8,10 +8,13 @@ use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
+    /**
+     * Display all products of a type
+     */
     public function index($type)
     {
         $products = Product::where('type', $type)
-            ->with(['images', 'variants'])
+            ->with(['images', 'variants.images'])
             ->get()
             ->map(fn ($product) => $this->formatProduct($product));
 
@@ -21,57 +24,53 @@ class ProductController extends Controller
         ]);
     }
 
+    /**
+     * Get trending products
+     */
     public function trending()
     {
         $products = Product::where('is_trending', true)
-            ->with(['images', 'variants'])
+            ->with(['images', 'variants.images'])
             ->get()
             ->map(fn ($product) => $this->formatProduct($product));
 
         return $products;
     }
 
+    /**
+     * Show single product page
+     */
     public function show($slug)
     {
-        if (!is_string($slug)) {
-            abort(400, "Invalid product slug");
-        }
-
         Log::info("🔎 Product requested", ['slug' => $slug]);
 
-        // Load the main product
         $product = Product::where('slug', $slug)
-            ->with(['images', 'variants'])
+            ->with(['images', 'variants.images'])
             ->firstOrFail();
 
-        // Format the main product
         $product = $this->formatProduct($product);
 
-        // ---------------------------------------------
-        // 🔥 Load sibling colour products
-        // ---------------------------------------------
+        // --------------------------------------------------
+        // Build colourProducts for frontend
+        // --------------------------------------------------
+        $product->colourProducts = collect($product->variants)
+            ->groupBy('colour')
+            ->map(function ($group, $colour) use ($product) {
 
-        // base slug = remove last "-colour"
-        $baseSlug = preg_replace('/-\w+$/', '', $slug);
+                // Use the first variant of that colour to get images
+                $firstVariant = $group->first();
 
-        $siblings = Product::where('slug', 'LIKE', $baseSlug . '-%')
-            ->with(['images', 'variants'])
-            ->get()
-            ->map(fn ($p) => $this->formatProduct($p));
-
-        // Build colour switcher list
-        $product->colourProducts = $siblings->map(function ($p) {
-            return [
-                'colour' => $p->colour[0] ?? 'Unknown',
-                'slug'   => $p->slug,
-                'sizes'  => $p->sizes,
-                'images' => $p->images,
-            ];
-        })->values()->toArray();
-
-        Log::info("🎨 Sibling colours loaded", [
-            'colourProducts' => $product->colourProducts
-        ]);
+                return [
+                    'colour' => $colour,
+                    'slug' => $firstVariant->slug, // variant slug
+                    'sizes' => $group->pluck('size')->unique()->values()->all(),
+                    'images' => $firstVariant->images
+                        ? $firstVariant->images->pluck('path')->map(fn($path) => asset($path))->all()
+                        : $product->images, // fallback to main product images
+                ];
+            })
+            ->values()
+            ->all();
 
         return Inertia::render('Product/ProductLayout', [
             'product' => $product,
@@ -79,39 +78,40 @@ class ProductController extends Controller
     }
 
     /**
-     * FORMAT PRODUCT RESPONSE
+     * Format a product for frontend
      */
     private function formatProduct($product)
     {
         $product->slug = (string) $product->slug;
 
-        // Extract all available colours + sizes
         $allColours = $product->variants->pluck('colour')->unique()->values()->all();
         $allSizes   = $product->variants->pluck('size')->unique()->values()->all();
 
-        // Normalize product images
-        $productImages = $product->images->map(fn ($img) => asset($img->path))->values()->all();
+        $productImages = $product->images
+            ->map(fn ($img) => asset($img->path))
+            ->values()
+            ->all();
+
+        // Ensure each variant includes images
+        $product->variants->transform(function ($variant) {
+            $variant->images = $variant->images ?? collect([]);
+            return $variant;
+        });
 
         return (object)[
             'id' => $product->id,
             'brand' => $product->brand,
             'name' => $product->name,
             'slug' => $product->slug,
-            'category_id' => $product->category_id,
             'description' => $product->description,
             'price' => $product->price,
             'original_price' => $product->original_price,
             'is_trending' => $product->is_trending,
-            'is_sale' => $product->is_sale,
             'images' => $productImages,
             'sizes' => $allSizes,
             'colour' => $allColours,
-            'specifications' => $product->specifications ?? '',
             'variants' => $product->variants,
-            'type' => $product->type ?? 'Misc',
-
-            // Will be populated in show() for siblings
-            'colourProducts' => [],
+            'colourProducts' => [], // will be filled in `show`
         ];
     }
 }

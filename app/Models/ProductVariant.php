@@ -23,4 +23,13 @@ class ProductVariant extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    /**
+     * 🔥 Each variant has its own image set  
+     * This matches the seeder and fixes the relationship error.
+     */
+    public function images()
+    {
+        return $this->morphMany(Image::class, 'imageable');
+    }
 }
