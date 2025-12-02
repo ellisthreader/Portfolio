@@ -153,25 +153,25 @@ class ProductSeeder extends Seeder
                 'is_trending'    => false,
                 'categories'     => ['men-clothing-t-shirts'],
                 'images' => [
-                    'images/Products/WhiteTee1.png',
-                    'images/Products/WhiteTee2.png',
-                    'images/Products/WhiteTee3.png',
-                    'images/Products/WhiteTee4.png',
+                    'images/Products/WhiteTeeFront.png',
+                    'images/Products/WhiteTeeBack.png',
+                    'images/Products/WhiteTeeRS.png',
+                    'images/Products/WhiteTeeLS.png',
                 ],
                 'variants' => [
                     [
                         'colour' => 'White',
                         'sizes'  => ['XS','S','M','L','XL','XXL'],
                         'images' => [
-                            'images/Products/WhiteTee1.png',
-                            'images/Products/WhiteTee2.png',
-                            'images/Products/WhiteTee3.png',
-                            'images/Products/WhiteTee4.png',
+                            'images/Products/WhiteTeeFront.png',
+                            'images/Products/WhiteTeeBack.png',
+                            'images/Products/WhiteTeeRS.png',
+                            'images/Products/WhiteTeeLS.png',
                         ],
                     ],
                     [
                         'colour' => 'Red',
-                        'sizes'  => ['XS','S','M','L','XL','XXL'],
+                        'sizes'  => ['XS','S','M','L','XXL'],
                         'images' => [
                             'images/Products/RedTee1.png',
                             'images/Products/RedTee2.png',

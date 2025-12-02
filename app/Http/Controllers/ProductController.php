@@ -56,21 +56,23 @@ class ProductController extends Controller
         $product->colourProducts = collect($product->variants)
             ->groupBy('colour')
             ->map(function ($group, $colour) use ($product) {
-
-                // Use the first variant of that colour to get images
                 $firstVariant = $group->first();
+
+                $images = $firstVariant->images->isNotEmpty()
+                    ? $firstVariant->images->pluck('path')->map(fn($path) => asset($path))->all()
+                    : $product->images;
 
                 return [
                     'colour' => $colour,
-                    'slug' => $firstVariant->slug, // variant slug
+                    'slug' => $firstVariant->slug,
                     'sizes' => $group->pluck('size')->unique()->values()->all(),
-                    'images' => $firstVariant->images
-                        ? $firstVariant->images->pluck('path')->map(fn($path) => asset($path))->all()
-                        : $product->images, // fallback to main product images
+                    'images' => $images,
                 ];
             })
             ->values()
             ->all();
+
+        Log::info("=== colourProducts built ===", ['colourProducts' => $product->colourProducts]);
 
         return Inertia::render('Product/ProductLayout', [
             'product' => $product,
@@ -97,6 +99,14 @@ class ProductController extends Controller
             $variant->images = $variant->images ?? collect([]);
             return $variant;
         });
+
+        Log::info("=== Product formatted ===", [
+            'id' => $product->id,
+            'name' => $product->name,
+            'colours' => $allColours,
+            'sizes' => $allSizes,
+            'images' => $productImages
+        ]);
 
         return (object)[
             'id' => $product->id,

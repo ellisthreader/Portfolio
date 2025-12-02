@@ -36,34 +36,35 @@ export default function ProductLayout({ product }: Props) {
   // ---------------------------------------------
   // STATE
   // ---------------------------------------------
-  const [selectedColour, setSelectedColour] = useState<string>(
+  const [selectedColour, setSelectedColour] = useState(
     product.colourProducts[0]?.colour ?? ""
   );
+
+  const [currentVariant, setCurrentVariant] = useState<ColourProduct>(
+    product.colourProducts[0]
+  );
+
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
-  const [showSizeError, setShowSizeError] = useState<boolean>(false);
+  const [showSizeError, setShowSizeError] = useState(false);
+
   const [displayImages, setDisplayImages] = useState<string[]>(
     product.colourProducts[0]?.images ?? product.images ?? []
   );
 
   // ---------------------------------------------
-  // Update images & sizes when colour changes
+  // When colour changes -> update variant + images + sizes
   // ---------------------------------------------
   useEffect(() => {
     const variant = product.colourProducts.find(
       (v) => v.colour === selectedColour
     );
+
     if (variant) {
+      setCurrentVariant(variant);
       setDisplayImages(variant.images ?? []);
       setSelectedSize(variant.sizes[0] ?? null);
     }
   }, [selectedColour]);
-
-  // ---------------------------------------------
-  // Current variant helper
-  // ---------------------------------------------
-  const currentVariant =
-    product.colourProducts.find((v) => v.colour === selectedColour) ??
-    product.colourProducts[0];
 
   const sizes = currentVariant?.sizes ?? [];
 
@@ -91,14 +92,15 @@ export default function ProductLayout({ product }: Props) {
     setShowSizeError(false);
   };
 
+  // ⭐⭐⭐ FIXED ⭐⭐⭐
   const handleStartDesigning = () => {
     if (!selectedSize) {
       setShowSizeError(true);
       return;
     }
 
-    router.get("/design", {
-      slug: currentVariant.slug,
+    // We now use product.slug instead of variant slug
+    router.get(`/design/${product.slug}`, {
       colour: selectedColour,
       size: selectedSize,
     });
@@ -146,7 +148,8 @@ export default function ProductLayout({ product }: Props) {
           {product.colourProducts.length > 0 && (
             <div className="mt-6">
               <p className="font-semibold mb-2 text-lg">
-                Colour: <span className="font-bold text-gray-900">{selectedColour}</span>
+                Colour:{" "}
+                <span className="font-bold text-gray-900">{selectedColour}</span>
               </p>
 
               <div className="flex gap-3 mt-3">
@@ -196,7 +199,9 @@ export default function ProductLayout({ product }: Props) {
                 ))}
               </div>
               {showSizeError && (
-                <p className="mt-2 text-red-500 font-medium">Please select a size</p>
+                <p className="mt-2 text-red-500 font-medium">
+                  Please select a size
+                </p>
               )}
             </div>
           )}
@@ -216,7 +221,9 @@ export default function ProductLayout({ product }: Props) {
             Add to Bag
           </button>
 
-          <p className="mt-8 text-gray-700 leading-relaxed">{product.description}</p>
+          <p className="mt-8 text-gray-700 leading-relaxed">
+            {product.description}
+          </p>
         </div>
       </div>
     </Layout>

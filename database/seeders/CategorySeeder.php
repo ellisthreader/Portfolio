@@ -24,19 +24,19 @@ class CategorySeeder extends Seeder
             ['id' => 8,  'section' => 'Men', 'subsection' => 'Accessories', 'name' => 'Hats'],
 
             // ---------------- GIRL & BOY BABY & NEWBORN ----------------
-            ['id' => 79, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => 'Baby & Newborn'],
+            ['id' => 79, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'T-Shirts', 'age_group' => 'Baby & Newborn'],
             ['id' => 80, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => 'Baby & Newborn'],
             ['id' => 90,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => 'Baby & Newborn'],
             ['id' => 91,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => 'Baby & Newborn'],
 
             // ---------------- GIRL & BOY 2-8 ----------------
-            ['id' => 95, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => '2-8'],
+            ['id' => 95, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'T-Shirts', 'age_group' => '2-8'],
             ['id' => 96, 'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => '2-8'],
             ['id' => 129,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => '2-8'],
             ['id' => 130,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => '2-8'],
 
             // ---------------- GIRL & BOY 9-14 ----------------
-            ['id' => 111,'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => '9-14'],
+            ['id' => 111,'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'T-Shirts', 'age_group' => '9-14'],
             ['id' => 112,'section' => 'Girl', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => '9-14'],
             ['id' => 127,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Nightwear', 'age_group' => '9-14'],
             ['id' => 128,'section' => 'Boy', 'subsection' => 'Clothing', 'name' => 'Jackets & Coats', 'age_group' => '9-14'],

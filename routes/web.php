@@ -15,6 +15,7 @@ use App\Http\Controllers\LiveChatController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\DesignController;
 
 /*
 |--------------------------------------------------------------------------
@@ -105,7 +106,9 @@ Route::get('/category/{slug}', [CategoryController::class, 'show'])
 | ORDER CONFIRMATION
 |--------------------------------------------------------------------------
 */
-Route::get('/order-confirmed/{orderNumber}', [CheckoutController::class, 'orderConfirmed'])->name('order.confirmed');
+Route::get('/order-confirmed/{orderNumber}', [CheckoutController::class, 'orderConfirmed'])
+    ->name('order.confirmed');
+
 Route::get('/order-confirmed', fn() => redirect('/'))->name('order.confirmed.redirect');
 
 /*
@@ -246,28 +249,40 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| DESIGN PAGE
+| DESIGN PAGE (WORKS WITH PASSED QUERY DATA)
 |--------------------------------------------------------------------------
+|
+| This allows:
+|   /design/shirt-123?colour=Blue&size=L
+|
 */
-Route::get('/design', function (\Illuminate\Http\Request $request) {
-    $slug = $request->query('slug');
+Route::get('/design/{slug}', function (Request $request, $slug) {
     $selectedColour = $request->query('colour');
-    $selectedSize = $request->query('size');
+    $selectedSize   = $request->query('size');
 
-    if (!$slug) {
-        abort(404, 'Product not specified');
-    }
-
-    // Load product from DB (with images and variants)
-    $product = Product::with(['images', 'variants'])->where('slug', $slug)->first();
-
-    if (!$product) {
-        abort(404, 'Product not found');
-    }
+    $product = Product::with(['images', 'variants.images', 'category'])
+        ->where('slug', $slug)
+        ->firstOrFail();
 
     return Inertia::render('Design/Design', [
-        'product'        => $product->toArray(), // send full product
+        'product'        => $product->toArray(),
         'selectedColour' => $selectedColour,
         'selectedSize'   => $selectedSize,
     ]);
-})->name('design');
+})->name('design.show');
+
+/*
+|--------------------------------------------------------------------------
+| CHANGE PRODUCT PAGE
+|--------------------------------------------------------------------------
+|
+| Opens a page showing all categories within the same subsection as the
+| current product. Clicking a category will allow the user to switch products.
+|
+*/
+
+
+Route::get('/design/change-product/{product}', [DesignController::class, 'changeProduct'])
+     ->name('design.changeProduct');
+
+    

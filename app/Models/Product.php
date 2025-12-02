@@ -21,6 +21,7 @@ class Product extends Model
         'description',
         'is_trending',
         'is_sale',
+        'category_id', // main category
     ];
 
     protected $casts = [
@@ -29,7 +30,19 @@ class Product extends Model
     ];
 
     /**
-     * Many-to-many relationship with categories
+     * ----------------------------------------------------
+     * Main category (from category_id)
+     * ----------------------------------------------------
+     */
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * ----------------------------------------------------
+     * Many-to-many categories (pivot table)
+     * ----------------------------------------------------
      */
     public function categories()
     {
@@ -37,7 +50,9 @@ class Product extends Model
     }
 
     /**
+     * ----------------------------------------------------
      * Product variants (colour / size)
+     * ----------------------------------------------------
      */
     public function variants()
     {
@@ -45,7 +60,9 @@ class Product extends Model
     }
 
     /**
+     * ----------------------------------------------------
      * Polymorphic images (product-level images)
+     * ----------------------------------------------------
      */
     public function images()
     {
@@ -57,7 +74,7 @@ class Product extends Model
      * COLOURS — return unique list of colours from variants
      * ----------------------------------------------------
      */
-    public function getColourAttribute()
+    public function getColoursAttribute()
     {
         return $this->variants()
             ->pluck('colour')
@@ -74,7 +91,18 @@ class Product extends Model
     public function getColourProductsAttribute()
     {
         return $this->variants()
+            ->get()
             ->groupBy('colour')
+            ->map(function ($group, $colour) {
+                $sizes = $group->pluck('size')->unique()->values()->toArray();
+                $images = $group->first()->images ?? collect();
+                return [
+                    'colour' => $colour,
+                    'sizes' => $sizes,
+                    'images' => $images,
+                ];
+            })
+            ->values()
             ->toArray();
     }
 }
