@@ -123,7 +123,7 @@ class ProductSeeder extends Seeder
                 'price'          => 1000,
                 'original_price' => 1400,
                 'is_trending'    => true,
-                'categories'     => ['men-shirts-clothing','women-shirts-clothing'],
+                'categories'     => ['men-accessories-hats','women-clothing-t-shirts'],
                 'images' => [
                     'images/Products/GG/GGSilkShirt1.avif',
                     'images/Products/GG/GGSilkShirt2.avif',
@@ -153,20 +153,20 @@ class ProductSeeder extends Seeder
                 'is_trending'    => false,
                 'categories'     => ['men-clothing-t-shirts'],
                 'images' => [
-                    'images/Products/WhiteTeeFront.png',
-                    'images/Products/WhiteTeeBack.png',
-                    'images/Products/WhiteTeeRS.png',
-                    'images/Products/WhiteTeeLS.png',
+                    'images/Products/WhiteTee1.png',
+                    'images/Products/WhiteTee2.png',
+                    'images/Products/WhiteTee3.png',
+                    'images/Products/WhiteTee4.png',
                 ],
                 'variants' => [
                     [
                         'colour' => 'White',
                         'sizes'  => ['XS','S','M','L','XL','XXL'],
                         'images' => [
-                            'images/Products/WhiteTeeFront.png',
-                            'images/Products/WhiteTeeBack.png',
-                            'images/Products/WhiteTeeRS.png',
-                            'images/Products/WhiteTeeLS.png',
+                            'images/Products/WhiteTee1.png',
+                            'images/Products/WhiteTee2.png',
+                            'images/Products/WhiteTee3.png',
+                            'images/Products/WhiteTee4.png',
                         ],
                     ],
                     [

@@ -3,13 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Category;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
     /**
-     * Display all products of a type
+     * Display all products of a specific type
      */
     public function index($type)
     {
@@ -20,6 +21,24 @@ class ProductController extends Controller
 
         return Inertia::render('Products/Index', [
             'type' => $type,
+            'products' => $products,
+        ]);
+    }
+
+    /**
+     * Display all products for a specific category
+     */
+    public function categoryProducts($slug)
+    {
+        $category = Category::where('slug', $slug)->firstOrFail();
+
+        $products = Product::where('category_id', $category->id)
+            ->with(['images', 'variants.images'])
+            ->get()
+            ->map(fn($product) => $this->formatProduct($product));
+
+        return Inertia::render('Products/CategoryProducts', [
+            'category' => $category,
             'products' => $products,
         ]);
     }
@@ -50,9 +69,7 @@ class ProductController extends Controller
 
         $product = $this->formatProduct($product);
 
-        // --------------------------------------------------
         // Build colourProducts for frontend
-        // --------------------------------------------------
         $product->colourProducts = collect($product->variants)
             ->groupBy('colour')
             ->map(function ($group, $colour) use ($product) {

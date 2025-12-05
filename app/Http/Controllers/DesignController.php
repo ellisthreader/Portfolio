@@ -10,9 +10,6 @@ use Illuminate\Support\Facades\Log;
 
 class DesignController extends Controller
 {
-    /**
-     * Show the Design page for a product.
-     */
     public function show(Request $request, $slug)
     {
         $selectedColour = $request->query('colour');
@@ -24,96 +21,70 @@ class DesignController extends Controller
             'size' => $selectedSize
         ]);
 
-        $product = Product::with(['images', 'variants.images', 'categories'])
-            ->where('slug', $slug)
-            ->firstOrFail();
+        $product = Product::with([
+            'images',
+            'variants.images',
+            'categories'
+        ])
+        ->where('slug', $slug)
+        ->firstOrFail();
 
         Log::info("=== Product fetched ===", [
             'product_id' => $product->id,
-            'name' => $product->name,
-            'slug' => $product->slug,
-            'description' => $product->description,
-            'categories_count' => $product->categories->count(),
-            'category_names' => $product->categories->pluck('name')->all()
+            'categories' => $product->categories->pluck('name')->all()
         ]);
 
-        // Build colourProducts for frontend
+        // Build color variants
         $product->colourProducts = collect($product->variants)
             ->groupBy('colour')
             ->map(function ($group, $colour) use ($product) {
                 $firstVariant = $group->first();
 
                 $images = $firstVariant->images->isNotEmpty()
-                    ? $firstVariant->images->pluck('path')->map(fn($path) => asset($path))->all()
-                    : $product->images->pluck('path')->map(fn($path) => asset($path))->all();
+                    ? $firstVariant->images->pluck('path')->map(fn($p) => asset($p))->all()
+                    : $product->images->pluck('path')->map(fn($p) => asset($p))->all();
 
                 return [
                     'colour' => $colour,
-                    'slug' => $firstVariant->slug,
-                    'sizes' => $group->pluck('size')->unique()->values()->all(),
+                    'slug'   => $firstVariant->slug,
+                    'sizes'  => $group->pluck('size')->unique()->values()->all(),
                     'images' => $images,
                 ];
             })
             ->values()
             ->all();
 
-        Log::info("=== colourProducts built ===", ['colourProducts' => $product->colourProducts]);
-        Log::info("=== Selected colour/size ===", [
-            'selectedColour' => $selectedColour,
-            'selectedSize' => $selectedSize
+        // Fetch all categories with same name
+        $categoryNames = $product->categories->pluck('name')->unique();
+
+        $categories = Category::whereIn('name', $categoryNames)
+            ->with([
+                // Load real product data for the grid
+                'products' => function ($q) {
+                    $q->with('images'); // also loads first image
+                }
+            ])
+            ->orderBy('section')
+            ->get();
+
+        // Organise into adult + kids
+        $adultCategories = $categories->whereNull('age_group')->values();
+        $kidsCategories = $categories
+            ->whereNotNull('age_group')
+            ->groupBy('age_group')
+            ->map(fn($group) => $group->values());
+
+        Log::info("=== Categories prepared ===", [
+            'adult_count' => $adultCategories->count(),
+            'kids_groups' => $kidsCategories->keys()->all()
         ]);
 
         return Inertia::render('Design/Design', [
-            'product' => $product,
-            'selectedColour' => $selectedColour,
-            'selectedSize' => $selectedSize,
-        ]);
-    }
-
-    /**
-     * Show Change Product page with similar categories
-     */
-    public function changeProduct(Request $request)
-    {
-        $productId = $request->query('product');
-
-        if (!$productId) {
-            Log::warning("=== No product query parameter passed to changeProduct ===", [
-                'request_query' => $request->query()
-            ]);
-            abort(400, 'Product ID is required.');
-        }
-
-        Log::info("=== DesignController@changeProduct called ===", [
-            'query_product_id' => $productId
-        ]);
-
-        $product = Product::with('categories')->findOrFail($productId);
-
-        Log::info("=== Product fetched for ChangeProduct ===", [
-            'product_id' => $product->id,
-            'product_name' => $product->name,
-            'categories_count' => $product->categories->count(),
-            'categories' => $product->categories->pluck('name')->all()
-        ]);
-
-        // Get subsection of the first category (adjust as needed)
-        $subsection = $product->categories->first()?->subsection;
-
-        Log::info("=== Subsection determined ===", ['subsection' => $subsection]);
-
-        $categories = $subsection
-            ? Category::where('subsection', $subsection)->orderBy('name')->get()
-            : Category::all();
-
-        Log::info("=== Categories fetched for ChangeProduct ===", [
-            'categories_count' => $categories->count(),
-            'category_names' => $categories->pluck('name')->all()
-        ]);
-
-        return Inertia::render('Design/ChangeProduct', [
-            'product' => $product,
-            'categories' => $categories,
+            'product'          => $product,
+            'selectedColour'   => $selectedColour,
+            'selectedSize'     => $selectedSize,
+            'adultCategories'  => $adultCategories,
+            'kidsCategories'   => $kidsCategories
         ]);
     }
 }

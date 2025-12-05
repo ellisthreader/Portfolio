@@ -16,6 +16,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\DesignController;
+use App\Http\Controllers\ProductSearchController;
 
 /*
 |--------------------------------------------------------------------------
@@ -100,6 +101,14 @@ Route::get('/category/{heading}/{category}/{subcategory}', [CategoryController::
 Route::get('/category/{slug}', [CategoryController::class, 'show'])
      ->where('slug', '[A-Za-z0-9-]+')
      ->name('category.show');
+
+/*
+|--------------------------------------------------------------------------
+| CATEGORY SEARCH (NEW)
+|--------------------------------------------------------------------------
+*/
+Route::get('/search-categories', [ProductSearchController::class, 'searchCategories'])
+     ->name('search.categories');
 
 /*
 |--------------------------------------------------------------------------
@@ -249,40 +258,24 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| DESIGN PAGE (WORKS WITH PASSED QUERY DATA)
+| DESIGN PAGE
 |--------------------------------------------------------------------------
-|
-| This allows:
-|   /design/shirt-123?colour=Blue&size=L
-|
 */
-Route::get('/design/{slug}', function (Request $request, $slug) {
-    $selectedColour = $request->query('colour');
-    $selectedSize   = $request->query('size');
-
-    $product = Product::with(['images', 'variants.images', 'category'])
-        ->where('slug', $slug)
-        ->firstOrFail();
-
-    return Inertia::render('Design/Design', [
-        'product'        => $product->toArray(),
-        'selectedColour' => $selectedColour,
-        'selectedSize'   => $selectedSize,
-    ]);
-})->name('design.show');
+Route::get('/design/{slug}', [DesignController::class, 'show'])->name('design.show');
 
 /*
 |--------------------------------------------------------------------------
-| CHANGE PRODUCT PAGE
+| CHANGE PRODUCT MODAL
 |--------------------------------------------------------------------------
-|
-| Opens a page showing all categories within the same subsection as the
-| current product. Clicking a category will allow the user to switch products.
-|
 */
-
-
 Route::get('/design/change-product/{product}', [DesignController::class, 'changeProduct'])
      ->name('design.changeProduct');
 
-    
+
+/*
+|--------------------------------------------------------------------------
+| CATEGORY PRODUCTS PAGE
+|--------------------------------------------------------------------------
+*/
+Route::get('/category-products/{slug}', [ProductController::class, 'categoryProducts'])
+     ->name('category.products');

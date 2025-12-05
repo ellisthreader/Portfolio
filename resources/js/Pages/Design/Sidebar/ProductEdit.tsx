@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { Star } from "lucide-react";
-import { router } from "@inertiajs/react";
 
 type Variant = {
   id?: number | string;
@@ -38,12 +37,14 @@ export default function ProductEdit({
   selectedSize,
   onColourChange,
   onSizeChange,
+  onOpenChangeProductModal, // ✅ NEW PROP
 }: {
   product: any;
   selectedColour: string | null;
   selectedSize: string | null;
   onColourChange: (colour: string) => void;
   onSizeChange: (size: string) => void;
+  onOpenChangeProductModal: () => void; // ✅ NEW PROP TYPE
 }) {
   // ---------- Build variants grouped by colour ----------
   const variantsByColour: Record<string, Variant[]> = useMemo(() => {
@@ -84,10 +85,10 @@ export default function ProductEdit({
   const handleColourClick = (colour: string) => onColourChange(colour);
   const handleSizeClick = (size: string) => onSizeChange(size);
 
-const handleChangeProduct = () => {
-  router.get(`/design/change-product?product=${product.id}`);
-};
-
+  // ---------- OPEN MODAL ----------
+  const handleChangeProduct = () => {
+    onOpenChangeProductModal(); // ✅ Opens the modal
+  };
 
   return (
     <div className="p-6 w-full max-w-md mx-auto">
@@ -127,7 +128,8 @@ const handleChangeProduct = () => {
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-200">Colours</h2>
         <div className="grid grid-cols-6 gap-3">
-          {uniqueColours.concat(Object.keys(colourMap).filter(c => !uniqueColours.includes(c)))
+          {uniqueColours
+            .concat(Object.keys(colourMap).filter(c => !uniqueColours.includes(c)))
             .slice(0, 16)
             .map((colour) => {
               const colorCode = colourMap[colour] ?? "#d1d5db"; 
