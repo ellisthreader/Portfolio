@@ -21,6 +21,9 @@ class DesignController extends Controller
             'size' => $selectedSize
         ]);
 
+        // -------------------------------
+        // LOAD PRODUCT
+        // -------------------------------
         $product = Product::with([
             'images',
             'variants.images',
@@ -34,7 +37,9 @@ class DesignController extends Controller
             'categories' => $product->categories->pluck('name')->all()
         ]);
 
-        // Build color variants
+        // -------------------------------
+        // BUILD COLOUR VARIANT STRUCTURE
+        // -------------------------------
         $product->colourProducts = collect($product->variants)
             ->groupBy('colour')
             ->map(function ($group, $colour) use ($product) {
@@ -54,37 +59,81 @@ class DesignController extends Controller
             ->values()
             ->all();
 
-        // Fetch all categories with same name
+        // -------------------------------
+        // HELPER: map product images to URLs
+        // -------------------------------
+        $mapProducts = function ($products) {
+            return $products->map(function ($p) {
+                $images = $p->images->isNotEmpty()
+                    ? $p->images->pluck('path')->map(fn($path) => asset($path))->all()
+                    : [];
+
+                return [
+                    'id'            => $p->id,
+                    'name'          => $p->name,
+                    'slug'          => $p->slug,
+                    'brand'         => $p->brand,
+                    'price'         => $p->price,
+                    'original_price'=> $p->original_price,
+                    'images'        => $images,
+                ];
+            })->values()->all();
+        };
+
+        // -----------------------------------------
+        // ADULT CATEGORIES
+        // -----------------------------------------
+        $adultCategories = Category::whereNull('age_group')
+            ->orderBy('section')
+            ->get()
+            ->map(function ($cat) use ($mapProducts) {
+                return [
+                    'id'       => $cat->id,
+                    'name'     => $cat->name,
+                    'section'  => $cat->section,
+                    'products' => $mapProducts($cat->products()->with('images')->get()),
+                ];
+            });
+
+        // -----------------------------------------
+        // KIDS CATEGORIES
+        // -----------------------------------------
+        $kidsCategories = Category::whereNotNull('age_group')
+            ->orderBy('age_group')
+            ->orderBy('section')
+            ->get()
+            ->groupBy('age_group')
+            ->map(function ($group) use ($mapProducts) {
+                return $group->map(function ($cat) use ($mapProducts) {
+                    return [
+                        'id'        => $cat->id,
+                        'name'      => $cat->name,
+                        'section'   => $cat->section,
+                        'age_group' => $cat->age_group,
+                        'products'  => $mapProducts($cat->products()->with('images')->get()),
+                    ];
+                })->values();
+            });
+
+        // -----------------------------------------
+        // PRODUCT GRID — related products
+        // -----------------------------------------
         $categoryNames = $product->categories->pluck('name')->unique();
 
-        $categories = Category::whereIn('name', $categoryNames)
-            ->with([
-                // Load real product data for the grid
-                'products' => function ($q) {
-                    $q->with('images'); // also loads first image
-                }
-            ])
-            ->orderBy('section')
+        $relatedProducts = Product::with('images')
+            ->whereHas('categories', function ($q) use ($categoryNames) {
+                $q->whereIn('name', $categoryNames);
+            })
+            ->where('id', '!=', $product->id)
             ->get();
-
-        // Organise into adult + kids
-        $adultCategories = $categories->whereNull('age_group')->values();
-        $kidsCategories = $categories
-            ->whereNotNull('age_group')
-            ->groupBy('age_group')
-            ->map(fn($group) => $group->values());
-
-        Log::info("=== Categories prepared ===", [
-            'adult_count' => $adultCategories->count(),
-            'kids_groups' => $kidsCategories->keys()->all()
-        ]);
 
         return Inertia::render('Design/Design', [
             'product'          => $product,
             'selectedColour'   => $selectedColour,
             'selectedSize'     => $selectedSize,
             'adultCategories'  => $adultCategories,
-            'kidsCategories'   => $kidsCategories
+            'kidsCategories'   => $kidsCategories,
+            'relatedProducts'  => $relatedProducts
         ]);
     }
 }

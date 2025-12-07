@@ -95,7 +95,7 @@ class ProductSeeder extends Seeder
                 'price'          => 140,
                 'original_price' => 170,
                 'is_trending'    => false,
-                'categories'     => ['men-shoes-trainers'],
+                'categories'     => ['women-shoes-trainers'],
                 'images' => [
                     'images/Trending/pegasusR1.png',
                     'images/Trending/pegasusR2.png',

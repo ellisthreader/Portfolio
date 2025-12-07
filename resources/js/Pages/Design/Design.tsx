@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Head, usePage, router } from "@inertiajs/react";
 import {
   ArrowLeft,
@@ -13,63 +13,39 @@ import {
 } from "lucide-react";
 
 import ProductEdit from "./Sidebar/ProductEdit";
-import Upload from "./Sidebar/Upload";
 import AddText from "./Sidebar/AddText";
 import Clipart from "./Sidebar/Clipart";
 import DesignImage from "./Image";
-
-// ⭐ REAL MODAL
 import ChangeProductModal from "./ChangeProduct";
 
-interface ColourProduct {
-  colour: string;
-  sizes: string[];
-  images: string[];
-}
+// ---------- UPLOAD COMPONENT ----------
+function Upload({ onUpload }: { onUpload: (url: string) => void }) {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-interface Product {
-  brand: string;
-  name: string;
-  slug: string;
-  price: number | string;
-  original_price?: number | string | null;
-  description?: string;
-  images: string[];
-  sizes?: string[];
-  colourProducts?: ColourProduct[];
-  variants?: any[];
-}
-
-interface DesignProps {
-  product: Product;
-  selectedColour?: string;
-  selectedSize?: string;
-}
-
-type Variant = {
-  id?: number | string;
-  colour: string;
-  size?: string;
-  images?: Array<string | { path?: string; url?: string }>;
-};
-
-// ---------- SORT IMAGES ----------
-const sortImagesByName = (images: string[]) => {
-  const weight = (img: string) => {
-    const lower = img.toLowerCase();
-    if (lower.includes("front")) return 0;
-    if (lower.includes("back")) return 1;
-    if (lower.includes("right") || lower.includes("rsleeve") || lower.includes("rs")) return 2;
-    if (lower.includes("left") || lower.includes("lsleeve") || lower.includes("ls")) return 3;
-    return 4;
+    const url = URL.createObjectURL(file);
+    onUpload(url);
   };
-  return [...images].sort((a, b) => weight(a) - weight(b));
-};
 
+  return (
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-3">Upload Images</h2>
+      <p className="text-gray-600 mb-4">Upload your own images to add to the canvas.</p>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="w-full bg-white p-2 rounded border border-gray-300"
+      />
+    </div>
+  );
+}
+
+// ---------- MAIN DESIGN COMPONENT ----------
 export default function Design() {
   const { props } = usePage();
-  const { product, selectedColour: propColour, selectedSize: propSize } =
-    props as DesignProps;
+  const { product, selectedColour: propColour, selectedSize: propSize } = props;
 
   const safeProduct = product ?? {
     name: "Unknown",
@@ -78,129 +54,85 @@ export default function Design() {
     images: [],
     sizes: [],
     colourProducts: [],
+    categories: [],
   };
 
   const safeName = safeProduct.name ?? "Unknown";
 
-  // -------------------------
-  // MODAL MANAGEMENT
-  // -------------------------
   const [isChangeProductModalOpen, setIsChangeProductModalOpen] = useState(false);
-
   const handleOpenChangeProductModal = () => setIsChangeProductModalOpen(true);
   const handleCloseChangeProductModal = () => setIsChangeProductModalOpen(false);
 
-  // ---------- GROUP VARIANTS ----------
-  const variantsByColour: Record<string, Variant[]> = useMemo(() => {
-    const grouped: Record<string, Variant[]> = {};
+  const currentCategory = safeProduct.categories?.[0] ?? null;
 
+  const variantsByColour: Record<string, any[]> = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
     if (Array.isArray(safeProduct?.colourProducts) && safeProduct.colourProducts.length > 0) {
       safeProduct.colourProducts.forEach((cp) => {
         const colour = cp.colour;
         const sizes = cp.sizes ?? [];
         const images = cp.images ?? safeProduct.images ?? [];
-
         if (!grouped[colour]) grouped[colour] = [];
-
-        if (sizes.length) {
-          sizes.forEach((s) => grouped[colour].push({ colour, size: s, images }));
-        } else {
-          grouped[colour].push({ colour, size: undefined, images });
-        }
+        if (sizes.length) sizes.forEach((s) => grouped[colour].push({ colour, size: s, images }));
+        else grouped[colour].push({ colour, size: undefined, images });
       });
     } else {
-      (safeProduct?.variants ?? []).forEach((v: Variant) => {
+      (safeProduct?.variants ?? []).forEach((v: any) => {
         const colour = v.colour ?? "Unknown";
         if (!grouped[colour]) grouped[colour] = [];
         grouped[colour].push({ ...v, images: v.images ?? [] });
       });
     }
-
     return grouped;
   }, [safeProduct]);
 
   const uniqueColours = Object.keys(variantsByColour);
 
-  // ---------- NORMALIZE IMAGES ----------
   const normalizeImages = (
     images: Array<string | { path?: string; url?: string }> | undefined
   ): string[] => {
     if (!images) return [];
-    return images.map((img) =>
-      typeof img === "string"
-        ? img
-        : img.url ?? img.path ?? ""
-    );
+    return images.map((img) => (typeof img === "string" ? img : img.url ?? img.path ?? ""));
   };
 
-  // ---------- STATE ----------
   const [selectedColour, setSelectedColour] = useState<string | null>(
-    propColour && uniqueColours.includes(propColour)
-      ? propColour
-      : uniqueColours[0] ?? null
+    propColour && uniqueColours.includes(propColour) ? propColour : uniqueColours[0] ?? null
   );
   const [selectedSize, setSelectedSize] = useState<string | null>(propSize ?? null);
   const [displayImages, setDisplayImages] = useState<string[]>([]);
   const [mainImage, setMainImage] = useState<string>("");
 
+  // Uploaded images state (static position for now)
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+
   // ---------- INIT IMAGE SET ----------
   useEffect(() => {
     if (!selectedColour) return;
-
-    const sizesForColour = variantsByColour[selectedColour]
-      .map((v) => v.size)
-      .filter(Boolean);
-
-    if (!selectedSize) setSelectedSize(sizesForColour[0] ?? null);
-
     const variant =
       variantsByColour[selectedColour].find((v) => v.size === selectedSize) ??
       variantsByColour[selectedColour][0];
 
-    const sorted = sortImagesByName(normalizeImages(variant?.images ?? []));
+    const sorted = normalizeImages(variant?.images ?? []);
     setDisplayImages(sorted);
     setMainImage(sorted[0] ?? "");
   }, [selectedColour, selectedSize, variantsByColour]);
 
-  // ---------- COLOUR CHANGE ----------
-  const handleColourChange = (colour: string) => {
-    setSelectedColour(colour);
+  // ---------- UPDATE CANVAS SIZE ----------
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const { width, height } = canvasRef.current.getBoundingClientRect();
+    setCanvasSize({ width, height });
+  }, [canvasRef.current]);
 
-    const sizesForColour = variantsByColour[colour]
-      .map((v) => v.size)
-      .filter(Boolean);
-
-    const sizeToUse = sizesForColour.includes(selectedSize ?? "")
-      ? selectedSize
-      : sizesForColour[0] ?? null;
-
-    setSelectedSize(sizeToUse);
-
-    const variant =
-      variantsByColour[colour].find((v) => v.size === sizeToUse) ??
-      variantsByColour[colour][0];
-
-    const sorted = sortImagesByName(normalizeImages(variant?.images ?? []));
-    setDisplayImages(sorted);
-    setMainImage(sorted[0] ?? "");
+  // ---------- UPLOAD HANDLER ----------
+  const handleUpload = (url: string) => {
+    setUploadedImages((prev) => [...prev, url]);
   };
 
-  // ---------- SIZE CHANGE ----------
-  const handleSizeChange = (size: string) => {
-    setSelectedSize(size);
-
-    const variant =
-      variantsByColour[selectedColour!].find((v) => v.size === size) ??
-      variantsByColour[selectedColour!][0];
-
-    const sorted = sortImagesByName(normalizeImages(variant?.images ?? []));
-    setDisplayImages(sorted);
-    setMainImage(sorted[0] ?? "");
-  };
-
-  // ---------- SIDEBAR TABS ----------
   const [activeTab, setActiveTab] = useState<string>("product");
-
   const renderActiveTab = () => {
     switch (activeTab) {
       case "product":
@@ -209,13 +141,13 @@ export default function Design() {
             product={safeProduct}
             selectedColour={selectedColour}
             selectedSize={selectedSize}
-            onColourChange={handleColourChange}
-            onSizeChange={handleSizeChange}
+            onColourChange={setSelectedColour}
+            onSizeChange={setSelectedSize}
             onOpenChangeProductModal={handleOpenChangeProductModal}
           />
         );
       case "upload":
-        return <Upload />;
+        return <Upload onUpload={handleUpload} />;
       case "text":
         return <AddText />;
       case "clipart":
@@ -229,29 +161,15 @@ export default function Design() {
   const handleGoForward = () => alert("Next step coming soon");
   const handleClose = () => router.back();
 
-  // ---------- RENDER ----------
   return (
     <div className="min-h-screen bg-gray-200 dark:bg-gray-900 relative">
-
       <Head title="Start Designing" />
 
-      {/* ------------------------------ */}
-      {/* ⭐ MODAL (always above everything) */}
-      {/* ------------------------------ */}
       {isChangeProductModalOpen && (
-        <ChangeProductModal onClose={handleCloseChangeProductModal} />
+        <ChangeProductModal onClose={handleCloseChangeProductModal} currentCategory={currentCategory} />
       )}
 
-      {/* ------------------------------ */}
-      {/* ⭐ BLUR EVERYTHING WHEN MODAL IS OPEN */}
-      {/* ------------------------------ */}
-      <div
-        className={`
-          transition-all duration-300
-          ${isChangeProductModalOpen ? "blur-lg scale-[0.98] opacity-40" : ""}
-        `}
-      >
-
+      <div className={isChangeProductModalOpen ? "blur-lg scale-[0.98] opacity-40 transition-all duration-300" : ""}>
         {/* NAVBAR */}
         <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 h-16 z-40 shadow-sm">
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{safeName}</div>
@@ -268,9 +186,7 @@ export default function Design() {
           </div>
         </div>
 
-        {/* MAIN CONTENT */}
         <div className="pt-[96px] flex min-h-screen">
-
           {/* LEFT SIDEBAR */}
           <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border border-gray-700 rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
             {[
@@ -297,15 +213,44 @@ export default function Design() {
           </div>
 
           {/* DESIGN CANVAS */}
-          <div className="flex-1 mt-4 mb-6 mr-6 h-[calc(100vh-160px)] bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+          <div
+            ref={canvasRef}
+            className="flex-1 mt-4 mb-6 mr-6 h-[calc(100vh-160px)] bg-gray-200 dark:bg-gray-800 flex items-center justify-center relative overflow-hidden"
+          >
+            {/* Main product image */}
             <DesignImage
               productImage={mainImage}
               safeName={safeName}
               productImages={displayImages}
               onSelectImage={setMainImage}
             />
-          </div>
 
+            {/* Small restricted box */}
+            {canvasSize.width > 0 && (
+              <div
+                className="absolute border-2 border-dashed border-blue-500 pointer-events-none"
+                style={{
+                  left: canvasSize.width * 0.37,
+                  top: canvasSize.height * 0.15,
+                  width: canvasSize.width * 0.25,
+                  height: canvasSize.height * 0.6,
+                }}
+              />
+            )}
+
+            {/* Uploaded images (static) */}
+            {uploadedImages.map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt={`Uploaded ${i}`}
+                className="absolute top-0 left-0 max-w-[200px] max-h-[200px] object-contain"
+                style={{
+                  transform: `translate(${canvasSize.width * 0.45 + 5}px, ${canvasSize.height * 0.45 + 5}px)`,
+                }}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
