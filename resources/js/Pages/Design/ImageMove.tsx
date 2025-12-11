@@ -1,110 +1,263 @@
-="use client";
+"use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 
-interface ImageMoveProps {
-  uploadedImages: string[];
-  mainImage: string;
-  setMainImage: (url: string) => void;
-  productImages: string[];
-  safeName: string;
-}
-
-interface PositionedImage {
+interface ImageData {
   url: string;
   x: number;
   y: number;
+  ref: React.RefObject<HTMLImageElement>;
 }
 
-export default function ImageMove({ uploadedImages, mainImage, setMainImage, productImages, safeName }: ImageMoveProps) {
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-  const [positionedImages, setPositionedImages] = useState<PositionedImage[]>([]);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+export default function ImageMove() {
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    const { width, height } = canvasRef.current.getBoundingClientRect();
-    setCanvasSize({ width, height });
+  const [images, setImages] = useState<ImageData[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
 
-    setPositionedImages(uploadedImages.map((url) => ({
-      url,
-      x: width * 0.37 + 10,
-      y: height * 0.15 + 10,
-    })));
-  }, [uploadedImages]);
+  const [marquee, setMarquee] = useState<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  }>({
+    active: false,
+    startX: 0,
+    startY: 0,
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+  });
 
-  const handleMouseDown = (index: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedImageIndex(index);
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startPos = { x: positionedImages[index].x, y: positionedImages[index].y };
+  const [draggingSelected, setDraggingSelected] = useState(false);
+  const [dragOffset, setDragOffset] = useState<{ [url: string]: { x: number; y: number } }>({});
 
-    const restrictedBox = {
-      x: canvasSize.width * 0.37,
-      y: canvasSize.height * 0.15,
-      width: canvasSize.width * 0.25,
-      height: canvasSize.height * 0.6,
-    };
+  // ---------------------------------------------------------
+  // Upload Handler
+  // ---------------------------------------------------------
+  function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      setPositionedImages((prev) => {
-        const copy = [...prev];
-        const img = copy[index];
+    const newImages: ImageData[] = [];
 
-        let newX = startPos.x + (moveEvent.clientX - startX);
-        let newY = startPos.y + (moveEvent.clientY - startY);
-
-        // Restrict inside box
-        newX = Math.min(Math.max(newX, restrictedBox.x), restrictedBox.x + restrictedBox.width - 50);
-        newY = Math.min(Math.max(newY, restrictedBox.y), restrictedBox.y + restrictedBox.height - 50);
-
-        copy[index] = { ...img, x: newX, y: newY };
-        return copy;
+    for (const file of files) {
+      const url = URL.createObjectURL(file);
+      newImages.push({
+        url,
+        x: 50,
+        y: 50,
+        ref: React.createRef<HTMLImageElement>(),
       });
-    };
+    }
 
-    const handleMouseUp = () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
+    setImages((prev) => [...prev, ...newImages]);
+  }
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  };
+  // ---------------------------------------------------------
+  // Mouse Down
+  // ---------------------------------------------------------
+  function handleMouseDown(e: React.MouseEvent) {
+    if (e.button !== 0) return;
 
+    const rect = containerRef.current!.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const clickedUrl = getImageAtPoint(mouseX, mouseY);
+
+    if (clickedUrl) {
+      // Single-click selects image and starts drag
+      setSelected([clickedUrl]);
+      startGroupDrag(mouseX, mouseY);
+      return;
+    }
+
+    // Otherwise start marquee selection
+    setSelected([]);
+    setMarquee({
+      active: true,
+      startX: mouseX,
+      startY: mouseY,
+      x: mouseX,
+      y: mouseY,
+      w: 0,
+      h: 0,
+    });
+  }
+
+  // ---------------------------------------------------------
+  // Mouse Move
+  // ---------------------------------------------------------
+  function handleMouseMove(e: React.MouseEvent) {
+    if (marquee.active) {
+      const rect = containerRef.current!.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const x = Math.min(mouseX, marquee.startX);
+      const y = Math.min(mouseY, marquee.startY);
+      const w = Math.abs(mouseX - marquee.startX);
+      const h = Math.abs(mouseY - marquee.startY);
+
+      setMarquee({ ...marquee, x, y, w, h });
+      liveSelectWithinMarquee({ ...marquee, x, y, w, h });
+      return;
+    }
+
+    if (draggingSelected) {
+      dragSelectedImages(e);
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Mouse Up
+  // ---------------------------------------------------------
+  function handleMouseUp() {
+    if (marquee.active) {
+      setMarquee({ ...marquee, active: false });
+    }
+    setDraggingSelected(false);
+  }
+
+  // ---------------------------------------------------------
+  // Hit Detection — canvas-relative
+  // ---------------------------------------------------------
+  function getImageAtPoint(x: number, y: number): string | null {
+    for (const img of [...images].reverse()) {
+      const el = img.ref.current;
+      if (!el) continue;
+
+      const rect = el.getBoundingClientRect();
+      const canvas = containerRef.current!.getBoundingClientRect();
+
+      const left = rect.left - canvas.left;
+      const top = rect.top - canvas.top;
+      const right = left + rect.width;
+      const bottom = top + rect.height;
+
+      if (x >= left && x <= right && y >= top && y <= bottom) {
+        return img.url;
+      }
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------
+  // Live marquee selection
+  // ---------------------------------------------------------
+  function liveSelectWithinMarquee(m: typeof marquee) {
+    const newSelected: string[] = [];
+
+    for (const img of images) {
+      const el = img.ref.current;
+      if (!el) continue;
+
+      const rect = el.getBoundingClientRect();
+      const canvas = containerRef.current!.getBoundingClientRect();
+
+      const left = rect.left - canvas.left;
+      const top = rect.top - canvas.top;
+      const right = left + rect.width;
+      const bottom = top + rect.height;
+
+      const overlap =
+        left < m.x + m.w &&
+        right > m.x &&
+        top < m.y + m.h &&
+        bottom > m.y;
+
+      if (overlap) newSelected.push(img.url);
+    }
+
+    setSelected(newSelected);
+  }
+
+  // ---------------------------------------------------------
+  // Group Drag
+  // ---------------------------------------------------------
+  function startGroupDrag(mouseX: number, mouseY: number) {
+    const offsets: { [url: string]: { x: number; y: number } } = {};
+
+    for (const img of images) {
+      if (selected.includes(img.url)) {
+        offsets[img.url] = { x: img.x - mouseX, y: img.y - mouseY };
+      }
+    }
+
+    setDragOffset(offsets);
+    setDraggingSelected(true);
+  }
+
+  function dragSelectedImages(e: React.MouseEvent) {
+    const rect = containerRef.current!.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    setImages((prev) =>
+      prev.map((img) =>
+        selected.includes(img.url)
+          ? { ...img, x: mouseX + dragOffset[img.url].x, y: mouseY + dragOffset[img.url].y }
+          : img
+      )
+    );
+  }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
   return (
-    <div ref={canvasRef} className="w-full h-full relative">
-      {/* Main product image */}
-      <img src={mainImage} alt={safeName} className="max-w-full max-h-full object-contain absolute top-0 left-0" />
+    <div className="p-6">
+      <input type="file" multiple onChange={handleUpload} />
 
-      {/* Small restricted box */}
-      {canvasSize.width > 0 && (
-        <div
-          className="absolute border-2 border-dashed border-blue-500 pointer-events-none"
-          style={{
-            left: canvasSize.width * 0.37,
-            top: canvasSize.height * 0.15,
-            width: canvasSize.width * 0.25,
-            height: canvasSize.height * 0.6,
-          }}
-        />
-      )}
+      <div
+        ref={containerRef}
+        className="relative w-full h-[700px] border bg-white overflow-hidden mt-4"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      >
+        {images.map((img) => {
+          const isSelected = selected.includes(img.url);
+          return (
+            <img
+              key={img.url}
+              ref={img.ref}
+              src={img.url}
+              data-type="img" // important for marquee logic
+              className={`absolute object-contain cursor-move transition-all ${
+                isSelected ? "border-2 border--500 scale-105" : ""
+              }`}
+              style={{
+                left: img.x,
+                top: img.y,
+                width: 150,
+                height: 150,
+                zIndex: isSelected ? 200 : 50,
+                boxShadow: isSelected ? "0 8px 20px rgba(0,0,0,0.12)" : undefined,
+              }}
+              draggable={false}
+            />
+          );
+        })}
 
-      {/* Uploaded images overlay */}
-      {positionedImages.map((img, i) => (
-        <img
-          key={i}
-          src={img.url}
-          alt={`Uploaded ${i}`}
-          onMouseDown={(e) => handleMouseDown(i, e)}
-          className={`absolute top-0 left-0 max-w-[200px] max-h-[200px] object-contain cursor-move ${
-            selectedImageIndex === i ? "border-2 border-white" : ""
-          }`}
-          style={{ transform: `translate(${img.x}px, ${img.y}px)` }}
-        />
-      ))}
+        {/* MARQUEE BOX */}
+        {marquee.active && (
+          <div
+            className="absolute border-2 border-blue-400 bg-blue-400/10 pointer-events-none"
+            style={{
+              left: marquee.x,
+              top: marquee.y,
+              width: marquee.w,
+              height: marquee.h,
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

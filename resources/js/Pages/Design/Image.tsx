@@ -24,15 +24,15 @@ export default function DesignImage({
         <img
           src={productImage}
           alt={safeName}
-          className="object-contain w-full h-full"
+          className="object-contain w-full h-full pointer-events-none"
         />
       ) : (
         <span className="text-gray-500">No product image available</span>
       )}
 
-      {/* Right-side vertical rectangle with additional product images */}
+      {/* Right-side thumbnails */}
       {productImages.length > 0 && (
-        <div className="absolute top-4 right-4 bg-white shadow-2xl rounded-xl p-3 flex flex-col gap-3 max-h-[65%] overflow-y-auto items-center border border-gray-200">
+        <div className="absolute top-4 right-4 bg-white shadow rounded-xl p-3 flex flex-col gap-3 max-h-[65%] overflow-y-auto items-center border border-gray-200">
           {productImages.slice(0, 4).map((img, index) => {
             const isSelected = productImage === img;
             return (
@@ -42,9 +42,9 @@ export default function DesignImage({
                     console.log("📸 Thumbnail clicked:", img, "Selected?", isSelected);
                     onSelectImage?.(img);
                   }}
-                  className={`transition-all duration-300 rounded-lg border
+                  className={`transition-all duration-200 rounded-lg border
                     ${isSelected
-                      ? "border-blue-500 scale-110 shadow-xl"
+                      ? "border-blue-500 scale-110 shadow-lg"
                       : "border-gray-300 hover:border-blue-400 hover:scale-105 shadow-sm"}
                   `}
                 >
