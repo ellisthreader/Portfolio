@@ -36,12 +36,10 @@ export default function Design() {
   };
 
   const safeName = safeProduct.name ?? "Unknown";
-  const [isChangeProductModalOpen, setIsChangeProductModalOpen] =
-    useState(false);
-
+  const [isChangeProductModalOpen, setIsChangeProductModalOpen] = useState(false);
   const currentCategory = safeProduct.categories?.[0] ?? null;
 
-  // prevent browser default selection/drag highlighting
+  // Prevent selection/drag
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener("selectstart", prevent);
@@ -52,7 +50,7 @@ export default function Design() {
     };
   }, []);
 
-  // PRODUCT VARIANTS
+  // ---------------------- PRODUCT VARIANTS ----------------------
   const variantsByColour = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     if (Array.isArray(safeProduct.colourProducts)) {
@@ -62,9 +60,7 @@ export default function Design() {
         const images = cp.images ?? safeProduct.images ?? [];
         if (!grouped[colour]) grouped[colour] = [];
         if (sizes.length) {
-          sizes.forEach((s) =>
-            grouped[colour].push({ colour, size: s, images })
-          );
+          sizes.forEach((s) => grouped[colour].push({ colour, size: s, images }));
         } else {
           grouped[colour].push({ colour, size: undefined, images });
         }
@@ -76,34 +72,24 @@ export default function Design() {
   const uniqueColours = Object.keys(variantsByColour);
 
   const normalizeImages = (images: any[]) =>
-    (images ?? []).map((img) =>
-      typeof img === "string" ? img : img.url ?? img.path ?? ""
-    );
+    (images ?? []).map((img) => (typeof img === "string" ? img : img.url ?? img.path ?? ""));
 
   const [selectedColour, setSelectedColour] = useState(
-    propColour && uniqueColours.includes(propColour)
-      ? propColour
-      : uniqueColours[0] ?? null
+    propColour && uniqueColours.includes(propColour) ? propColour : uniqueColours[0] ?? null
   );
-
   const [selectedSize, setSelectedSize] = useState(propSize ?? null);
 
   const [displayImages, setDisplayImages] = useState<string[]>([]);
   const [mainImage, setMainImage] = useState("");
-
-  // canonical uploaded images (parent-controlled)
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const canvasRef = useRef<HTMLDivElement | null>(null);
-
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
-  // IMAGE STATE (rotation, flip, size)
-  const [imageState, setImageState] = useState<Record<
-    string,
-    { rotation: number; flip: "none" | "horizontal"; size: { w: number; h: number } }
-  >>({});
+  // ---------------------- IMAGE STATE (single source of truth) ----------------------
+  type ImgState = { rotation: number; flip: "none" | "horizontal" | "vertical"; size: { w: number; h: number } };
+  const [imageState, setImageState] = useState<Record<string, ImgState>>({});
 
-  // update main product image
+  // Update main product image & display images when colour/size changes
   useEffect(() => {
     if (!selectedColour) return;
     const variant =
@@ -114,7 +100,7 @@ export default function Design() {
     setMainImage(sorted[0] ?? "");
   }, [selectedColour, selectedSize, variantsByColour]);
 
-  // track canvas size
+  // Track canvas size for restricted area
   useEffect(() => {
     if (!canvasRef.current) return;
     const updateSize = () => {
@@ -126,22 +112,17 @@ export default function Design() {
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // upload handler (parent adds canonical uploaded images)
-  const handleUpload = (url: string) =>
-    setUploadedImages((prev) => [...prev, url]);
+  // ---------------------- UPLOAD HANDLERS ----------------------
+  const handleUpload = (url: string) => setUploadedImages((prev) => [...prev, url]);
 
   const [activeTab, setActiveTab] = useState("product");
-
-  // selected uploaded image (for sidebar)
-  const [selectedUploadedImage, setSelectedUploadedImage] =
-    useState<string | null>(null);
+  const [selectedUploadedImage, setSelectedUploadedImage] = useState<string | null>(null);
 
   const handleUploadedImageSelect = (url: string | null) => {
     setSelectedUploadedImage(url);
     if (url) setActiveTab("upload");
   };
 
-  // restricted box
   const restrictedBox = {
     left: canvasSize.width * 0.367,
     top: canvasSize.height * 0.1,
@@ -149,7 +130,7 @@ export default function Design() {
     height: canvasSize.height * 0.65,
   };
 
-  // --- Handlers for rotate, flip, resize ---
+  // ---------------------- IMAGE MANIPULATION (update shared imageState) ----------------------
   const handleRotateImage = (url: string, angle: number) => {
     setImageState((prev) => ({
       ...prev,
@@ -160,14 +141,26 @@ export default function Design() {
     }));
   };
 
-  const handleFlipImage = (url: string) => {
-    setImageState((prev) => ({
-      ...prev,
-      [url]: {
-        ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }),
-        flip: prev[url]?.flip === "horizontal" ? "none" : "horizontal",
-      },
-    }));
+  // Toggle behaviour kept: clicking same axis toggles between axis and "none"
+  const handleFlipImage = (url: string, axis: "horizontal" | "vertical") => {
+    setImageState((prev) => {
+      const currentFlip = prev[url]?.flip ?? "none";
+
+      let nextFlip: "none" | "horizontal" | "vertical";
+      if (axis === "horizontal") {
+        nextFlip = currentFlip === "horizontal" ? "none" : "horizontal";
+      } else {
+        nextFlip = currentFlip === "vertical" ? "none" : "vertical";
+      }
+
+      return {
+        ...prev,
+        [url]: {
+          ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }),
+          flip: nextFlip,
+        },
+      };
+    });
   };
 
   const handleUpdateImageSize = (url: string, w: number, h: number) => {
@@ -180,7 +173,6 @@ export default function Design() {
     }));
   };
 
-  // remove / duplicate
   const handleRemoveUploadedImage = (url: string) => {
     setUploadedImages((prev) => prev.filter((u) => u !== url));
     setImageState((prev) => {
@@ -202,7 +194,7 @@ export default function Design() {
     setActiveTab("upload");
   };
 
-  // sidebar content renderer
+  // ---------------------- SIDEBAR RENDERER ----------------------
   const renderActiveTab = () => {
     switch (activeTab) {
       case "product":
@@ -216,7 +208,6 @@ export default function Design() {
             onOpenChangeProductModal={() => setIsChangeProductModalOpen(true)}
           />
         );
-
       case "upload":
         return (
           <UploadSidebar
@@ -232,12 +223,12 @@ export default function Design() {
             imageState={imageState}
           />
         );
-
       case "text":
         return <AddText />;
-
       case "clipart":
         return <Clipart />;
+      default:
+        return null;
     }
   };
 
@@ -256,26 +247,14 @@ export default function Design() {
         {/* NAV */}
         <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b flex items-center justify-between px-6 h-16 z-40 shadow-sm">
           <div className="text-xl font-bold">{safeName}</div>
-
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full hover:bg-gray-100"
-            >
+            <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-gray-100">
               <ArrowLeft size={24} />
             </button>
-
-            <button
-              onClick={() => alert("Next step coming soon")}
-              className="p-2 rounded-full hover:bg-gray-100"
-            >
+            <button onClick={() => alert("Next step coming soon")} className="p-2 rounded-full hover:bg-gray-100">
               <ArrowRight size={24} />
             </button>
-
-            <button
-              onClick={() => router.back()}
-              className="p-2 rounded-full hover:bg-red-100"
-            >
+            <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-red-100">
               <X size={28} className="text-red-600" />
             </button>
           </div>
@@ -295,9 +274,7 @@ export default function Design() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full h-16 flex flex-col items-center justify-center rounded-xl transition ${
-                  activeTab === tab.id
-                    ? "bg-neutral-600"
-                    : "bg-neutral-700 hover:bg-neutral-600"
+                  activeTab === tab.id ? "bg-neutral-600" : "bg-neutral-700 hover:bg-neutral-600"
                 }`}
               >
                 {React.cloneElement(tab.icon, { className: "text-white" })}
@@ -324,6 +301,7 @@ export default function Design() {
             onRemoveUploadedImage={handleRemoveUploadedImage}
             onDuplicateUploadedImage={handleDuplicateUploadedImage}
             imageState={imageState}
+            setImageState={setImageState} // <-- Pass setter so Canvas can update flips, rotation, size immutably
           />
         </div>
       </div>

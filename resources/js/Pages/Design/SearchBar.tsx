@@ -10,6 +10,7 @@ interface Category {
   section: string;
   subsection?: string;
   age_group?: string | null;
+  label: string; // ✅ NEW unified label from backend
   products?: any[];
 }
 
@@ -33,7 +34,7 @@ export default function SearchBar({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Load recent searches from localStorage
+  // Load recent searches
   useEffect(() => {
     const saved = localStorage.getItem(RECENT_SEARCHES_KEY);
     if (saved) {
@@ -45,7 +46,7 @@ export default function SearchBar({
     }
   }, []);
 
-  // Fetch categories when query changes
+  // Fetch categories from backend
   useEffect(() => {
     const fetchCategories = async () => {
       if (query === "") {
@@ -71,7 +72,7 @@ export default function SearchBar({
     fetchCategories();
   }, [query, recentSearches]);
 
-  // Close dropdown when clicking outside input or dropdown
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClick = (ev: MouseEvent) => {
       if (
@@ -91,15 +92,18 @@ export default function SearchBar({
     setQuery("");
     setShowDropdown(false);
 
-    // Save to recent searches
-    const updatedRecent = [category, ...recentSearches.filter(c => c.id !== category.id)].slice(0, MAX_RECENT);
+    const updatedRecent = [
+      category,
+      ...recentSearches.filter((c) => c.id !== category.id),
+    ].slice(0, MAX_RECENT);
+
     setRecentSearches(updatedRecent);
     localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updatedRecent));
   };
 
   const handleDeleteRecent = (ev: React.MouseEvent, id: number | string) => {
-    ev.stopPropagation(); // ✅ prevent dropdown from closing
-    const updatedRecent = recentSearches.filter(c => c.id !== id);
+    ev.stopPropagation();
+    const updatedRecent = recentSearches.filter((c) => c.id !== id);
     setRecentSearches(updatedRecent);
     localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updatedRecent));
     setShowDropdown(updatedRecent.length > 0);
@@ -140,8 +144,8 @@ export default function SearchBar({
           )}
 
           {results.map((cat) => {
-            const label = cat.age_group ? `${cat.age_group} - ${cat.section}` : cat.section;
-            const isRecent = query === "" && recentSearches.some(r => r.id === cat.id);
+            const isRecent =
+              query === "" && recentSearches.some((r) => r.id === cat.id);
 
             return (
               <div
@@ -152,22 +156,18 @@ export default function SearchBar({
                   onClick={() => handleSelect(cat)}
                   className="flex-1 text-left flex flex-col gap-1"
                 >
+                  {/* Name */}
                   <div className="font-semibold text-gray-900 dark:text-white text-base">
                     {cat.name}
                   </div>
 
+                  {/* Category label (age_group / section / subsection / name) */}
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {label}
+                    {cat.label}
                   </div>
-
-                  {cat.subsection && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {cat.subsection}
-                    </div>
-                  )}
                 </button>
 
-                {/* Trash icon only for recent searches */}
+                {/* Trash icon for recent items */}
                 {isRecent && (
                   <button
                     onClick={(ev) => handleDeleteRecent(ev, cat.id)}

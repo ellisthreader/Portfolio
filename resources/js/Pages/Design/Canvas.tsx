@@ -1,23 +1,28 @@
+// Canvas.tsx
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
 import SelectionBox from "./SelectionBox";
 
+type ImgState = {
+  rotation: number;
+  flip: "none" | "horizontal" | "vertical";
+  size: { w: number; h: number };
+};
+
 type CanvasProps = {
   mainImage: string;
   displayImages: string[];
   uploadedImages: string[];
-  onSelectImage: (img: string) => void;
+  onSelectImage: (img: string | null) => void;
   restrictedBox: { left: number; top: number; width: number; height: number };
   canvasRef: React.RefObject<HTMLDivElement>;
   onUploadedImageSelect: (img: string | null) => void;
   selectedImage?: string | null;
   onRemoveUploadedImage?: (url: string) => void;
   onDuplicateUploadedImage?: (url: string) => void;
-  imageState?: Record<
-    string,
-    { rotation: number; flip: "none" | "horizontal"; size: { w: number; h: number } }
-  >;
+  imageState?: Record<string, ImgState>;
+  setImageState?: React.Dispatch<React.SetStateAction<Record<string, ImgState>>>;
 };
 
 function DraggableImage({
@@ -35,10 +40,13 @@ function DraggableImage({
   pos: { x: number; y: number };
   size: { w: number; h: number };
   rotation?: number;
-  flip?: "none" | "horizontal";
+  flip?: "none" | "horizontal" | "vertical";
   highlighted: boolean;
   onPointerDown: (e: React.MouseEvent, uid: string) => void;
 }) {
+  const scaleX = flip === "horizontal" ? -1 : 1;
+  const scaleY = flip === "vertical" ? -1 : 1;
+
   return (
     <img
       src={url}
@@ -53,8 +61,10 @@ function DraggableImage({
         top: pos.y,
         zIndex: highlighted ? 150 : 50,
         boxShadow: highlighted ? "0 8px 20px rgba(0,0,0,0.12)" : undefined,
-        transform: `${flip === "horizontal" ? "scaleX(-1)" : ""} rotate(${rotation}deg)`,
+        transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})`,
         transformOrigin: "center center",
+        userSelect: "none",
+        pointerEvents: "auto",
       }}
       onMouseDown={(e) => onPointerDown(e, uid)}
       draggable={false}
@@ -73,6 +83,7 @@ export default function Canvas({
   onRemoveUploadedImage,
   onDuplicateUploadedImage,
   imageState = {},
+  setImageState,
 }: CanvasProps) {
   const [localUploads, setLocalUploads] = useState<string[]>([]);
   const [removedSet, setRemovedSet] = useState<Record<string, boolean>>({});
@@ -133,7 +144,9 @@ export default function Canvas({
         }
       });
       return next;
+      // intentionally do NOT include `sizes` in deps to avoid jitter; sizes updates will re-run this via other effects
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allUploaded.join(","), restrictedBox.left, restrictedBox.top, restrictedBox.width, restrictedBox.height, imageState]);
 
   // ---------------------- Dragging ----------------------
@@ -144,7 +157,7 @@ export default function Canvas({
 
     const newSelected = selectedUids.includes(uid) ? selectedUids : [uid];
     setSelectedUids(newSelected);
-    onUploadedImageSelect(newSelected[0]);
+    onUploadedImageSelect(newSelected[0] ?? null);
 
     const startPositions: Record<string, { x: number; y: number }> = {};
     newSelected.forEach((u) => {
@@ -277,7 +290,7 @@ export default function Canvas({
           delete next[uid];
           return next;
         });
-      } else if (typeof onRemoveUploadedImage === "function") {
+      } else if (onRemoveUploadedImage) {
         onRemoveUploadedImage(uid);
       } else {
         setRemovedSet((prev) => ({ ...prev, [uid]: true }));
@@ -290,7 +303,7 @@ export default function Canvas({
   const handleDuplicateMultiple = (uids: string[]) => {
     const newSelected: string[] = [];
     uids.forEach((uid) => {
-      if (typeof onDuplicateUploadedImage === "function") {
+      if (onDuplicateUploadedImage) {
         onDuplicateUploadedImage(uid);
       } else {
         const dupUid = `${uid}#dup-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -312,10 +325,13 @@ export default function Canvas({
     }
   };
 
-  // ---------------------- Group Resize ----------------------
+  // ---------------------- Group Resize helpers ----------------------
   const computeBoundingBoxFor = (uids: string[]) => {
     if (uids.length === 0) return null;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     uids.forEach((u) => {
       const p = positions[u];
       const s = sizes[u];
@@ -343,7 +359,8 @@ export default function Canvas({
     const move = (ev: MouseEvent) => {
       let dx = ev.clientX - startClientX;
 
-      let minScale = -Infinity, maxScale = Infinity;
+      let minScale = -Infinity,
+        maxScale = Infinity;
       selectedUids.forEach((u) => {
         const s0 = startSizes[u];
         const p0 = startPositions[u];
@@ -396,6 +413,23 @@ export default function Canvas({
     return { cancel: up };
   };
 
+  // ---------------------- Flip Helpers ----------------------
+  const flipSelected = (axis: "horizontal" | "vertical") => {
+    if (!setImageState) {
+      console.warn("setImageState not provided — can't flip");
+      return;
+    }
+    console.log("flipSelected", axis, selectedUids);
+    setImageState((prev) => {
+      const next = { ...prev };
+      selectedUids.forEach((uid) => {
+        const current = next[uid] ?? { rotation: 0, flip: "none", size: sizes[uid] ?? { w: 150, h: 150 } };
+        next[uid] = { ...current, flip: axis };
+      });
+      return next;
+    });
+  };
+
   // ---------------------- Render ----------------------
   return (
     <div
@@ -434,6 +468,7 @@ export default function Canvas({
         onDuplicate={() => handleDuplicateMultiple(selectedUids)}
         onResize={(uid, newSize) => setSizes((prev) => ({ ...prev, [uid]: { w: newSize, h: newSize } }))}
         onStartGroupResize={(startClientX: number) => handleSelectionResizeStart(startClientX)}
+        onFlip={(axis: "horizontal" | "vertical") => flipSelected(axis)}
       />
 
       {/* Marquee */}
