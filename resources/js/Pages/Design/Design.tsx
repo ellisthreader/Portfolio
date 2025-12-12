@@ -15,10 +15,8 @@ import {
 import ProductEdit from "./Sidebar/ProductEdit";
 import AddText from "./Sidebar/AddText";
 import Clipart from "./Sidebar/Clipart";
-import UploadSidebar from "./Sidebar/Upload";
+import UploadSidebar from "./Sidebar/UploadSideBar/Upload";
 import ChangeProductModal from "./ChangeProduct";
-
-// Core design canvas
 import Canvas from "./Canvas";
 
 export default function Design() {
@@ -39,7 +37,7 @@ export default function Design() {
   const [isChangeProductModalOpen, setIsChangeProductModalOpen] = useState(false);
   const currentCategory = safeProduct.categories?.[0] ?? null;
 
-  // Prevent selection/drag
+  // Prevent selection/drag on page
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener("selectstart", prevent);
@@ -85,11 +83,11 @@ export default function Design() {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
-  // ---------------------- IMAGE STATE (single source of truth) ----------------------
+  // ---------------------- IMAGE STATE ----------------------
   type ImgState = { rotation: number; flip: "none" | "horizontal" | "vertical"; size: { w: number; h: number } };
   const [imageState, setImageState] = useState<Record<string, ImgState>>({});
 
-  // Update main product image & display images when colour/size changes
+  // ---------------------- UPDATE DISPLAY IMAGES ----------------------
   useEffect(() => {
     if (!selectedColour) return;
     const variant =
@@ -100,7 +98,7 @@ export default function Design() {
     setMainImage(sorted[0] ?? "");
   }, [selectedColour, selectedSize, variantsByColour]);
 
-  // Track canvas size for restricted area
+  // Track canvas size
   useEffect(() => {
     if (!canvasRef.current) return;
     const updateSize = () => {
@@ -114,7 +112,6 @@ export default function Design() {
 
   // ---------------------- UPLOAD HANDLERS ----------------------
   const handleUpload = (url: string) => setUploadedImages((prev) => [...prev, url]);
-
   const [activeTab, setActiveTab] = useState("product");
   const [selectedUploadedImage, setSelectedUploadedImage] = useState<string | null>(null);
 
@@ -130,7 +127,7 @@ export default function Design() {
     height: canvasSize.height * 0.65,
   };
 
-  // ---------------------- IMAGE MANIPULATION (update shared imageState) ----------------------
+  // ---------------------- IMAGE MANIPULATION ----------------------
   const handleRotateImage = (url: string, angle: number) => {
     setImageState((prev) => ({
       ...prev,
@@ -141,18 +138,11 @@ export default function Design() {
     }));
   };
 
-  // Toggle behaviour kept: clicking same axis toggles between axis and "none"
   const handleFlipImage = (url: string, axis: "horizontal" | "vertical") => {
     setImageState((prev) => {
       const currentFlip = prev[url]?.flip ?? "none";
-
-      let nextFlip: "none" | "horizontal" | "vertical";
-      if (axis === "horizontal") {
-        nextFlip = currentFlip === "horizontal" ? "none" : "horizontal";
-      } else {
-        nextFlip = currentFlip === "vertical" ? "none" : "vertical";
-      }
-
+      const nextFlip =
+        axis === "horizontal" ? (currentFlip === "horizontal" ? "none" : "horizontal") : currentFlip === "vertical" ? "none" : "vertical";
       return {
         ...prev,
         [url]: {
@@ -301,7 +291,7 @@ export default function Design() {
             onRemoveUploadedImage={handleRemoveUploadedImage}
             onDuplicateUploadedImage={handleDuplicateUploadedImage}
             imageState={imageState}
-            setImageState={setImageState} // <-- Pass setter so Canvas can update flips, rotation, size immutably
+            setImageState={setImageState}
           />
         </div>
       </div>
