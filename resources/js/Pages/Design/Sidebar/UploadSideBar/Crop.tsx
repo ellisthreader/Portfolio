@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 
 type CropProps = {
   selectedImage: string;
@@ -15,7 +16,24 @@ type CropBox = {
   height: number;
 };
 
-export default function Crop({ selectedImage, onReplaceCanvasImage, onClose }: CropProps) {
+/* ---------- Checkerboard background ---------- */
+const checkerboardStyle: React.CSSProperties = {
+  backgroundColor: "#d6d6d6",
+  backgroundImage: `
+    linear-gradient(45deg, #ececec 25%, transparent 25%),
+    linear-gradient(-45deg, #ececec 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ececec 75%),
+    linear-gradient(-45deg, transparent 75%, #ececec 75%)
+  `,
+  backgroundSize: "16px 16px",
+  backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
+};
+
+export default function Crop({
+  selectedImage,
+  onReplaceCanvasImage,
+  onClose,
+}: CropProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const cropRef = useRef<HTMLDivElement | null>(null);
 
@@ -26,7 +44,7 @@ export default function Crop({ selectedImage, onReplaceCanvasImage, onClose }: C
     height: 200,
   });
 
-  // ---------------- Drag State ----------------
+  /* ---------- Drag State ---------- */
   const dragState = useRef({
     dragging: false,
     handle: null as string | null,
@@ -35,18 +53,14 @@ export default function Crop({ selectedImage, onReplaceCanvasImage, onClose }: C
     startCrop: null as CropBox | null,
   });
 
-  const startDrag = (e: any, handle: string) => {
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
+  const startDrag = (e: React.MouseEvent, handle: string) => {
     dragState.current = {
       dragging: true,
       handle,
-      startX: clientX,
-      startY: clientY,
+      startX: e.clientX,
+      startY: e.clientY,
       startCrop: { ...crop },
     };
-
     e.preventDefault();
   };
 
@@ -55,194 +69,184 @@ export default function Crop({ selectedImage, onReplaceCanvasImage, onClose }: C
 
     const dx = e.clientX - dragState.current.startX;
     const dy = e.clientY - dragState.current.startY;
-    const startCrop = dragState.current.startCrop;
-    const handle = dragState.current.handle;
+    const start = dragState.current.startCrop;
+    const h = dragState.current.handle;
 
-    const newCrop: CropBox = { ...startCrop };
+    const next = { ...start };
 
-    // corners
-    if (handle === "nw") {
-      newCrop.left = startCrop.left + dx;
-      newCrop.top = startCrop.top + dy;
-      newCrop.width = startCrop.width - dx;
-      newCrop.height = startCrop.height - dy;
-    }
-    if (handle === "ne") {
-      newCrop.top = startCrop.top + dy;
-      newCrop.width = startCrop.width + dx;
-      newCrop.height = startCrop.height - dy;
-    }
-    if (handle === "sw") {
-      newCrop.left = startCrop.left + dx;
-      newCrop.width = startCrop.width - dx;
-      newCrop.height = startCrop.height + dy;
-    }
-    if (handle === "se") {
-      newCrop.width = startCrop.width + dx;
-      newCrop.height = startCrop.height + dy;
-    }
+    if (h === "nw") { next.left += dx; next.top += dy; next.width -= dx; next.height -= dy; }
+    if (h === "ne") { next.top += dy; next.width += dx; next.height -= dy; }
+    if (h === "sw") { next.left += dx; next.width -= dx; next.height += dy; }
+    if (h === "se") { next.width += dx; next.height += dy; }
+    if (h === "n")  { next.top += dy; next.height -= dy; }
+    if (h === "s")  next.height += dy;
+    if (h === "w")  { next.left += dx; next.width -= dx; }
+    if (h === "e")  next.width += dx;
 
-    // sides
-    if (handle === "n") {
-      newCrop.top = startCrop.top + dy;
-      newCrop.height = startCrop.height - dy;
-    }
-    if (handle === "s") newCrop.height = startCrop.height + dy;
-    if (handle === "w") {
-      newCrop.left = startCrop.left + dx;
-      newCrop.width = startCrop.width - dx;
-    }
-    if (handle === "e") newCrop.width = startCrop.width + dx;
+    next.width = Math.max(40, next.width);
+    next.height = Math.max(40, next.height);
+    next.left = Math.max(0, next.left);
+    next.top = Math.max(0, next.top);
 
-    newCrop.width = Math.max(40, newCrop.width);
-    newCrop.height = Math.max(40, newCrop.height);
-    newCrop.left = Math.max(0, newCrop.left);
-    newCrop.top = Math.max(0, newCrop.top);
-
-    setCrop(newCrop);
+    setCrop(next);
   };
 
   useEffect(() => {
     window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", () => {
-      dragState.current.dragging = false;
-      dragState.current.handle = null;
-    });
-
+    window.addEventListener("mouseup", () => (dragState.current.dragging = false));
     return () => window.removeEventListener("mousemove", onMouseMove);
   }, []);
 
-  // ---------------- Compute image rect ----------------
-  const computeImageRect = () => {
-    const img = imgRef.current;
-    if (!img) return null;
-    const container = img.parentElement!;
-    const rect = container.getBoundingClientRect();
-
-    const imgAspect = img.naturalWidth / img.naturalHeight;
-    const containerAspect = rect.width / rect.height;
-
-    let w, h;
-    if (imgAspect > containerAspect) {
-      w = rect.width;
-      h = rect.width / imgAspect;
-    } else {
-      h = rect.height;
-      w = rect.height * imgAspect;
-    }
-
-    return {
-      left: (rect.width - w) / 2,
-      top: (rect.height - h) / 2,
-      width: w,
-      height: h,
-    };
-  };
-
+  /* ---------- Init crop to image bounds ---------- */
   useEffect(() => {
-    const r = computeImageRect();
-    if (r) setCrop(r);
+    const img = imgRef.current;
+    if (!img) return;
+
+    img.onload = () => {
+      const parent = img.parentElement!;
+      const rect = parent.getBoundingClientRect();
+
+      const imgAspect = img.naturalWidth / img.naturalHeight;
+      const parentAspect = rect.width / rect.height;
+
+      let width, height;
+      if (imgAspect > parentAspect) {
+        width = rect.width;
+        height = rect.width / imgAspect;
+      } else {
+        height = rect.height;
+        width = rect.height * imgAspect;
+      }
+
+      setCrop({
+        left: (rect.width - width) / 2,
+        top: (rect.height - height) / 2,
+        width,
+        height,
+      });
+    };
   }, [selectedImage]);
 
-  // ---------------- Apply crop ----------------
+  /* ---------- APPLY CROP (PIXEL PERFECT) ---------- */
   const applyCrop = () => {
     if (!imgRef.current || !cropRef.current) return;
 
     const img = imgRef.current;
     const container = img.parentElement!;
-    const cRect = container.getBoundingClientRect();
-    const cr = cropRef.current.getBoundingClientRect();
+    const cropEl = cropRef.current;
 
-    const naturalW = img.naturalWidth;
-    const naturalH = img.naturalHeight;
+    const containerRect = container.getBoundingClientRect();
+    const cropRect = cropEl.getBoundingClientRect();
 
-    const imgAspect = naturalW / naturalH;
-    const containerAspect = cRect.width / cRect.height;
+    const containerW = containerRect.width;
+    const containerH = containerRect.height;
 
-    let displayedW, displayedH, offsetX, offsetY;
+    const imageAspect = img.naturalWidth / img.naturalHeight;
+    const containerAspect = containerW / containerH;
 
-    if (imgAspect > containerAspect) {
-      displayedW = cRect.width;
-      displayedH = cRect.width / imgAspect;
-      offsetX = 0;
-      offsetY = (cRect.height - displayedH) / 2;
+    let renderW = 0;
+    let renderH = 0;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (imageAspect > containerAspect) {
+      renderW = containerW;
+      renderH = containerW / imageAspect;
+      offsetY = (containerH - renderH) / 2;
     } else {
-      displayedH = cRect.height;
-      displayedW = cRect.height * imgAspect;
-      offsetX = (cRect.width - displayedW) / 2;
-      offsetY = 0;
+      renderH = containerH;
+      renderW = containerH * imageAspect;
+      offsetX = (containerW - renderW) / 2;
     }
 
-    const scaleX = naturalW / displayedW;
-    const scaleY = naturalH / displayedH;
+    const cropX = cropRect.left - containerRect.left - offsetX;
+    const cropY = cropRect.top - containerRect.top - offsetY;
 
-    const sx = (cr.left - cRect.left - offsetX) * scaleX;
-    const sy = (cr.top - cRect.top - offsetY) * scaleY;
-    const sw = cr.width * scaleX;
-    const sh = cr.height * scaleY;
+    const scaleX = img.naturalWidth / renderW;
+    const scaleY = img.naturalHeight / renderH;
+
+    const sx = cropX * scaleX;
+    const sy = cropY * scaleY;
+    const sw = cropRect.width * scaleX;
+    const sh = cropRect.height * scaleY;
 
     const canvas = document.createElement("canvas");
-    canvas.width = sw;
-    canvas.height = sh;
+    canvas.width = Math.round(sw);
+    canvas.height = Math.round(sh);
 
     const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
-    const url = canvas.toDataURL("image/png");
-
-    onReplaceCanvasImage(url);
+    onReplaceCanvasImage(canvas.toDataURL("image/png"));
     onClose();
   };
 
   return (
-    <div className="p-5 h-full flex flex-col space-y-4 bg-white shadow-lg rounded-xl">
-
-      <button onClick={onClose} className="text-sm text-gray-600 hover:text-gray-900">
+    <div className="p-5 h-full flex flex-col bg-white shadow-lg rounded-xl">
+      {/* 🔙 Back button — matches UploadSidebar */}
+      <button
+        onClick={onClose}
+        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
+      >
+        <ArrowLeft size={18} />
         Back
       </button>
 
-      <h2 className="text-2xl font-bold">Crop</h2>
+      <h2 className="text-2xl font-bold mb-4">Crop Image</h2>
 
-      {/* MAIN CROPPING AREA */}
-      <div className="relative w-full border rounded-xl bg-black/5 overflow-hidden" style={{ height: "70%" }}>
+      <div className="relative flex-1 overflow-hidden rounded-xl border bg-neutral-100 shadow-inner">
+        <div className="absolute inset-0" style={checkerboardStyle} />
 
-        {/* 1️⃣ Normal image (only visible inside crop box) */}
         <img
           ref={imgRef}
           src={selectedImage}
-          className="absolute top-0 left-0 w-full h-full object-contain pointer-events-none"
+          className="absolute inset-0 w-full h-full object-contain select-none"
         />
 
-        {/* 2️⃣ Blurred overlay mask outside crop box */}
+        {/* Dimmed outside */}
         <div
-          className="absolute top-0 left-0 w-full h-full pointer-events-none"
+          className="absolute inset-0 pointer-events-none"
           style={{
-            backdropFilter: "blur(8px) brightness(0.7)",
-            WebkitBackdropFilter: "blur(8px) brightness(0.7)",
-            mask: `radial-gradient(
-              circle at ${crop.left + crop.width / 2}px ${crop.top + crop.height / 2}px,
-              transparent ${Math.min(crop.width, crop.height) / 2}px,
-              black ${Math.min(crop.width, crop.height) / 2 + 1}px
-            )`,
+            background: "rgba(0,0,0,0.45)",
+            clipPath: `
+              polygon(
+                0% 0%,100% 0%,100% 100%,0% 100%,
+                0% ${crop.top}px,
+                ${crop.left}px ${crop.top}px,
+                ${crop.left}px ${crop.top + crop.height}px,
+                ${crop.left + crop.width}px ${crop.top + crop.height}px,
+                ${crop.left + crop.width}px ${crop.top}px,
+                0% ${crop.top}px
+              )
+            `,
           }}
-        ></div>
+        />
 
-        {/* CROP BOX */}
+        {/* Crop box */}
         <div
           ref={cropRef}
-          className="absolute border-2 border-white"
-          style={{ left: crop.left, top: crop.top, width: crop.width, height: crop.height }}
+          className="absolute"
+          style={{
+            left: crop.left,
+            top: crop.top,
+            width: crop.width,
+            height: crop.height,
+          }}
         >
+          <div className="absolute inset-0 border-2 border-white rounded-sm shadow-lg" />
+
           {["nw","ne","sw","se","n","s","w","e"].map((pos) => (
             <div
               key={pos}
               onMouseDown={(e) => startDrag(e, pos)}
-              className="absolute w-4 h-4 bg-white rounded-full border border-black cursor-pointer"
+              className="absolute w-3 h-3 bg-white rounded-full shadow cursor-pointer"
               style={{
                 top: pos.includes("n") ? -6 : pos.includes("s") ? "auto" : "50%",
                 bottom: pos.includes("s") ? -6 : "auto",
                 left: pos.includes("w") ? -6 : pos.includes("e") ? "auto" : "50%",
                 right: pos.includes("e") ? -6 : "auto",
+                transform: "translate(-50%, -50%)",
               }}
             />
           ))}
@@ -251,7 +255,7 @@ export default function Crop({ selectedImage, onReplaceCanvasImage, onClose }: C
 
       <button
         onClick={applyCrop}
-        className="mt-auto w-full py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600"
+        className="mt-5 w-full py-3 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition shadow-lg"
       >
         Apply Crop
       </button>
