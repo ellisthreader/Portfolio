@@ -5,7 +5,9 @@ import { ArrowLeft } from "lucide-react";
 
 type CropProps = {
   selectedImage: string;
-  onReplaceCanvasImage: (url: string) => void;
+  originalImage?: string;
+  initialCrop?: CropBox | null;
+  onReplaceCanvasImage: (url: string, crop: CropBox) => void;
   onClose: () => void;
 };
 
@@ -16,7 +18,6 @@ type CropBox = {
   height: number;
 };
 
-/* ---------- Checkerboard background ---------- */
 const checkerboardStyle: React.CSSProperties = {
   backgroundColor: "#d6d6d6",
   backgroundImage: `
@@ -31,20 +32,20 @@ const checkerboardStyle: React.CSSProperties = {
 
 export default function Crop({
   selectedImage,
+  originalImage,
+  initialCrop,
   onReplaceCanvasImage,
   onClose,
 }: CropProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const cropRef = useRef<HTMLDivElement | null>(null);
 
-  const [crop, setCrop] = useState<CropBox>({
-    left: 40,
-    top: 40,
-    width: 200,
-    height: 200,
-  });
+  const [crop, setCrop] = useState<CropBox>(
+    initialCrop ?? { left: 40, top: 40, width: 200, height: 200 }
+  );
 
-  /* ---------- Drag State ---------- */
+  const imageToShow = originalImage ?? selectedImage;
+
   const dragState = useRef({
     dragging: false,
     handle: null as string | null,
@@ -97,37 +98,6 @@ export default function Crop({
     return () => window.removeEventListener("mousemove", onMouseMove);
   }, []);
 
-  /* ---------- Init crop to image bounds ---------- */
-  useEffect(() => {
-    const img = imgRef.current;
-    if (!img) return;
-
-    img.onload = () => {
-      const parent = img.parentElement!;
-      const rect = parent.getBoundingClientRect();
-
-      const imgAspect = img.naturalWidth / img.naturalHeight;
-      const parentAspect = rect.width / rect.height;
-
-      let width, height;
-      if (imgAspect > parentAspect) {
-        width = rect.width;
-        height = rect.width / imgAspect;
-      } else {
-        height = rect.height;
-        width = rect.height * imgAspect;
-      }
-
-      setCrop({
-        left: (rect.width - width) / 2,
-        top: (rect.height - height) / 2,
-        width,
-        height,
-      });
-    };
-  }, [selectedImage]);
-
-  /* ---------- APPLY CROP (PIXEL PERFECT) ---------- */
   const applyCrop = () => {
     if (!imgRef.current || !cropRef.current) return;
 
@@ -138,35 +108,11 @@ export default function Crop({
     const containerRect = container.getBoundingClientRect();
     const cropRect = cropEl.getBoundingClientRect();
 
-    const containerW = containerRect.width;
-    const containerH = containerRect.height;
+    const scaleX = img.naturalWidth / containerRect.width;
+    const scaleY = img.naturalHeight / containerRect.height;
 
-    const imageAspect = img.naturalWidth / img.naturalHeight;
-    const containerAspect = containerW / containerH;
-
-    let renderW = 0;
-    let renderH = 0;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    if (imageAspect > containerAspect) {
-      renderW = containerW;
-      renderH = containerW / imageAspect;
-      offsetY = (containerH - renderH) / 2;
-    } else {
-      renderH = containerH;
-      renderW = containerH * imageAspect;
-      offsetX = (containerW - renderW) / 2;
-    }
-
-    const cropX = cropRect.left - containerRect.left - offsetX;
-    const cropY = cropRect.top - containerRect.top - offsetY;
-
-    const scaleX = img.naturalWidth / renderW;
-    const scaleY = img.naturalHeight / renderH;
-
-    const sx = cropX * scaleX;
-    const sy = cropY * scaleY;
+    const sx = (cropRect.left - containerRect.left) * scaleX;
+    const sy = (cropRect.top - containerRect.top) * scaleY;
     const sw = cropRect.width * scaleX;
     const sh = cropRect.height * scaleY;
 
@@ -175,36 +121,29 @@ export default function Crop({
     canvas.height = Math.round(sh);
 
     const ctx = canvas.getContext("2d")!;
-    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
-    onReplaceCanvasImage(canvas.toDataURL("image/png"));
+    onReplaceCanvasImage(canvas.toDataURL("image/png"), crop);
     onClose();
   };
 
   return (
     <div className="p-5 h-full flex flex-col bg-white shadow-lg rounded-xl">
-      {/* 🔙 Back button — matches UploadSidebar */}
-      <button
-        onClick={onClose}
-        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
-      >
-        <ArrowLeft size={18} />
-        Back
+      <button onClick={onClose} className="flex items-center gap-2 text-sm mb-4">
+        <ArrowLeft size={18} /> Back
       </button>
 
       <h2 className="text-2xl font-bold mb-4">Crop Image</h2>
 
-      <div className="relative flex-1 overflow-hidden rounded-xl border bg-neutral-100 shadow-inner">
+      <div className="relative flex-1 overflow-hidden rounded-xl border">
         <div className="absolute inset-0" style={checkerboardStyle} />
 
         <img
           ref={imgRef}
-          src={selectedImage}
+          src={imageToShow}
           className="absolute inset-0 w-full h-full object-contain select-none"
         />
 
-        {/* Dimmed outside */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -223,24 +162,17 @@ export default function Crop({
           }}
         />
 
-        {/* Crop box */}
         <div
           ref={cropRef}
           className="absolute"
-          style={{
-            left: crop.left,
-            top: crop.top,
-            width: crop.width,
-            height: crop.height,
-          }}
+          style={{ ...crop }}
         >
-          <div className="absolute inset-0 border-2 border-white rounded-sm shadow-lg" />
-
-          {["nw","ne","sw","se","n","s","w","e"].map((pos) => (
+          <div className="absolute inset-0 border-2 border-white" />
+          {["nw","ne","sw","se","n","s","w","e"].map(pos => (
             <div
               key={pos}
               onMouseDown={(e) => startDrag(e, pos)}
-              className="absolute w-3 h-3 bg-white rounded-full shadow cursor-pointer"
+              className="absolute w-3 h-3 bg-white rounded-full"
               style={{
                 top: pos.includes("n") ? -6 : pos.includes("s") ? "auto" : "50%",
                 bottom: pos.includes("s") ? -6 : "auto",
@@ -253,10 +185,7 @@ export default function Crop({
         </div>
       </div>
 
-      <button
-        onClick={applyCrop}
-        className="mt-5 w-full py-3 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition shadow-lg"
-      >
+      <button onClick={applyCrop} className="mt-5 w-full py-3 bg-blue-600 text-white rounded-xl">
         Apply Crop
       </button>
     </div>

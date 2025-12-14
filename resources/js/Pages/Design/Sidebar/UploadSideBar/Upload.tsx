@@ -44,6 +44,10 @@ export default function UploadSidebar({
   const [rotation, setRotation] = useState(0);
   const [flip, setFlip] = useState<"none" | "horizontal" | "vertical">("none");
 
+const [originalImageMap, setOriginalImageMap] = useState<Record<string, string>>({});
+const [cropStateMap, setCropStateMap] = useState<Record<string, any>>({});
+
+
   // ---------- Crop mode state (kept) ----------
   const [cropMode, setCropMode] = useState(false);
 
@@ -168,27 +172,33 @@ export default function UploadSidebar({
     return (
       <Crop
         selectedImage={selectedImage}
-        onReplaceCanvasImage={(newURL: string) => {
-          // This REPLACES the image on the actual canvas
-          if (!selectedImage) return;
+        originalImage={originalImageMap[selectedImage]}
+        initialCrop={cropStateMap[selectedImage]}
+        onReplaceCanvasImage={(newURL, crop) => {
+          if (!originalImageMap[selectedImage]) {
+            setOriginalImageMap(prev => ({
+              ...prev,
+              [newURL]: selectedImage,
+            }));
+          } else {
+            setOriginalImageMap(prev => ({
+              ...prev,
+              [newURL]: originalImageMap[selectedImage],
+            }));
+          }
 
-          // 1) Copy original image state (size, rotation, flip)
+          setCropStateMap(prev => ({ ...prev, [newURL]: crop }));
+
           const st = imageState[selectedImage];
-
-          // 2) Remove old image
           onRemoveUploadedImage?.(selectedImage);
-
-          // 3) Upload new cropped image as replacement
           onUpload(newURL);
 
-          // 4) Reapply all old settings
           if (st) {
             onUpdateImageSize?.(newURL, st.size.w, st.size.h);
             onRotateImage?.(newURL, st.rotation);
             onFlipImage?.(newURL, st.flip);
           }
 
-          // 5) Select new cropped version
           onSelectImage?.(newURL);
         }}
         onClose={() => setCropMode(false)}
