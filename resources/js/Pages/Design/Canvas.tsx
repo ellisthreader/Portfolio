@@ -23,6 +23,8 @@ type CanvasProps = {
   onDuplicateUploadedImage?: (url: string) => void;
   imageState?: Record<string, ImgState>;
   setImageState?: React.Dispatch<React.SetStateAction<Record<string, ImgState>>>;
+  positions: Record<string, { x: number; y: number }>;
+  setPositions: React.Dispatch<React.SetStateAction<Record<string, { x: number; y: number }>>>;
 };
 
 function DraggableImage({
@@ -84,10 +86,11 @@ export default function Canvas({
   onDuplicateUploadedImage,
   imageState = {},
   setImageState,
+  positions,
+  setPositions,
 }: CanvasProps) {
   const [localUploads, setLocalUploads] = useState<string[]>([]);
   const [removedSet, setRemovedSet] = useState<Record<string, boolean>>({});
-  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [selectedUids, setSelectedUids] = useState<string[]>([]);
   const [marquee, setMarquee] = useState<{
@@ -120,34 +123,59 @@ export default function Canvas({
   };
 
   // -------------------- Initialize sizes & positions --------------------
-  useEffect(() => {
-    setSizes((prev) => {
-      const next = { ...prev };
-      allUploaded.forEach((u) => {
-        if (!next[u]) next[u] = imageState[u]?.size ?? { w: 150, h: 150 };
-      });
-      return next;
+// Initialize + sync sizes from imageState
+useEffect(() => {
+  setSizes(prev => {
+    const next = { ...prev };
+
+    // 1️⃣ Ensure every uploaded image has a size
+    allUploaded.forEach((uid) => {
+      if (!next[uid]) {
+        const s = imageState[uid]?.size ?? { w: 150, h: 150 };
+        next[uid] = {
+          w: Math.max(1, Math.abs(s.w)),
+          h: Math.max(1, Math.abs(s.h)),
+        };
+      }
     });
 
-    setPositions((prev) => {
-      const next = { ...prev };
-      allUploaded.forEach((u) => {
-        if (!next[u]) {
-          const w = sizes[u]?.w ?? imageState[u]?.size?.w ?? 150;
-          const h = sizes[u]?.h ?? imageState[u]?.size?.h ?? 150;
-          next[u] = clampPosition(
-            restrictedBox.left + (restrictedBox.width - w) / 2,
-            restrictedBox.top + (restrictedBox.height - h) / 2,
-            w,
-            h
-          );
-        }
-      });
-      return next;
-      // intentionally do NOT include `sizes` in deps to avoid jitter; sizes updates will re-run this via other effects
+    // 2️⃣ Sync sidebar size updates → canvas
+    Object.entries(imageState).forEach(([uid, state]) => {
+      if (!state?.size) return;
+
+      next[uid] = {
+        w: Math.max(1, Math.abs(state.size.w)),
+        h: Math.max(1, Math.abs(state.size.h)),
+      };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allUploaded.join(","), restrictedBox.left, restrictedBox.top, restrictedBox.width, restrictedBox.height, imageState]);
+
+    return next;
+  });
+}, [allUploaded.join(","), imageState]);
+
+
+// Initialize positions once sizes are set
+useEffect(() => {
+  const next: Record<string, { x: number; y: number }> = {};
+  allUploaded.forEach((u) => {
+    if (!positions[u]) {
+
+      const s = sizes[u];
+      if (!s) return;
+      const w = s.w;
+      const h = s.h;
+      
+      next[u] = clampPosition(
+        restrictedBox.left + (restrictedBox.width - w) / 2,
+        restrictedBox.top + (restrictedBox.height - h) / 2,
+        w,
+        h
+      );
+    }
+  });
+  if (Object.keys(next).length) setPositions((prev) => ({ ...prev, ...next }));
+  // only run when sizes are ready
+}, [sizes, allUploaded.join(","), restrictedBox.left, restrictedBox.top, restrictedBox.width, restrictedBox.height, imageState]);
 
   // ---------------------- Dragging ----------------------
   const onImagePointerDown = (e: React.MouseEvent, uid: string) => {
@@ -178,7 +206,8 @@ export default function Canvas({
         maxDyNegative = -Infinity;
 
       Object.entries(dragRef.current.startPositions).forEach(([u, sp]) => {
-        const s = sizes[u] ?? imageState[u]?.size ?? { w: 150, h: 150 };
+        const s = sizes[u];
+        if (!s) return;
         const minX = restrictedBox.left;
         const minY = restrictedBox.top;
         const maxX = restrictedBox.left + restrictedBox.width - s.w;
@@ -351,84 +380,137 @@ export default function Canvas({
 
     const startSizes: Record<string, { w: number; h: number }> = {};
     const startPositions: Record<string, { x: number; y: number }> = {};
+
     selectedUids.forEach((u) => {
-      startSizes[u] = { ...(sizes[u] ?? { w: 150, h: 150 }) };
-      startPositions[u] = { ...(positions[u] ?? { x: startBox.left, y: startBox.top }) };
+      const s = sizes[u];
+      const p = positions[u];
+      if (!s || !p) return;
+
+      startSizes[u] = { ...s };
+      startPositions[u] = { ...p };
     });
 
+
+    const rafRef = { current: null as number | null };
+
     const move = (ev: MouseEvent) => {
-      let dx = ev.clientX - startClientX;
+      if (rafRef.current !== null) return;
 
-      let minScale = -Infinity,
-        maxScale = Infinity;
-      selectedUids.forEach((u) => {
-        const s0 = startSizes[u];
-        const p0 = startPositions[u];
-        const relX = p0.x - startBox.left;
-        const relY = p0.y - startBox.top;
+      rafRef.current = requestAnimationFrame(() => {
+        let dx = ev.clientX - startClientX;
 
-        const scaleMaxX = (restrictedBox.left + restrictedBox.width - (startBox.left + relX)) / s0.w;
-        const scaleMaxY = (restrictedBox.top + restrictedBox.height - (startBox.top + relY)) / s0.h;
-        const scaleMax = Math.min(scaleMaxX, scaleMaxY);
+        let minScale = -Infinity;
+        let maxScale = Infinity;
 
-        const scaleMin = Math.max(30 / s0.w, 30 / s0.h);
-
-        maxScale = Math.min(maxScale, scaleMax);
-        minScale = Math.max(minScale, scaleMin);
-      });
-
-      const scale = Math.min(Math.max((startBox.width + dx) / startBox.width, minScale), maxScale);
-
-      setSizes((prev) => {
-        const next = { ...prev };
         selectedUids.forEach((u) => {
-          next[u] = {
-            w: Math.round(startSizes[u].w * scale),
-            h: Math.round(startSizes[u].h * scale),
-          };
-        });
-        return next;
-      });
+          const s0 = startSizes[u];
+          const p0 = startPositions[u];
+          if (!s0 || !p0) return;
 
-      setPositions((prev) => {
-        const next = { ...prev };
-        selectedUids.forEach((u) => {
-          const relX = startPositions[u].x - startBox.left;
-          const relY = startPositions[u].y - startBox.top;
-          const w = startSizes[u].w * scale;
-          const h = startSizes[u].h * scale;
-          next[u] = clampPosition(startBox.left + relX * scale, startBox.top + relY * scale, w, h);
+          const relX = p0.x - startBox.left;
+          const relY = p0.y - startBox.top;
+
+          const scaleMaxX =
+            (restrictedBox.left + restrictedBox.width - (startBox.left + relX)) / s0.w;
+          const scaleMaxY =
+            (restrictedBox.top + restrictedBox.height - (startBox.top + relY)) / s0.h;
+
+          const scaleMax = Math.min(scaleMaxX, scaleMaxY);
+          const scaleMin = Math.max(30 / s0.w, 30 / s0.h);
+
+          maxScale = Math.min(maxScale, scaleMax);
+          minScale = Math.max(minScale, scaleMin);
         });
-        return next;
+
+  const RESIZE_SENSITIVITY = 200;
+
+  const rawScale = Math.exp(dx / RESIZE_SENSITIVITY);
+
+  const clampedScale = Math.min(
+    Math.max(rawScale, minScale),
+    maxScale
+  );
+
+  setSizes((prev) => {
+    const next = { ...prev };
+    selectedUids.forEach((u) => {
+      const s0 = startSizes[u];
+      if (!s0) return;
+      next[u] = {
+        w: Math.max(1, s0.w * clampedScale),
+        h: Math.max(1, s0.h * clampedScale),
+      };
+    });
+    return next;
+  });
+
+  setPositions((prev) => {
+    const next = { ...prev };
+    selectedUids.forEach((u) => {
+      const relX = startPositions[u].x - startBox.left;
+      const relY = startPositions[u].y - startBox.top;
+
+      const w = Math.max(1, startSizes[u].w * clampedScale);
+      const h = Math.max(1, startSizes[u].h * clampedScale);
+
+      next[u] = clampPosition(
+        startBox.left + relX * clampedScale,
+        startBox.top + relY * clampedScale,
+        w,
+        h
+      );
+    });
+    return next;
+  });
+
+        rafRef.current = null;
       });
     };
 
     const up = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
+
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
 
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
+
     return { cancel: up };
   };
 
+
   // ---------------------- Flip Helpers ----------------------
   const flipSelected = (axis: "horizontal" | "vertical") => {
-    if (!setImageState) {
-      console.warn("setImageState not provided — can't flip");
-      return;
-    }
-    console.log("flipSelected", axis, selectedUids);
+    if (!setImageState) return;
+
     setImageState((prev) => {
       const next = { ...prev };
+
       selectedUids.forEach((uid) => {
-        const current = next[uid] ?? { rotation: 0, flip: "none", size: sizes[uid] ?? { w: 150, h: 150 } };
-        next[uid] = { ...current, flip: axis };
+        const current = next[uid] ?? {
+          rotation: 0,
+          flip: "none",
+          size: sizes[uid] ?? { w: 150, h: 150 },
+        };
+
+        // ✅ toggle flip instead of forcing it
+        const nextFlip = current.flip === axis ? "none" : axis;
+
+        next[uid] = {
+          ...current,
+          flip: nextFlip,
+        };
       });
+
       return next;
     });
   };
+
 
   // ---------------------- Render ----------------------
   return (
@@ -466,10 +548,23 @@ export default function Canvas({
         canvasRef={canvasRef}
         onDelete={() => handleDeleteMultiple(selectedUids)}
         onDuplicate={() => handleDuplicateMultiple(selectedUids)}
-        onResize={(uid, newSize) => setSizes((prev) => ({ ...prev, [uid]: { w: newSize, h: newSize } }))}
-        onStartGroupResize={(startClientX: number) => handleSelectionResizeStart(startClientX)}
-        onFlip={(axis: "horizontal" | "vertical") => flipSelected(axis)}
+        onResize={(uid, newSize) =>
+          setSizes((prev) => ({
+            ...prev,
+            [uid]: {
+              w: Math.max(1, Math.abs(newSize)),
+              h: Math.max(1, Math.abs(newSize)),
+            },
+          }))
+        }
+        onStartGroupResize={(startClientX: number) =>
+          handleSelectionResizeStart(startClientX)
+        }
+        onFlip={(axis: "horizontal" | "vertical") =>
+          flipSelected(axis)
+        }
       />
+
 
       {/* Marquee */}
       {marquee?.active && (
@@ -485,6 +580,7 @@ export default function Canvas({
       {/* Uploaded Images */}
       {allUploaded.map((uid, i) => {
         const s = sizes[uid] ?? imageState[uid]?.size ?? { w: 150, h: 150 };
+        if (!s) return null;
         const p = positions[uid] ?? clampPosition(
           restrictedBox.left + (restrictedBox.width - s.w) / 2,
           restrictedBox.top + (restrictedBox.height - s.h) / 2,

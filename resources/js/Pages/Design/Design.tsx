@@ -111,7 +111,19 @@ export default function Design() {
   }, []);
 
   // ---------------------- UPLOAD HANDLERS ----------------------
-  const handleUpload = (url: string) => setUploadedImages((prev) => [...prev, url]);
+  const handleUpload = (url: string) => {
+  setUploadedImages((prev) => [...prev, url]);
+
+  setImageState((prev) => ({
+    ...prev,
+    [url]: {
+      rotation: 0,
+      flip: "none",
+      size: { w: 150, h: 150 }, // ✅ REQUIRED
+    },
+  }));
+};
+
   const [activeTab, setActiveTab] = useState("product");
   const [selectedUploadedImage, setSelectedUploadedImage] = useState<string | null>(null);
 
@@ -138,20 +150,19 @@ export default function Design() {
     }));
   };
 
-  const handleFlipImage = (url: string, axis: "horizontal" | "vertical") => {
-    setImageState((prev) => {
-      const currentFlip = prev[url]?.flip ?? "none";
-      const nextFlip =
-        axis === "horizontal" ? (currentFlip === "horizontal" ? "none" : "horizontal") : currentFlip === "vertical" ? "none" : "vertical";
-      return {
-        ...prev,
-        [url]: {
-          ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }),
-          flip: nextFlip,
-        },
-      };
-    });
+  const handleFlipImage = (
+    url: string,
+    flip: "none" | "horizontal" | "vertical"
+  ) => {
+    setImageState(prev => ({
+      ...prev,
+      [url]: {
+        ...(prev[url] ?? { rotation: 0, size: { w: 150, h: 150 } }),
+        flip,
+      },
+    }));
   };
+
 
   const handleUpdateImageSize = (url: string, w: number, h: number) => {
     setImageState((prev) => ({
@@ -185,6 +196,8 @@ export default function Design() {
   };
 
   // ---------------------- SIDEBAR RENDERER ----------------------
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+
   const renderActiveTab = () => {
     switch (activeTab) {
       case "product":
@@ -211,6 +224,8 @@ export default function Design() {
             onRemoveUploadedImage={handleRemoveUploadedImage}
             onDuplicateUploadedImage={handleDuplicateUploadedImage}
             imageState={imageState}
+            restrictedBox={restrictedBox}
+            canvasPositions={positions}
           />
         );
       case "text":
@@ -292,6 +307,8 @@ export default function Design() {
             onDuplicateUploadedImage={handleDuplicateUploadedImage}
             imageState={imageState}
             setImageState={setImageState}
+            positions={positions}          // ✅ pass positions
+            setPositions={setPositions} 
           />
         </div>
       </div>

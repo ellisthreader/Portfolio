@@ -39,9 +39,10 @@ export default function Crop({
 }: CropProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const cropRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [crop, setCrop] = useState<CropBox>(
-    initialCrop ?? { left: 40, top: 40, width: 200, height: 200 }
+    initialCrop ?? { left: 0, top: 0, width: 0, height: 0 }
   );
 
   const imageToShow = originalImage ?? selectedImage;
@@ -54,6 +55,44 @@ export default function Crop({
     startCrop: null as CropBox | null,
   });
 
+  /* ---------------- INITIAL AUTO-FIT CROP ---------------- */
+  useEffect(() => {
+    if (!imgRef.current || !containerRef.current) return;
+
+    // Only auto-fit when there is NO existing crop
+    if (initialCrop) return;
+
+    const img = imgRef.current;
+    const container = containerRef.current;
+
+    const containerRect = container.getBoundingClientRect();
+    const imgAspect = img.naturalWidth / img.naturalHeight;
+    const containerAspect = containerRect.width / containerRect.height;
+
+    let renderWidth = 0;
+    let renderHeight = 0;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (imgAspect > containerAspect) {
+      renderWidth = containerRect.width;
+      renderHeight = renderWidth / imgAspect;
+      offsetY = (containerRect.height - renderHeight) / 2;
+    } else {
+      renderHeight = containerRect.height;
+      renderWidth = renderHeight * imgAspect;
+      offsetX = (containerRect.width - renderWidth) / 2;
+    }
+
+    setCrop({
+      left: offsetX,
+      top: offsetY,
+      width: renderWidth,
+      height: renderHeight,
+    });
+  }, [imageToShow, initialCrop]);
+
+  /* ---------------- DRAG LOGIC ---------------- */
   const startDrag = (e: React.MouseEvent, handle: string) => {
     dragState.current = {
       dragging: true,
@@ -93,28 +132,48 @@ export default function Crop({
   };
 
   useEffect(() => {
+    const stopDrag = () => (dragState.current.dragging = false);
     window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", () => (dragState.current.dragging = false));
-    return () => window.removeEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", stopDrag);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", stopDrag);
+    };
   }, []);
 
+  /* ---------------- APPLY CROP ---------------- */
   const applyCrop = () => {
-    if (!imgRef.current || !cropRef.current) return;
+    if (!imgRef.current || !containerRef.current) return;
 
     const img = imgRef.current;
-    const container = img.parentElement!;
-    const cropEl = cropRef.current;
-
+    const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
-    const cropRect = cropEl.getBoundingClientRect();
 
-    const scaleX = img.naturalWidth / containerRect.width;
-    const scaleY = img.naturalHeight / containerRect.height;
+    const imgAspect = img.naturalWidth / img.naturalHeight;
+    const containerAspect = containerRect.width / containerRect.height;
 
-    const sx = (cropRect.left - containerRect.left) * scaleX;
-    const sy = (cropRect.top - containerRect.top) * scaleY;
-    const sw = cropRect.width * scaleX;
-    const sh = cropRect.height * scaleY;
+    let renderWidth = 0;
+    let renderHeight = 0;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (imgAspect > containerAspect) {
+      renderWidth = containerRect.width;
+      renderHeight = renderWidth / imgAspect;
+      offsetY = (containerRect.height - renderHeight) / 2;
+    } else {
+      renderHeight = containerRect.height;
+      renderWidth = renderHeight * imgAspect;
+      offsetX = (containerRect.width - renderWidth) / 2;
+    }
+
+    const scaleX = img.naturalWidth / renderWidth;
+    const scaleY = img.naturalHeight / renderHeight;
+
+    const sx = (crop.left - offsetX) * scaleX;
+    const sy = (crop.top - offsetY) * scaleY;
+    const sw = crop.width * scaleX;
+    const sh = crop.height * scaleY;
 
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(sw);
@@ -127,6 +186,7 @@ export default function Crop({
     onClose();
   };
 
+  /* ---------------- UI ---------------- */
   return (
     <div className="p-5 h-full flex flex-col bg-white shadow-lg rounded-xl">
       <button onClick={onClose} className="flex items-center gap-2 text-sm mb-4">
@@ -135,15 +195,20 @@ export default function Crop({
 
       <h2 className="text-2xl font-bold mb-4">Crop Image</h2>
 
-      <div className="relative flex-1 overflow-hidden rounded-xl border">
+      <div
+        ref={containerRef}
+        className="relative flex-1 overflow-hidden rounded-xl border"
+      >
         <div className="absolute inset-0" style={checkerboardStyle} />
 
         <img
           ref={imgRef}
           src={imageToShow}
           className="absolute inset-0 w-full h-full object-contain select-none"
+          draggable={false}
         />
 
+        {/* Overlay */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -162,17 +227,14 @@ export default function Crop({
           }}
         />
 
-        <div
-          ref={cropRef}
-          className="absolute"
-          style={{ ...crop }}
-        >
+        {/* Crop box */}
+        <div ref={cropRef} className="absolute" style={{ ...crop }}>
           <div className="absolute inset-0 border-2 border-white" />
           {["nw","ne","sw","se","n","s","w","e"].map(pos => (
             <div
               key={pos}
               onMouseDown={(e) => startDrag(e, pos)}
-              className="absolute w-3 h-3 bg-white rounded-full"
+              className="absolute w-3 h-3 bg-white rounded-full cursor-pointer"
               style={{
                 top: pos.includes("n") ? -6 : pos.includes("s") ? "auto" : "50%",
                 bottom: pos.includes("s") ? -6 : "auto",
@@ -185,7 +247,10 @@ export default function Crop({
         </div>
       </div>
 
-      <button onClick={applyCrop} className="mt-5 w-full py-3 bg-blue-600 text-white rounded-xl">
+      <button
+        onClick={applyCrop}
+        className="mt-5 w-full py-3 bg-blue-600 text-white rounded-xl"
+      >
         Apply Crop
       </button>
     </div>
