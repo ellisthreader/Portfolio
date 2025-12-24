@@ -2,22 +2,27 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Head, usePage, router } from "@inertiajs/react";
-import {
-  ArrowLeft,
-  ArrowRight,
-  X,
-  Shirt,
-  Upload as UploadIcon,
-  Type,
-  Image as ClipartIcon,
-} from "lucide-react";
-
+import { ArrowLeft, ArrowRight, X, Shirt, Upload as UploadIcon, Type, Image as ClipartIcon } from "lucide-react";
 import ProductEdit from "./Sidebar/ProductEdit";
-import AddText from "./Sidebar/AddText";
+import AddText from "./Sidebar/TextSideBar/AddText";
 import Clipart from "./Sidebar/Clipart";
-import UploadSidebar from "./Sidebar/UploadSideBar/Upload";
+import UploadSidebar from "./Sidebar/UploadSideBar/UploadSidebar";
 import ChangeProductModal from "./ChangeProduct";
-import Canvas from "./Canvas";
+import Canvas from "./Canvas/Canvas";
+
+// ---------------------- IMAGE STATE TYPE ----------------------
+export type ImageState = {
+  url: string;
+  rotation: number;
+  flip: "none" | "horizontal" | "vertical";
+  size: { w: number; h: number };
+  original: {
+    url: string;
+    rotation: number;
+    flip: "none" | "horizontal" | "vertical";
+    size: { w: number; h: number };
+  };
+};
 
 export default function Design() {
   const { props } = usePage();
@@ -35,7 +40,9 @@ export default function Design() {
 
   const safeName = safeProduct.name ?? "Unknown";
   const [isChangeProductModalOpen, setIsChangeProductModalOpen] = useState(false);
-  const currentCategory = safeProduct.categories?.[0] ?? null;
+
+  // ---------------------- IMAGE STATE ----------------------
+  const [imageState, setImageState] = useState<Record<string, ImageState>>({});
 
   // Prevent selection/drag on page
   useEffect(() => {
@@ -83,9 +90,18 @@ export default function Design() {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
-  // ---------------------- IMAGE STATE ----------------------
-  type ImgState = { rotation: number; flip: "none" | "horizontal" | "vertical"; size: { w: number; h: number } };
-  const [imageState, setImageState] = useState<Record<string, ImgState>>({});
+  const handleRotateImage = (url: string, angle: number) => {
+  setImageState(prev => {
+    if (!prev[url]) return prev;
+    return {
+      ...prev,
+      [url]: {
+        ...prev[url],
+        rotation: angle,
+      },
+    };
+  });
+};
 
   // ---------------------- UPDATE DISPLAY IMAGES ----------------------
   useEffect(() => {
@@ -111,18 +127,28 @@ export default function Design() {
   }, []);
 
   // ---------------------- UPLOAD HANDLERS ----------------------
-  const handleUpload = (url: string) => {
-  setUploadedImages((prev) => [...prev, url]);
+const handleUpload = (url: string) => {
+  const size = { w: 150, h: 150 };
+  setUploadedImages(prev => [...prev, url]);
 
-  setImageState((prev) => ({
+  setImageState(prev => ({
     ...prev,
     [url]: {
+      url,               // ✅ top-level required
       rotation: 0,
       flip: "none",
-      size: { w: 150, h: 150 }, // ✅ REQUIRED
+      size,
+      original: {
+        url,
+        rotation: 0,
+        flip: "none",
+        size: { ...size },
+      },
     },
   }));
 };
+
+
 
   const [activeTab, setActiveTab] = useState("product");
   const [selectedUploadedImage, setSelectedUploadedImage] = useState<string | null>(null);
@@ -140,15 +166,24 @@ export default function Design() {
   };
 
   // ---------------------- IMAGE MANIPULATION ----------------------
-  const handleRotateImage = (url: string, angle: number) => {
-    setImageState((prev) => ({
+const handleResetImage = (url: string) => {
+  setImageState(prev => {
+    const img = prev[url];
+    if (!img) return prev;
+
+    return {
       ...prev,
       [url]: {
-        ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }),
-        rotation: angle,
+        ...img,                // keep the current key
+        url: img.original.url, // restore original image
+        size: { ...img.original.size },
+        rotation: img.original.rotation,
+        flip: img.original.flip,
       },
-    }));
-  };
+    };
+  });
+};
+
 
   const handleFlipImage = (
     url: string,
@@ -184,16 +219,31 @@ export default function Design() {
     if (selectedUploadedImage === url) setSelectedUploadedImage(null);
   };
 
+
   const handleDuplicateUploadedImage = (url: string) => {
-    const dup = `${url}#dup-${Date.now()}`;
-    setUploadedImages((prev) => [...prev, dup]);
-    setImageState((prev) => ({
-      ...prev,
-      [dup]: { ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }) },
-    }));
-    setSelectedUploadedImage(dup);
-    setActiveTab("upload");
-  };
+  const dup = `${url}#dup-${Date.now()}`;
+  const source = imageState[url];
+  if (!source) return;
+
+  setUploadedImages(prev => [...prev, dup]);
+
+  setImageState(prev => ({
+    ...prev,
+    [dup]: {
+      url: source.url,   // ✅ top-level
+      rotation: source.rotation,
+      flip: source.flip,
+      size: { ...source.size },
+      original: { ...source.original },
+    },
+  }));
+
+  setSelectedUploadedImage(dup);
+  setActiveTab("upload");
+};
+
+
+
 
   // ---------------------- SIDEBAR RENDERER ----------------------
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
@@ -218,7 +268,7 @@ export default function Design() {
             recentImages={uploadedImages}
             selectedImage={selectedUploadedImage}
             onSelectImage={handleUploadedImageSelect}
-            onRotateImage={handleRotateImage}
+            onRotateImage={handleRotateImage} 
             onFlipImage={handleFlipImage}
             onUpdateImageSize={handleUpdateImageSize}
             onRemoveUploadedImage={handleRemoveUploadedImage}
@@ -226,6 +276,8 @@ export default function Design() {
             imageState={imageState}
             restrictedBox={restrictedBox}
             canvasPositions={positions}
+            setImageState={setImageState}   // ✅ REQUIRED
+            onResetImage={handleResetImage} 
           />
         );
       case "text":

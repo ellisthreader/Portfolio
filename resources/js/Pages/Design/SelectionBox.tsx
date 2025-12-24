@@ -6,8 +6,10 @@ interface SelectionBoxProps {
   canvasRef: React.RefObject<HTMLDivElement>;
   onDelete: (uids: string[]) => void;
   onDuplicate: (uids: string[]) => void;
-  onResize: (imageUid: string, newSize: number) => void; // single-image resize
+  onResize: (imageUid: string, width: number, height: number) => void;
   onStartGroupResize?: (startClientX: number) => any;
+  onReset?: (uids: string[]) => void;
+  onDeselectAll?: () => void; // NEW: callback to deselect all
 }
 
 const SelectionBox: React.FC<SelectionBoxProps> = ({
@@ -17,15 +19,16 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
   onDuplicate,
   onResize,
   onStartGroupResize,
+  onDeselectAll,
 }) => {
   const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [hoverLabel, setHoverLabel] = useState<string | null>(null);
   const [labelPos, setLabelPos] = useState<{ left: number; top: number } | null>(null);
 
-  const firstUid = selectedImages[0];
+  const firstUid = selectedImages.length > 0 ? selectedImages[0] : null;
 
   const updateBoundingBox = () => {
-    if (selectedImages.length === 0 || !canvasRef.current) {
+    if (!canvasRef.current || selectedImages.length === 0) {
       setBox(null);
       return;
     }
@@ -33,7 +36,7 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
     const canvasRect = canvasRef.current.getBoundingClientRect();
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-    selectedImages.forEach((uid) => {
+    selectedImages.forEach(uid => {
       const el = document.querySelector<HTMLImageElement>(`img[data-uid="${CSS.escape(uid)}"][data-type="img"]`);
       if (!el) return;
       const r = el.getBoundingClientRect();
@@ -57,8 +60,29 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
     updateBoundingBox();
     const onResize = () => updateBoundingBox();
     window.addEventListener("resize", onResize);
+
     return () => window.removeEventListener("resize", onResize);
   }, [selectedImages, canvasRef]);
+
+  // NEW: click outside to deselect
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!canvasRef.current) return;
+
+      // If click is inside any selected image, do nothing
+      const clickedOnSelectedImage = selectedImages.some(uid => {
+        const el = document.querySelector<HTMLImageElement>(`img[data-uid="${CSS.escape(uid)}"][data-type="img"]`);
+        return el?.contains(e.target as Node);
+      });
+
+      if (!clickedOnSelectedImage) {
+        onDeselectAll?.();
+      }
+    };
+
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [selectedImages, canvasRef, onDeselectAll]);
 
   if (!box || !firstUid) return null;
 
@@ -83,17 +107,21 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
     const el = document.querySelector<HTMLImageElement>(`img[data-uid="${CSS.escape(firstUid)}"][data-type="img"]`);
     if (!el) return;
 
-    const startSize = el.width;
+    const startW = el.offsetWidth;
+    const startH = el.offsetHeight;
     const startX = e.clientX;
     const startY = e.clientY;
+    const aspect = startW / startH;
 
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       const delta = Math.max(dx, dy);
-      const newSize = Math.max(30, startSize + delta);
 
-      onResize(firstUid, newSize);
+      const newW = Math.max(30, startW + delta);
+      const newH = Math.round(newW / aspect);
+
+      onResize(firstUid, newW, newH);
       updateBoundingBox();
     };
 
@@ -120,7 +148,14 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
       {hoverLabel && labelPos && (
         <div
           className="absolute bg-black text-white text-xs px-2 py-1 rounded"
-          style={{ left: labelPos.left, top: labelPos.top, zIndex: 9999, whiteSpace: "nowrap", pointerEvents: "none", transform: "translate(-50%, -100%)" }}
+          style={{
+            left: labelPos.left,
+            top: labelPos.top,
+            zIndex: 9999,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            transform: "translate(-50%, -100%)"
+          }}
         >
           {hoverLabel}
         </div>
