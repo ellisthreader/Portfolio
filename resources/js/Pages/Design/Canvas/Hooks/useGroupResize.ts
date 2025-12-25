@@ -1,8 +1,17 @@
-// 📐 Scales and repositions multiple selected images together by resizing them as a group relative to their bounding box during mouse drag.
-
+// 📐 Scales and repositions multiple selected images together by resizing them as a group during mouse drag.
+// Prevents images from resizing outside a restricted bounding box.
 
 import { computeBoundingBox } from "../Utils/boundingBox";
 
+export interface GroupResizeParams {
+  selected: string[]; // array of selected image uids
+  sizes: Record<string, { w: number; h: number }>;
+  positions: Record<string, { x: number; y: number }>;
+  setSizes: React.Dispatch<React.SetStateAction<Record<string, { w: number; h: number }>>>;
+  setPositions: React.Dispatch<React.SetStateAction<Record<string, { x: number; y: number }>>>;
+  restrictedBox?: { left: number; top: number; width: number; height: number };
+  setImageState?: React.Dispatch<any>; // optional if you track global image state
+}
 
 export function useGroupResize({
   selected,
@@ -12,34 +21,72 @@ export function useGroupResize({
   setPositions,
   restrictedBox,
   setImageState,
-}: any) {
+}: GroupResizeParams) {
   const startResize = (startX: number) => {
-    const box = computeBoundingBox(selected, positions, sizes);
+    // Compute initial bounding box of selected images
+    const box = computeBoundingBox(positions, sizes, selected);
     if (!box) return;
 
     const startSizes = structuredClone(sizes);
     const startPos = structuredClone(positions);
 
-    const move = (e: MouseEvent) => {
-      const scale = Math.exp((e.clientX - startX) / 200);
+    const handleMouseMove = (e: MouseEvent) => {
+      let scale = Math.exp((e.clientX - startX) / 200);
 
+      // --- Constrain scale to restricted box if provided ---
+      if (restrictedBox) {
+        const scaledBox = {
+          left: box.left,
+          top: box.top,
+          width: box.width * scale,
+          height: box.height * scale,
+        };
+
+        // Horizontal constraints
+        if (scaledBox.left < restrictedBox.left) {
+          scale = (restrictedBox.left + restrictedBox.width - box.left) / box.width;
+        }
+        if (scaledBox.left + scaledBox.width > restrictedBox.left + restrictedBox.width) {
+          scale = Math.min(
+            scale,
+            (restrictedBox.left + restrictedBox.width - box.left) / box.width
+          );
+        }
+
+        // Vertical constraints
+        if (scaledBox.top < restrictedBox.top) {
+          scale = Math.min(
+            scale,
+            (restrictedBox.top + restrictedBox.height - box.top) / box.height
+          );
+        }
+        if (scaledBox.top + scaledBox.height > restrictedBox.top + restrictedBox.height) {
+          scale = Math.min(
+            scale,
+            (restrictedBox.top + restrictedBox.height - box.top) / box.height
+          );
+        }
+      }
+
+      // --- Apply scale to sizes ---
       setSizes(prev => {
         const next = { ...prev };
-        selected.forEach(u => {
-          next[u] = {
-            w: startSizes[u].w * scale,
-            h: startSizes[u].h * scale,
+        selected.forEach(uid => {
+          next[uid] = {
+            w: startSizes[uid].w * scale,
+            h: startSizes[uid].h * scale,
           };
         });
         return next;
       });
 
+      // --- Apply scale to positions ---
       setPositions(prev => {
         const next = { ...prev };
-        selected.forEach(u => {
-          const rx = startPos[u].x - box.left;
-          const ry = startPos[u].y - box.top;
-          next[u] = {
+        selected.forEach(uid => {
+          const rx = startPos[uid].x - box.left;
+          const ry = startPos[uid].y - box.top;
+          next[uid] = {
             x: box.left + rx * scale,
             y: box.top + ry * scale,
           };
@@ -47,28 +94,31 @@ export function useGroupResize({
         return next;
       });
 
-      setImageState?.((prev: any) => {
-        const next = { ...prev };
-        selected.forEach(u => {
-          next[u] = {
-            ...prev[u],
-            size: {
-              w: startSizes[u].w * scale,
-              h: startSizes[u].h * scale,
-            },
-          };
+      // Optional: update global image state
+      if (setImageState) {
+        setImageState((prev: any) => {
+          const next = { ...prev };
+          selected.forEach(uid => {
+            next[uid] = {
+              ...prev[uid],
+              size: {
+                w: startSizes[uid].w * scale,
+                h: startSizes[uid].h * scale,
+              },
+            };
+          });
+          return next;
         });
-        return next;
-      });
+      }
     };
 
-    const up = () => {
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
 
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
   };
 
   return { startResize };

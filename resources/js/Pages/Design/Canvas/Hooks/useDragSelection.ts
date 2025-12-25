@@ -68,22 +68,48 @@ const onPointerMove = (e: PointerEvent) => {
 
   const box = args.restrictedBox;
 
-  args.setPositions((prev) => {
+  args.setPositions(prev => {
     const next = { ...prev };
 
-    draggingUids.current.forEach((uid) => {
+    let dx = 0;
+    let dy = 0;
+
+    const refUid = draggingUids.current[0];
+    const refPos = prev[refUid];
+    const refOffset = dragOffsets.current[refUid];
+
+    // 🛡️ if something went out of sync, stop the drag gracefully
+    if (!refPos || !refOffset) return prev;
+
+    dx = e.clientX - refOffset.x - refPos.x;
+    dy = e.clientY - refOffset.y - refPos.y;
+
+    draggingUids.current.forEach(uid => {
+      const pos = prev[uid];
       const size = args.sizes[uid];
-      if (!size) return;
+      const offset = dragOffsets.current[uid];
 
-      const rawX = e.clientX - dragOffsets.current[uid].x;
-      const rawY = e.clientY - dragOffsets.current[uid].y;
+      // 🛡️ skip if any part of state disappeared
+      if (!pos || !size || !offset) return;
 
-      // clamp X and Y independently
-      const clampedX = Math.min(Math.max(rawX, box.left), box.left + box.width - size.w);
-      const clampedY = Math.min(Math.max(rawY, box.top), box.top + box.height - size.h);
+      const minX = box.left - pos.x;
+      const maxX = box.left + box.width - size.w - pos.x;
 
-      // set each image individually
-      next[uid] = { x: clampedX, y: clampedY };
+      const minY = box.top - pos.y;
+      const maxY = box.top + box.height - size.h - pos.y;
+
+      dx = Math.min(Math.max(dx, minX), maxX);
+      dy = Math.min(Math.max(dy, minY), maxY);
+    });
+
+    draggingUids.current.forEach(uid => {
+      const pos = prev[uid];
+      if (!pos) return;
+
+      next[uid] = {
+        x: pos.x + dx,
+        y: pos.y + dy,
+      };
     });
 
     return next;

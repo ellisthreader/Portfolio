@@ -1,9 +1,6 @@
-// 🧩 Composes the interactive canvas by coordinating image rendering, selection, dragging, resizing, and marquee-based multi-selection.
-
-
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import UploadedImagesLayer from "./UploadedImagesLayer";
 import MainProductImage from "./MainProductImage";
 import RestrictedArea from "./RestrictedArea";
@@ -13,6 +10,8 @@ import { useDragSelection } from "./Hooks/useDragSelection";
 import { useMarqueeSelection } from "./Hooks/useMarqueeSelection";
 import { useImageSizes } from "./Hooks/useImageSizes";
 import { useImagePositions } from "./Hooks/useImagePositions";
+import { useGroupResize } from "./Hooks/useGroupResize";
+import { useDuplicateImages } from "./Hooks/useDuplicateImages";
 
 export type CanvasProps = {
   canvasRef: React.RefObject<HTMLDivElement>;
@@ -27,21 +26,25 @@ export type CanvasProps = {
 };
 
 export default function Canvas(props: CanvasProps) {
-  const { canvasRef, uploadedImages, imageState, restrictedBox, mainImage } = props;
+  const { canvasRef, restrictedBox, mainImage } = props;
+
+  // --------------------- Local state for images ---------------------
+  const [localImageState, setLocalImageState] = useState(props.imageState);
+  const [localUploadedImages, setLocalUploadedImages] = useState(props.uploadedImages);
 
   // --------------------- Image sizes ---------------------
-  const { sizes } = useImageSizes(uploadedImages, imageState);
+  const { sizes, setSizes } = useImageSizes(localUploadedImages, localImageState);
 
   // --------------------- Image positions ---------------------
   const { positions, setPositions } = useImagePositions(
-    uploadedImages,
+    localUploadedImages,
     sizes,
     restrictedBox
   );
 
   // --------------------- Drag selection ---------------------
   const drag = useDragSelection({
-    uids: uploadedImages,
+    uids: localUploadedImages,
     sizes,
     positions,
     setPositions,
@@ -51,38 +54,56 @@ export default function Canvas(props: CanvasProps) {
     onDuplicate: props.onDuplicate,
     onResize: props.onResize,
     onReset: props.onReset,
-    multiDrag: true, // ✅ Enable multi-drag support
+    multiDrag: true,
+  });
+
+  // --------------------- Group resize ---------------------
+  const groupResize = useGroupResize({
+    selected: drag.selected,
+    sizes,
+    positions,
+    setSizes,
+    setPositions,
+    restrictedBox,
+    setImageState: setLocalImageState,
+  });
+
+  // --------------------- Duplicate images ---------------------
+  const duplicateImages = useDuplicateImages({
+    positions,
+    setPositions,
+    sizes,
+    setSizes,
+    imageState: localImageState,
+    setImageState: setLocalImageState,
+    uploadedImages: localUploadedImages,
+    setUploadedImages: setLocalUploadedImages,
   });
 
   // --------------------- Marquee selection ---------------------
   const marquee = useMarqueeSelection({
     canvasRef,
-    uids: uploadedImages,
+    uids: localUploadedImages,
     onSelect: drag.setSelected,
   });
 
   // --------------------- Canvas pointer down ---------------------
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
     const target = e.target as HTMLElement;
+
+    if (target.closest(".selection-button")) return;
+
     const uid = target.dataset.uid;
 
     if (target.dataset.type !== "img") {
-      // Clicked outside an image → deselect all
       drag.setSelected([]);
     } else {
-      // Clicked on an image
-      if (!drag.selected.includes(uid!)) {
-        // Not already selected → select only this image
-        drag.setSelected([uid!]);
-      }
-      // ✅ Start dragging all selected images
+      if (!drag.selected.includes(uid!)) drag.setSelected([uid!]);
       drag.onPointerDown(e, uid!);
     }
 
-    // Pass event to marquee
     marquee.onPointerDown(e);
   };
-
 
   return (
     <div
@@ -95,16 +116,22 @@ export default function Canvas(props: CanvasProps) {
       <RestrictedArea box={restrictedBox} />
 
       <UploadedImagesLayer
-        uids={uploadedImages}
+        uids={localUploadedImages}
         positions={positions}
         sizes={sizes}
-        imageState={imageState}
+        imageState={localImageState}
         selected={drag.selected}
         hovered={marquee.hovered}
         onPointerDown={drag.onPointerDown}
       />
 
-      {drag.selected.length > 0 && <SelectionBox {...drag.selectionBoxProps} />}
+      {drag.selected.length > 0 && (
+        <SelectionBox
+          {...drag.selectionBoxProps}
+          onDuplicate={duplicateImages}
+          onStartGroupResize={groupResize.startResize}
+        />
+      )}
 
       <Marquee marquee={marquee.marquee} />
     </div>

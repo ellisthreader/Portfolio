@@ -200,7 +200,23 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
           className="absolute bg-white rounded-full shadow p-1 cursor-pointer selection-button"
           style={{ left: -15, bottom: -15, zIndex: 400, pointerEvents: "auto" }}
           onMouseDown={stopAll}
-          onClick={(e) => { stopAll(e); onDuplicate(selectedImages); }}
+          onClick={(e) => {
+            stopAll(e);
+
+            console.log("Duplicate button clicked"); // log click
+            console.log("Selected images to duplicate:", selectedImages); // log selected images
+
+            if (selectedImages.length === 0) {
+              console.warn("No images selected, nothing to duplicate");
+            }
+
+            if (typeof onDuplicate === "function") {
+              onDuplicate(selectedImages); // call duplicate
+              console.log("onDuplicate callback called");
+            } else {
+              console.error("onDuplicate is not a function");
+            }
+          }}
           onMouseEnter={() => showLabel("Duplicate", box.left - 10, box.top + box.height + 20)}
           onMouseLeave={hideLabel}
         >
