@@ -346,22 +346,26 @@ const handleResetImage = (url: string) => {
           </div>
 
           {/* CANVAS */}
-          <Canvas
-            mainImage={mainImage}
-            displayImages={displayImages}
-            uploadedImages={uploadedImages}
-            restrictedBox={restrictedBox}
-            canvasRef={canvasRef}
-            selectedImage={selectedUploadedImage}
-            onSelectImage={setMainImage}
-            onUploadedImageSelect={handleUploadedImageSelect}
-            onRemoveUploadedImage={handleRemoveUploadedImage}
-            onDuplicateUploadedImage={handleDuplicateUploadedImage}
-            imageState={imageState}
-            setImageState={setImageState}
-            positions={positions}          // ✅ pass positions
-            setPositions={setPositions} 
-          />
+            <Canvas
+              mainImage={mainImage}
+              displayImages={displayImages}
+              uploadedImages={uploadedImages}
+              restrictedBox={restrictedBox}
+              canvasRef={canvasRef}
+
+              selectedImage={selectedUploadedImage}
+
+              // 👇 THIS IS THE IMPORTANT ONE
+              onSelectImage={handleUploadedImageSelect}
+
+              onUploadedImageSelect={handleUploadedImageSelect}
+              onRemoveUploadedImage={handleRemoveUploadedImage}
+              onDuplicateUploadedImage={handleDuplicateUploadedImage}
+              imageState={imageState}
+              setImageState={setImageState}
+              positions={positions}
+              setPositions={setPositions}
+            />
         </div>
       </div>
     </div>

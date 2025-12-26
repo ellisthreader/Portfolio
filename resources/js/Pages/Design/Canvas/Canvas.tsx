@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import UploadedImagesLayer from "./UploadedImagesLayer";
 import MainProductImage from "./MainProductImage";
 import RestrictedArea from "./RestrictedArea";
 import Marquee from "./Marquee";
 import SelectionBox from "../SelectionBox";
+
 import { useDragSelection } from "./Hooks/useDragSelection";
 import { useMarqueeSelection } from "./Hooks/useMarqueeSelection";
 import { useImageSizes } from "./Hooks/useImageSizes";
@@ -18,33 +19,42 @@ export type CanvasProps = {
   mainImage: string;
   restrictedBox: { left: number; top: number; width: number; height: number };
   uploadedImages: string[];
-  imageState: Record<string, { src: string; size?: { w: number; h: number } }>;
+  imageState: Record<
+    string,
+    { src: string; size?: { w: number; h: number } }
+  >;
   onDelete?: (uids: string[]) => void;
   onDuplicate?: (uids: string[]) => void;
   onResize?: (uid: string, w: number, h: number) => void;
   onReset?: (uids: string[]) => void;
+
+  // 👇 important — this controls the SIDEBAR selection
+  onSelectImage?: (uid: string | null) => void;
 };
 
 export default function Canvas(props: CanvasProps) {
-  const { canvasRef, restrictedBox, mainImage } = props;
-
-  // --------------------- Local state for images ---------------------
-  const [localImageState, setLocalImageState] = useState(props.imageState);
-  const [localUploadedImages, setLocalUploadedImages] = useState(props.uploadedImages);
+  const {
+    canvasRef,
+    restrictedBox,
+    mainImage,
+    imageState,
+    uploadedImages,
+    onSelectImage,
+  } = props;
 
   // --------------------- Image sizes ---------------------
-  const { sizes, setSizes } = useImageSizes(localUploadedImages, localImageState);
+  const { sizes, setSizes } = useImageSizes(uploadedImages, imageState);
 
   // --------------------- Image positions ---------------------
   const { positions, setPositions } = useImagePositions(
-    localUploadedImages,
+    uploadedImages,
     sizes,
     restrictedBox
   );
 
   // --------------------- Drag selection ---------------------
   const drag = useDragSelection({
-    uids: localUploadedImages,
+    uids: uploadedImages,
     sizes,
     positions,
     setPositions,
@@ -65,7 +75,6 @@ export default function Canvas(props: CanvasProps) {
     setSizes,
     setPositions,
     restrictedBox,
-    setImageState: setLocalImageState,
   });
 
   // --------------------- Duplicate images ---------------------
@@ -74,16 +83,14 @@ export default function Canvas(props: CanvasProps) {
     setPositions,
     sizes,
     setSizes,
-    imageState: localImageState,
-    setImageState: setLocalImageState,
-    uploadedImages: localUploadedImages,
-    setUploadedImages: setLocalUploadedImages,
+    imageState,
+    uploadedImages,
   });
 
   // --------------------- Marquee selection ---------------------
   const marquee = useMarqueeSelection({
     canvasRef,
-    uids: localUploadedImages,
+    uids: uploadedImages,
     onSelect: drag.setSelected,
   });
 
@@ -91,17 +98,28 @@ export default function Canvas(props: CanvasProps) {
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
     const target = e.target as HTMLElement;
 
+    // Ignore resize / duplicate handles etc
     if (target.closest(".selection-button")) return;
 
     const uid = target.dataset.uid;
 
+    // -------- click EMPTY SPACE --------
     if (target.dataset.type !== "img") {
       drag.setSelected([]);
-    } else {
-      if (!drag.selected.includes(uid!)) drag.setSelected([uid!]);
-      drag.onPointerDown(e, uid!);
+      onSelectImage?.(null); // 👈 clear sidebar
+      marquee.onPointerDown(e);
+      return;
     }
 
+    // -------- click IMAGE --------
+    if (!drag.selected.includes(uid!)) {
+      drag.setSelected([uid!]);
+    }
+
+    // 👇 tell sidebar WHICH uploaded image is active
+    onSelectImage?.(uid!);
+
+    drag.onPointerDown(e, uid!);
     marquee.onPointerDown(e);
   };
 
@@ -116,10 +134,10 @@ export default function Canvas(props: CanvasProps) {
       <RestrictedArea box={restrictedBox} />
 
       <UploadedImagesLayer
-        uids={localUploadedImages}
+        uids={uploadedImages}
         positions={positions}
         sizes={sizes}
-        imageState={localImageState}
+        imageState={imageState}
         selected={drag.selected}
         hovered={marquee.hovered}
         onPointerDown={drag.onPointerDown}

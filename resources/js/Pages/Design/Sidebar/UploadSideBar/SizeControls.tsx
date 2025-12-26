@@ -15,6 +15,7 @@ export default function SizeControls({
 
   useEffect(() => {
     if (!image) return;
+
     setSizeInches({
       width: Number((image.size.w / DPI).toFixed(2)),
       height: Number((image.size.h / DPI).toFixed(2)),
@@ -26,25 +27,38 @@ export default function SizeControls({
   const updateSize = (wIn: number, hIn: number) => {
     const pos = canvasPositions[selectedImage] ?? { x: 0, y: 0 };
 
-    const maxW =
-      restrictedBox.width - (pos.x - restrictedBox.left);
-    const maxH =
-      restrictedBox.height - (pos.y - restrictedBox.top);
+    const pxW = wIn * DPI;
+    const pxH = hIn * DPI;
 
-    const pxW = Math.min(wIn * DPI, maxW);
-    const pxH = Math.min(hIn * DPI, maxH);
+    // Restricted edges
+    const boxRight = restrictedBox.left + restrictedBox.width;
+    const boxBottom = restrictedBox.top + restrictedBox.height;
+
+    // Max size before crossing restricted border
+    const maxW = Math.max(1, boxRight - pos.x);
+    const maxH = Math.max(1, boxBottom - pos.y);
+
+    // Freeze at the boundary
+    const finalW = Math.min(pxW, maxW);
+    const finalH = Math.min(pxH, maxH);
+
+    // Sync the inputs so they "freeze" visually too
+    setSizeInches({
+      width: Number((finalW / DPI).toFixed(2)),
+      height: Number((finalH / DPI).toFixed(2)),
+    });
 
     onUpdateImageSize?.(
       selectedImage,
-      Math.round(pxW),
-      Math.round(pxH)
+      Math.round(finalW),
+      Math.round(finalH)
     );
 
     setImageState?.((prev: any) => ({
       ...prev,
       [selectedImage]: {
         ...prev[selectedImage],
-        size: { w: Math.round(pxW), h: Math.round(pxH) },
+        size: { w: Math.round(finalW), h: Math.round(finalH) },
       },
     }));
   };
@@ -56,9 +70,7 @@ export default function SizeControls({
       <div className="grid grid-cols-2 gap-3">
         {/* Width */}
         <div>
-          <label className="text-sm text-gray-600">
-            Width (inches)
-          </label>
+          <label className="text-sm text-gray-600">Width (inches)</label>
           <input
             type="number"
             step={0.1}
@@ -75,9 +87,7 @@ export default function SizeControls({
 
         {/* Height */}
         <div>
-          <label className="text-sm text-gray-600">
-            Height (inches)
-          </label>
+          <label className="text-sm text-gray-600">Height (inches)</label>
           <input
             type="number"
             step={0.1}
