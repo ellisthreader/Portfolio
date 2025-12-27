@@ -20,7 +20,8 @@ export default function SizeControls({
       width: Number((image.size.w / DPI).toFixed(2)),
       height: Number((image.size.h / DPI).toFixed(2)),
     });
-  }, [image]);
+  }, [image?.size?.w, image?.size?.h]);
+
 
   const clamp = (v: number) => Math.max(MIN_INCHES, v);
 
@@ -30,13 +31,21 @@ export default function SizeControls({
     const pxW = wIn * DPI;
     const pxH = hIn * DPI;
 
+    // Max size before crossing restricted border
     // Restricted edges
+    const boxLeft = restrictedBox.left;
+    const boxTop = restrictedBox.top;
     const boxRight = restrictedBox.left + restrictedBox.width;
     const boxBottom = restrictedBox.top + restrictedBox.height;
 
-    // Max size before crossing restricted border
-    const maxW = Math.max(1, boxRight - pos.x);
-    const maxH = Math.max(1, boxBottom - pos.y);
+    // Where the image is allowed to start (can't be left of box)
+    const clampedX = Math.max(pos.x, boxLeft);
+    const clampedY = Math.max(pos.y, boxTop);
+
+    // Max size while staying inside the box
+    const maxW = Math.max(1, boxRight - clampedX);
+    const maxH = Math.max(1, boxBottom - clampedY);
+
 
     // Freeze at the boundary
     const finalW = Math.min(pxW, maxW);

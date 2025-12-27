@@ -56,13 +56,21 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
     setBox({ left: minX, top: minY, width: maxX - minX, height: maxY - minY });
   };
 
-  useEffect(() => {
-    updateBoundingBox();
-    const onResize = () => updateBoundingBox();
-    window.addEventListener("resize", onResize);
+useEffect(() => {
+  // run once when deps change
+  updateBoundingBox();
 
-    return () => window.removeEventListener("resize", onResize);
-  }, [selectedImages, canvasRef]);
+  const handleWindowResize = () => {
+    updateBoundingBox();
+  };
+
+  window.addEventListener("resize", handleWindowResize);
+
+  return () => {
+    window.removeEventListener("resize", handleWindowResize);
+  };
+}, [selectedImages, canvasRef]);
+
 
   // NEW: click outside to deselect
   useEffect(() => {

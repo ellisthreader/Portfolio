@@ -23,12 +23,14 @@ export type CanvasProps = {
     string,
     { src: string; size?: { w: number; h: number } }
   >;
+  setImageState: React.Dispatch<any>;   // 👈 ADDED
+
   onDelete?: (uids: string[]) => void;
   onDuplicate?: (uids: string[]) => void;
   onResize?: (uid: string, w: number, h: number) => void;
   onReset?: (uids: string[]) => void;
 
-  // 👇 important — this controls the SIDEBAR selection
+  // 👇 controls the sidebar selection
   onSelectImage?: (uid: string | null) => void;
 };
 
@@ -38,6 +40,7 @@ export default function Canvas(props: CanvasProps) {
     restrictedBox,
     mainImage,
     imageState,
+    setImageState,         // 👈 ADDED
     uploadedImages,
     onSelectImage,
   } = props;
@@ -75,6 +78,7 @@ export default function Canvas(props: CanvasProps) {
     setSizes,
     setPositions,
     restrictedBox,
+    setImageState,        // 👈 CRITICAL — syncs sidebar widths/heights
   });
 
   // --------------------- Duplicate images ---------------------
@@ -106,7 +110,7 @@ export default function Canvas(props: CanvasProps) {
     // -------- click EMPTY SPACE --------
     if (target.dataset.type !== "img") {
       drag.setSelected([]);
-      onSelectImage?.(null); // 👈 clear sidebar
+      onSelectImage?.(null);
       marquee.onPointerDown(e);
       return;
     }
@@ -116,7 +120,6 @@ export default function Canvas(props: CanvasProps) {
       drag.setSelected([uid!]);
     }
 
-    // 👇 tell sidebar WHICH uploaded image is active
     onSelectImage?.(uid!);
 
     drag.onPointerDown(e, uid!);

@@ -1,16 +1,22 @@
-// 📐 Scales and repositions multiple selected images together by resizing them as a group during mouse drag.
-// Prevents images from resizing outside a restricted bounding box.
-
 import { computeBoundingBox } from "../Utils/boundingBox";
 
 export interface GroupResizeParams {
-  selected: string[]; // array of selected image uids
+  selected: string[];
   sizes: Record<string, { w: number; h: number }>;
   positions: Record<string, { x: number; y: number }>;
-  setSizes: React.Dispatch<React.SetStateAction<Record<string, { w: number; h: number }>>>;
-  setPositions: React.Dispatch<React.SetStateAction<Record<string, { x: number; y: number }>>>;
-  restrictedBox?: { left: number; top: number; width: number; height: number };
-  setImageState?: React.Dispatch<any>; // optional if you track global image state
+  setSizes: React.Dispatch<
+    React.SetStateAction<Record<string, { w: number; h: number }>>
+  >;
+  setPositions: React.Dispatch<
+    React.SetStateAction<Record<string, { x: number; y: number }>>
+  >;
+  restrictedBox?: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+  setImageState?: React.Dispatch<any>;
 }
 
 export function useGroupResize({
@@ -23,7 +29,6 @@ export function useGroupResize({
   setImageState,
 }: GroupResizeParams) {
   const startResize = (startX: number) => {
-    // Compute initial bounding box of selected images
     const box = computeBoundingBox(positions, sizes, selected);
     if (!box) return;
 
@@ -33,42 +38,25 @@ export function useGroupResize({
     const handleMouseMove = (e: MouseEvent) => {
       let scale = Math.exp((e.clientX - startX) / 200);
 
-      // --- Constrain scale to restricted box if provided ---
       if (restrictedBox) {
-        const scaledBox = {
-          left: box.left,
-          top: box.top,
-          width: box.width * scale,
-          height: box.height * scale,
-        };
+        const rLeft = restrictedBox.left;
+        const rTop = restrictedBox.top;
+        const rRight = restrictedBox.left + restrictedBox.width;
+        const rBottom = restrictedBox.top + restrictedBox.height;
 
-        // Horizontal constraints
-        if (scaledBox.left < restrictedBox.left) {
-          scale = (restrictedBox.left + restrictedBox.width - box.left) / box.width;
-        }
-        if (scaledBox.left + scaledBox.width > restrictedBox.left + restrictedBox.width) {
-          scale = Math.min(
-            scale,
-            (restrictedBox.left + restrictedBox.width - box.left) / box.width
-          );
-        }
+        const boxLeft = box.left;
+        const boxTop = box.top;
 
-        // Vertical constraints
-        if (scaledBox.top < restrictedBox.top) {
-          scale = Math.min(
-            scale,
-            (restrictedBox.top + restrictedBox.height - box.top) / box.height
-          );
-        }
-        if (scaledBox.top + scaledBox.height > restrictedBox.top + restrictedBox.height) {
-          scale = Math.min(
-            scale,
-            (restrictedBox.top + restrictedBox.height - box.top) / box.height
-          );
-        }
+        let maxScale = Infinity;
+
+        maxScale = Math.min(maxScale, (rRight - boxLeft) / box.width);
+        maxScale = Math.min(maxScale, (rBottom - boxTop) / box.height);
+
+        maxScale = Math.max(0.01, maxScale);
+
+        scale = Math.min(scale, maxScale);
       }
 
-      // --- Apply scale to sizes ---
       setSizes(prev => {
         const next = { ...prev };
         selected.forEach(uid => {
@@ -80,12 +68,12 @@ export function useGroupResize({
         return next;
       });
 
-      // --- Apply scale to positions ---
       setPositions(prev => {
         const next = { ...prev };
         selected.forEach(uid => {
           const rx = startPos[uid].x - box.left;
           const ry = startPos[uid].y - box.top;
+
           next[uid] = {
             x: box.left + rx * scale,
             y: box.top + ry * scale,
@@ -94,7 +82,7 @@ export function useGroupResize({
         return next;
       });
 
-      // Optional: update global image state
+      // ⭐ THIS is the important sync so SizeControls updates
       if (setImageState) {
         setImageState((prev: any) => {
           const next = { ...prev };
