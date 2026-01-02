@@ -180,17 +180,25 @@ useEffect(() => {
           background: "rgba(59,130,246,0.08)",
         }}
       >
-        {/* DELETE */}
-        <div
-          className="absolute bg-white rounded-full shadow p-1 cursor-pointer selection-button"
-          style={{ right: -15, top: -15, zIndex: 400, pointerEvents: "auto" }}
-          onMouseDown={stopAll}
-          onClick={(e) => { stopAll(e); onDelete(selectedImages); }}
-          onMouseEnter={() => showLabel("Delete", box.left + box.width - 10, box.top - 30)}
-          onMouseLeave={hideLabel}
-        >
-          <X size={16} color="red" />
-        </div>
+
+      {/* DELETE */}
+      <div
+        className="absolute bg-white rounded-full shadow p-1 cursor-pointer selection-button"
+        style={{ right: -15, top: -15, zIndex: 400, pointerEvents: "auto" }}
+        onMouseDown={stopAll}
+        onClick={(e) => {
+        stopAll(e);
+        console.log("SelectionBox delete clicked:", selectedImages);
+        onDelete(selectedImages);
+      }}
+
+        onMouseEnter={() =>
+          showLabel("Delete", box.left + box.width - 10, box.top - 30)
+        }
+        onMouseLeave={hideLabel}
+      >
+        <X size={16} color="red" />
+      </div>
 
         {/* RESIZE */}
         <div

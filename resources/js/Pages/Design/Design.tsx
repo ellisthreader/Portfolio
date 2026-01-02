@@ -3,19 +3,27 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Head, usePage, router } from "@inertiajs/react";
 import { ArrowLeft, ArrowRight, X, Shirt, Upload as UploadIcon, Type, Image as ClipartIcon } from "lucide-react";
+
 import ProductEdit from "./Sidebar/ProductEdit";
 import AddText from "./Sidebar/TextSideBar/AddText";
 import Clipart from "./Sidebar/Clipart";
 import UploadSidebar from "./Sidebar/UploadSideBar/UploadSidebar";
 import ChangeProductModal from "./ChangeProduct";
 import Canvas from "./Canvas/Canvas";
+import TextProperties from "./Sidebar/TextSideBar/TextProperties/TextProperties";
 
 // ---------------------- IMAGE STATE TYPE ----------------------
 export type ImageState = {
   url: string;
+  type?: "image" | "text";
+  text?: string; // only for text layers
   rotation: number;
   flip: "none" | "horizontal" | "vertical";
   size: { w: number; h: number };
+  fontFamily?: string; // only for text layers
+  color?: string;
+  borderColor?: string;
+  borderWidth?: number;
   original: {
     url: string;
     rotation: number;
@@ -43,8 +51,19 @@ export default function Design() {
 
   // ---------------------- IMAGE STATE ----------------------
   const [imageState, setImageState] = useState<Record<string, ImageState>>({});
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [selectedUploadedImage, setSelectedUploadedImage] = useState<string | null>(null);
+  const [selectedText, setSelectedText] = useState<string | null>(null);
 
-  // Prevent selection/drag on page
+  const [activeTab, setActiveTab] = useState<"product" | "upload" | "text" | "clipart">("product");
+  const [displayImages, setDisplayImages] = useState<string[]>([]);
+  const [mainImage, setMainImage] = useState("");
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+
+  // ---------------------- PREVENT TEXT SELECTION ----------------------
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener("selectstart", prevent);
@@ -84,37 +103,7 @@ export default function Design() {
   );
   const [selectedSize, setSelectedSize] = useState(propSize ?? null);
 
-  const [displayImages, setDisplayImages] = useState<string[]>([]);
-  const [mainImage, setMainImage] = useState("");
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
-  const canvasRef = useRef<HTMLDivElement | null>(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-
-  const handleRotateImage = (url: string, angle: number) => {
-  setImageState(prev => {
-    if (!prev[url]) return prev;
-    return {
-      ...prev,
-      [url]: {
-        ...prev[url],
-        rotation: angle,
-      },
-    };
-  });
-};
-
-  // ---------------------- UPDATE DISPLAY IMAGES ----------------------
-  useEffect(() => {
-    if (!selectedColour) return;
-    const variant =
-      variantsByColour[selectedColour].find((v) => v.size === selectedSize) ??
-      variantsByColour[selectedColour][0];
-    const sorted = normalizeImages(variant?.images ?? []);
-    setDisplayImages(sorted);
-    setMainImage(sorted[0] ?? "");
-  }, [selectedColour, selectedSize, variantsByColour]);
-
-  // Track canvas size
+  // ---------------------- CANVAS SIZE TRACKER ----------------------
   useEffect(() => {
     if (!canvasRef.current) return;
     const updateSize = () => {
@@ -126,38 +115,6 @@ export default function Design() {
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // ---------------------- UPLOAD HANDLERS ----------------------
-const handleUpload = (url: string) => {
-  const size = { w: 150, h: 150 };
-  setUploadedImages(prev => [...prev, url]);
-
-  setImageState(prev => ({
-    ...prev,
-    [url]: {
-      url,               // ✅ top-level required
-      rotation: 0,
-      flip: "none",
-      size,
-      original: {
-        url,
-        rotation: 0,
-        flip: "none",
-        size: { ...size },
-      },
-    },
-  }));
-};
-
-
-
-  const [activeTab, setActiveTab] = useState("product");
-  const [selectedUploadedImage, setSelectedUploadedImage] = useState<string | null>(null);
-
-  const handleUploadedImageSelect = (url: string | null) => {
-    setSelectedUploadedImage(url);
-    if (url) setActiveTab("upload");
-  };
-
   const restrictedBox = {
     left: canvasSize.width * 0.367,
     top: canvasSize.height * 0.1,
@@ -165,53 +122,64 @@ const handleUpload = (url: string) => {
     height: canvasSize.height * 0.65,
   };
 
-  // ---------------------- IMAGE MANIPULATION ----------------------
-const handleResetImage = (url: string) => {
-  setImageState(prev => {
-    const img = prev[url];
-    if (!img) return prev;
+  // ---------------------- IMAGE HANDLERS ----------------------
+  const handleRotateImage = (url: string, angle: number) => {
+    setImageState(prev => {
+      if (!prev[url]) return prev;
+      return { ...prev, [url]: { ...prev[url], rotation: angle } };
+    });
+  };
 
+  const handleFlipImage = (url: string, flip: "none" | "horizontal" | "vertical") => {
+    setImageState(prev => ({
+      ...prev,
+      [url]: { ...(prev[url] ?? { rotation: 0, size: { w: 150, h: 150 } }), flip },
+    }));
+  };
+
+  const handleUpdateImageSize = (url: string, w: number, h: number) => {
+    setImageState(prev => ({
+      ...prev,
+      [url]: { ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }), size: { w, h } },
+    }));
+  };
+
+const handleResetImage = (uid: string) => {
+  setImageState(prev => {
+    const layer = prev[uid];
+    if (!layer || !layer.original) return prev;
+
+    // ---- TEXT LAYER ----
+    if (layer.type === "text") {
+      return {
+        ...prev,
+        [uid]: {
+          ...layer,
+          rotation: layer.original.rotation,
+          flip: layer.original.flip,
+          size: { ...layer.original.size },
+        },
+      };
+    }
+
+    // ---- IMAGE LAYER ----
     return {
       ...prev,
-      [url]: {
-        ...img,                // keep the current key
-        url: img.original.url, // restore original image
-        size: { ...img.original.size },
-        rotation: img.original.rotation,
-        flip: img.original.flip,
+      [uid]: {
+        ...layer,
+        url: layer.original.url,
+        size: { ...layer.original.size },
+        rotation: layer.original.rotation,
+        flip: layer.original.flip,
       },
     };
   });
 };
 
 
-  const handleFlipImage = (
-    url: string,
-    flip: "none" | "horizontal" | "vertical"
-  ) => {
-    setImageState(prev => ({
-      ...prev,
-      [url]: {
-        ...(prev[url] ?? { rotation: 0, size: { w: 150, h: 150 } }),
-        flip,
-      },
-    }));
-  };
-
-
-  const handleUpdateImageSize = (url: string, w: number, h: number) => {
-    setImageState((prev) => ({
-      ...prev,
-      [url]: {
-        ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }),
-        size: { w, h },
-      },
-    }));
-  };
-
   const handleRemoveUploadedImage = (url: string) => {
-    setUploadedImages((prev) => prev.filter((u) => u !== url));
-    setImageState((prev) => {
+    setUploadedImages(prev => prev.filter(u => u !== url));
+    setImageState(prev => {
       const next = { ...prev };
       delete next[url];
       return next;
@@ -219,35 +187,59 @@ const handleResetImage = (url: string) => {
     if (selectedUploadedImage === url) setSelectedUploadedImage(null);
   };
 
+  const handleDeleteImages = (uids: string[]) => {
+    uids.forEach(uid => handleRemoveUploadedImage(uid));
+  };
+
+  const handleUpload = (url: string) => {
+    const size = { w: 150, h: 150 };
+    setUploadedImages(prev => [...prev, url]);
+    setImageState(prev => ({
+      ...prev,
+      [url]: {
+        url,
+        type: "image",
+        rotation: 0,
+        flip: "none",
+        size,
+        original: { url, rotation: 0, flip: "none", size: { ...size } },
+      },
+    }));
+  };
 
   const handleDuplicateUploadedImage = (url: string) => {
-  const dup = `${url}#dup-${Date.now()}`;
-  const source = imageState[url];
-  if (!source) return;
+    const source = imageState[url];
+    if (!source) return;
+    const dup = `${url}#dup-${Date.now()}`;
+    setUploadedImages(prev => [...prev, dup]);
+    setImageState(prev => ({
+      ...prev,
+      [dup]: { ...source },
+    }));
+    setSelectedUploadedImage(dup);
+    setActiveTab("upload");
+  };
 
-  setUploadedImages(prev => [...prev, dup]);
+  // ---------------------- TEXT HANDLER ----------------------
+  const updateTextLayer = (uid: string, updates: Partial<ImageState>) => {
+    setImageState(prev => ({
+      ...prev,
+      [uid]: { ...prev[uid], ...updates },
+    }));
+  };
 
-  setImageState(prev => ({
-    ...prev,
-    [dup]: {
-      url: source.url,   // ✅ top-level
-      rotation: source.rotation,
-      flip: source.flip,
-      size: { ...source.size },
-      original: { ...source.original },
-    },
-  }));
-
-  setSelectedUploadedImage(dup);
-  setActiveTab("upload");
-};
-
-
-
+  // ---------------------- DISPLAY IMAGES ----------------------
+  useEffect(() => {
+    if (!selectedColour) return;
+    const variant =
+      variantsByColour[selectedColour].find(v => v.size === selectedSize) ??
+      variantsByColour[selectedColour][0];
+    const sorted = normalizeImages(variant?.images ?? []);
+    setDisplayImages(sorted);
+    setMainImage(sorted[0] ?? "");
+  }, [selectedColour, selectedSize, variantsByColour]);
 
   // ---------------------- SIDEBAR RENDERER ----------------------
-  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
-
   const renderActiveTab = () => {
     switch (activeTab) {
       case "product":
@@ -261,14 +253,15 @@ const handleResetImage = (url: string) => {
             onOpenChangeProductModal={() => setIsChangeProductModalOpen(true)}
           />
         );
+
       case "upload":
         return (
           <UploadSidebar
             onUpload={handleUpload}
             recentImages={uploadedImages}
             selectedImage={selectedUploadedImage}
-            onSelectImage={handleUploadedImageSelect}
-            onRotateImage={handleRotateImage} 
+            onSelectImage={setSelectedUploadedImage}
+            onRotateImage={handleRotateImage}
             onFlipImage={handleFlipImage}
             onUpdateImageSize={handleUpdateImageSize}
             onRemoveUploadedImage={handleRemoveUploadedImage}
@@ -276,14 +269,68 @@ const handleResetImage = (url: string) => {
             imageState={imageState}
             restrictedBox={restrictedBox}
             canvasPositions={positions}
-            setImageState={setImageState}   // ✅ REQUIRED
-            onResetImage={handleResetImage} 
+            setImageState={setImageState}
+            onResetImage={handleResetImage}
           />
         );
+
       case "text":
-        return <AddText />;
+        return selectedText ? (
+          <TextProperties
+            textValue={imageState[selectedText].text ?? ""}
+            onTextChange={(val) => updateTextLayer(selectedText, { text: val })}
+            fontFamily={imageState[selectedText].fontFamily ?? "Arial"}
+            onFontChange={(val) => updateTextLayer(selectedText, { fontFamily: val })}
+            color={imageState[selectedText].color ?? "#000000"}
+            onColorChange={(val) => updateTextLayer(selectedText, { color: val })}
+            rotation={imageState[selectedText].rotation}
+            onRotationChange={(val) => updateTextLayer(selectedText, { rotation: val })}
+            fontSize={imageState[selectedText].size.h}
+            onFontSizeChange={(val) =>
+              updateTextLayer(selectedText, { size: { ...imageState[selectedText].size, h: val } })
+            }
+            borderColor={imageState[selectedText].borderColor ?? "#000000"}
+            onBorderColorChange={(val) => updateTextLayer(selectedText, { borderColor: val })}
+            borderWidth={imageState[selectedText].borderWidth ?? 0}
+            onBorderWidthChange={(val) => updateTextLayer(selectedText, { borderWidth: val })}
+          />
+        ) : (
+            <AddText
+              onAddText={(layer) => {
+                setImageState(prev => ({
+                  ...prev,
+                  [layer.id]: {
+                    url: "",
+                    type: "text",
+                    text: layer.text,
+                    rotation: 0,
+                    flip: "none",
+                    size: { w: 200, h: layer.size },
+                    fontFamily: layer.font,
+                    color: layer.color,
+                    borderColor: layer.borderColor,
+                    borderWidth: layer.borderWidth,
+                    original: {
+                      url: "",
+                      rotation: 0,
+                      flip: "none",
+                      size: { w: 200, h: layer.size },
+                    },
+                  },
+                }));
+
+                // 👉 ADD THIS
+                setUploadedImages(prev => [...prev, layer.id]);
+
+                setSelectedText(layer.id);
+                setActiveTab("text");
+              }}
+            />
+        );
+
       case "clipart":
         return <Clipart />;
+
       default:
         return null;
     }
@@ -296,7 +343,7 @@ const handleResetImage = (url: string) => {
       {isChangeProductModalOpen && (
         <ChangeProductModal
           onClose={() => setIsChangeProductModalOpen(false)}
-          currentCategory={currentCategory}
+          currentCategory={null} // Replace with actual category if available
         />
       )}
 
@@ -329,7 +376,7 @@ const handleResetImage = (url: string) => {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => setActiveTab(tab.id as any)}
                 className={`w-full h-16 flex flex-col items-center justify-center rounded-xl transition ${
                   activeTab === tab.id ? "bg-neutral-600" : "bg-neutral-700 hover:bg-neutral-600"
                 }`}
@@ -346,26 +393,19 @@ const handleResetImage = (url: string) => {
           </div>
 
           {/* CANVAS */}
-            <Canvas
-              mainImage={mainImage}
-              displayImages={displayImages}
-              uploadedImages={uploadedImages}
-              restrictedBox={restrictedBox}
-              canvasRef={canvasRef}
-
-              selectedImage={selectedUploadedImage}
-
-              // 👇 THIS IS THE IMPORTANT ONE
-              onSelectImage={handleUploadedImageSelect}
-
-              onUploadedImageSelect={handleUploadedImageSelect}
-              onRemoveUploadedImage={handleRemoveUploadedImage}
-              onDuplicateUploadedImage={handleDuplicateUploadedImage}
-              imageState={imageState}
-              setImageState={setImageState}
-              positions={positions}
-              setPositions={setPositions}
-            />
+          <Canvas
+            mainImage={mainImage}
+            restrictedBox={restrictedBox}
+            canvasRef={canvasRef}
+            uploadedImages={uploadedImages}
+            setUploadedImages={setUploadedImages}
+            imageState={imageState}
+            setImageState={setImageState}
+            onSelectImage={setSelectedUploadedImage}
+            onSelectText={setSelectedText}
+            onSwitchTab={setActiveTab}
+            onDelete={handleDeleteImages}
+          />
         </div>
       </div>
     </div>

@@ -1,6 +1,4 @@
-// 🗂️ Renders and layers all uploaded images on the canvas, passing position, size, and selection state to each draggable image.
-
-import DraggableImage from "./DraggableImage";
+import DraggableText from "./DraggableText";
 
 type Props = {
   uids: string[];
@@ -12,7 +10,7 @@ type Props = {
   onPointerDown: (e: React.MouseEvent, uid: string) => void;
 };
 
-export default function UploadedImagesLayer({
+export default function UploadedTextLayer({
   uids,
   positions,
   sizes,
@@ -24,21 +22,27 @@ export default function UploadedImagesLayer({
   return (
     <>
       {uids.map(uid => {
+        const layer = imageState[uid];
+
+        if (!layer || layer.type !== "text") return null;
+
         const s = sizes[uid];
         const p = positions[uid];
-
         if (!s || !p) return null;
 
         return (
-          <DraggableImage
+          <DraggableText
             key={uid}
             uid={uid}
-            // supports both old + new state shapes
-            url={imageState[uid]?.src ?? imageState[uid]?.url ?? ""}
+            text={layer.text ?? ""}
+            fontFamily={layer.fontFamily ?? "Arial"}
+            color={layer.color ?? "#000000"}
+            borderColor={layer.borderColor ?? "#000000"}
+            borderWidth={layer.borderWidth ?? 0}
             pos={p}
             size={s}
-            rotation={imageState[uid]?.rotation ?? 0}
-            flip={imageState[uid]?.flip ?? "none"}
+            rotation={layer.rotation ?? 0}
+            flip={layer.flip ?? "none"}
             highlighted={selected.includes(uid) || hovered[uid]}
             onPointerDown={onPointerDown}
           />

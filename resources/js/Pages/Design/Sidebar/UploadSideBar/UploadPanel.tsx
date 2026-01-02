@@ -1,6 +1,7 @@
 "use client";
 
 import { UploadCloud, Image as ImageIcon } from "lucide-react";
+import { stencilizeImage } from "../../Canvas/Utils/stencilizeImage";
 
 export default function UploadPanel({
   onUpload,
@@ -13,9 +14,14 @@ export default function UploadPanel({
 }) {
   const handleFile = (file?: File) => {
     if (!file) return;
+
     const url = URL.createObjectURL(file);
-    onUpload(url);
+
+    stencilizeImage(url).then((processed) => {
+      onUpload(processed);
+    });
   };
+
 
   return (
     <div className="p-5 space-y-6 h-full overflow-y-auto bg-white shadow-lg rounded-xl">

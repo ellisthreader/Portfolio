@@ -1,45 +1,67 @@
 import { useCallback } from "react";
 
+type Positions = Record<string, { x: number; y: number }>;
+type Sizes = Record<string, { w: number; h: number }>;
+type ImageState = Record<string, any>;
+
 export function useDuplicateImages({
-  positions,
   setPositions,
-  sizes,
   setSizes,
-  imageState,
   setImageState,
-  uploadedImages,
   setUploadedImages,
 }: {
-  positions: Record<string, { x: number; y: number }>;
-  setPositions: React.Dispatch<React.SetStateAction<Record<string, { x: number; y: number }>>>;
-  sizes: Record<string, { w: number; h: number }>;
-  setSizes: React.Dispatch<React.SetStateAction<Record<string, { w: number; h: number }>>>;
-  imageState: Record<string, any>;
-  setImageState: React.Dispatch<React.SetStateAction<Record<string, any>>>;
-  uploadedImages: string[];
+  setPositions: React.Dispatch<React.SetStateAction<Positions>>;
+  setSizes: React.Dispatch<React.SetStateAction<Sizes>>;
+  setImageState: React.Dispatch<React.SetStateAction<ImageState>>;
   setUploadedImages: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   const duplicate = useCallback((uids: string[]) => {
-    const newPositions = { ...positions };
-    const newSizes = { ...sizes };
-    const newImageState = { ...imageState };
     const newUids: string[] = [];
 
+    // positions
+  setPositions(prev => {
+    const next = { ...prev };
+
     uids.forEach(uid => {
-      const newUid = crypto.randomUUID();
+      // 💡 create a new key based on original url/id
+      const newUid = `${uid}#dup-${Date.now()}`;
       newUids.push(newUid);
-      newPositions[newUid] = { x: positions[uid].x + 20, y: positions[uid].y + 20 };
-      newSizes[newUid] = { ...sizes[uid] };
-      newImageState[newUid] = { ...imageState[uid] };
+
+      const p = prev[uid];
+      if (p) {
+        next[newUid] = { x: p.x + 20, y: p.y + 20 };
+      }
     });
 
-    setPositions(newPositions);
-    setSizes(newSizes);
-    setImageState(newImageState);
+    return next;
+  });
+
+
+    // sizes
+    setSizes(prev => {
+      const next = { ...prev };
+      uids.forEach((uid, idx) => {
+        const newUid = newUids[idx];
+        if (prev[uid]) next[newUid] = { ...prev[uid] };
+      });
+      return next;
+    });
+
+    // image state
+    setImageState(prev => {
+      const next = { ...prev };
+      uids.forEach((uid, idx) => {
+        const newUid = newUids[idx];
+        if (prev[uid]) next[newUid] = { ...prev[uid] };
+      });
+      return next;
+    });
+
+    // uploaded images
     setUploadedImages(prev => [...prev, ...newUids]);
 
     console.log("Duplication complete. New UIDs:", newUids);
-  }, [positions, sizes, imageState, setPositions, setSizes, setImageState, setUploadedImages]);
+  }, [setPositions, setSizes, setImageState, setUploadedImages]);
 
   return duplicate;
 }
