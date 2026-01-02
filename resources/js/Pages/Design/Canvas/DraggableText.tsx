@@ -1,4 +1,4 @@
-// 📝 Renders a draggable text layer that behaves like DraggableImage
+"use client";
 
 import React from "react";
 
@@ -12,14 +12,10 @@ type Props = {
   fontFamily?: string;
   color?: string;
   borderColor?: string;
-  borderWidth?: number;
+  borderWidth?: number; // in pixels
   highlighted: boolean;
   selected?: string[];
-  onPointerDown: (
-    e: React.MouseEvent,
-    uid: string,
-    multi: boolean
-  ) => void;
+  onPointerDown: (e: React.MouseEvent, uid: string, multi: boolean) => void;
 };
 
 export default function DraggableText({
@@ -39,8 +35,19 @@ export default function DraggableText({
 }: Props) {
   const scaleX = flip === "horizontal" ? -1 : 1;
   const scaleY = flip === "vertical" ? -1 : 1;
-
   const isMultiSelected = selected.includes(uid);
+
+  // Optional subtle multi-layer shadow for softer outline
+  const shadowLayers = 2; // fixed small number
+  const shadow = borderWidth
+    ? Array(shadowLayers)
+        .fill(0)
+        .map((_, i) => {
+          const offset = i + 0.5; // small offset
+          return `${-offset}px ${-offset}px 0 ${borderColor}, ${offset}px ${-offset}px 0 ${borderColor}, ${-offset}px ${offset}px 0 ${borderColor}, ${offset}px ${offset}px 0 ${borderColor}`;
+        })
+        .join(", ")
+    : "none";
 
   return (
     <div
@@ -77,13 +84,13 @@ export default function DraggableText({
       <span
         style={{
           fontFamily,
-          fontSize: size.h, // matches text scaling with height like you were doing
+          fontSize: size.h,
           color,
           lineHeight: 1,
-          borderStyle: borderWidth ? "solid" : "none",
-          borderWidth,
-          borderColor,
-          padding: "2px 6px",
+          WebkitTextStrokeWidth: `${borderWidth}px`, // main outline
+          WebkitTextStrokeColor: borderColor,
+          WebkitTextFillColor: color,
+          textShadow: shadow, // optional softening
           background: "transparent",
         }}
       >
