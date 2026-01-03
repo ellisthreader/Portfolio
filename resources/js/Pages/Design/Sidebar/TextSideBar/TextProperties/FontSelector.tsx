@@ -8,17 +8,17 @@ type Props = {
 export default function FontSelector({ fontFamily, onOpenFonts }: Props) {
   return (
     <div
-      className="flex items-center w-full cursor-pointer"
+      className="flex items-center justify-between w-full cursor-pointer py-3"
       onClick={onOpenFonts}
     >
       {/* Left label */}
-      <div className="text-sm font-medium">
+      <div className="text-base font-semibold">
         Font
       </div>
 
-      {/* Font name — back on the right */}
+      {/* Font name — right side */}
       <div
-        className="ml-auto truncate text-base"
+        className="text-sm text-gray-600 truncate"
         style={{ fontFamily }}
         title={fontFamily}
       >

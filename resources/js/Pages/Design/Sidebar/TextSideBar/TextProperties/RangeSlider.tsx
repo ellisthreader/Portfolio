@@ -1,4 +1,3 @@
-// /TextProperties/RangeSlider.tsx
 "use client";
 
 import React from "react";
@@ -17,13 +16,13 @@ export default function RangeSlider({ label, min, max, value, onChange }: Props)
   return (
     <div className="flex items-center gap-4">
       {/* Label */}
-      <div className="text-sm font-medium w-20">
+      <div className="text-base font-semibold w-24">
         {label}
       </div>
 
       {/* Slider + number */}
       <div className="flex items-center gap-3 flex-1">
-        {/* BIG slider */}
+        {/* Slider */}
         <input
           type="range"
           min={min}
@@ -40,7 +39,7 @@ export default function RangeSlider({ label, min, max, value, onChange }: Props)
           max={max}
           value={value}
           onChange={(e) => onChange(clamp(Number(e.target.value)))}
-          className="w-16 border rounded px-2 py-1 text-sm"
+          className="w-20 border rounded px-2 py-1 text-base"
         />
       </div>
     </div>

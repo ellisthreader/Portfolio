@@ -1,20 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useLayoutEffect, useState } from "react";
 
 type Props = {
   uid: string;
   text: string;
   pos: { x: number; y: number };
-  size: { w: number; h: number };
+  size: { w: number; h: number }; // desired font size
   rotation?: number;
   flip?: "none" | "horizontal" | "vertical";
   fontFamily?: string;
   color?: string;
   borderColor?: string;
-  borderWidth?: number; // in pixels
+  borderWidth?: number;
   highlighted: boolean;
   selected?: string[];
+  restrictedBox?: { width: number; height: number }; // optional max
   onPointerDown: (e: React.MouseEvent, uid: string, multi: boolean) => void;
 };
 
@@ -31,23 +32,31 @@ export default function DraggableText({
   borderWidth = 0,
   highlighted,
   selected = [],
+  restrictedBox,
   onPointerDown,
 }: Props) {
   const scaleX = flip === "horizontal" ? -1 : 1;
   const scaleY = flip === "vertical" ? -1 : 1;
   const isMultiSelected = selected.includes(uid);
 
-  // Optional subtle multi-layer shadow for softer outline
-  const shadowLayers = 2; // fixed small number
-  const shadow = borderWidth
-    ? Array(shadowLayers)
-        .fill(0)
-        .map((_, i) => {
-          const offset = i + 0.5; // small offset
-          return `${-offset}px ${-offset}px 0 ${borderColor}, ${offset}px ${-offset}px 0 ${borderColor}, ${-offset}px ${offset}px 0 ${borderColor}, ${offset}px ${offset}px 0 ${borderColor}`;
-        })
-        .join(", ")
-    : "none";
+  const spanRef = useRef<HTMLSpanElement>(null);
+  const [containerSize, setContainerSize] = useState({ w: size.w, h: size.h });
+
+  useLayoutEffect(() => {
+    if (!spanRef.current) return;
+
+    const rect = spanRef.current.getBoundingClientRect();
+    let textWidth = rect.width + (borderWidth || 0) * 2;
+    let textHeight = rect.height + (borderWidth || 0) * 2;
+
+    // optionally cap to restrictedBox
+    if (restrictedBox) {
+      textWidth = Math.min(textWidth, restrictedBox.width);
+      textHeight = Math.min(textHeight, restrictedBox.height);
+    }
+
+    setContainerSize({ w: textWidth, h: textHeight });
+  }, [text, size, fontFamily, borderWidth, restrictedBox]);
 
   return (
     <div
@@ -55,43 +64,35 @@ export default function DraggableText({
       data-type="text"
       draggable={false}
       onMouseDown={(e) => onPointerDown(e, uid, isMultiSelected)}
-      className={`
-        absolute
-        cursor-move
-        select-none
-        transition-shadow
-        flex
-        items-center
-        justify-center
-        ${highlighted ? "ring-2 ring-blue-500" : ""}
-      `}
+      className={`absolute cursor-move select-none flex items-center justify-center ${
+        highlighted ? "ring-2 ring-blue-500" : ""
+      }`}
       style={{
         left: pos.x,
         top: pos.y,
-        width: size.w,
-        height: size.h,
+        width: containerSize.w,
+        height: containerSize.h,
         zIndex: highlighted ? 200 : 50,
-        boxShadow: highlighted
-          ? "0 8px 20px rgba(0,0,0,0.25)"
-          : "none",
         transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})`,
         transformOrigin: "center center",
         pointerEvents: "auto",
         userSelect: "none",
-        whiteSpace: "pre",
+        overflow: "visible", // allow box to grow
       }}
     >
       <span
+        ref={spanRef}
         style={{
           fontFamily,
           fontSize: size.h,
-          color,
           lineHeight: 1,
-          WebkitTextStrokeWidth: `${borderWidth}px`, // main outline
+          color,
+          WebkitTextStrokeWidth: `${borderWidth || 0}px`,
           WebkitTextStrokeColor: borderColor,
           WebkitTextFillColor: color,
-          textShadow: shadow, // optional softening
-          background: "transparent",
+          transformOrigin: "center center",
+          display: "inline-block",
+          whiteSpace: "pre",
         }}
       >
         {text || "Text"}

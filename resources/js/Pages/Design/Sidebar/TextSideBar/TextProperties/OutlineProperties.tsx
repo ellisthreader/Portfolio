@@ -4,22 +4,52 @@ import React from "react";
 
 type Props = {
   onOpenOutline: () => void;
+  borderWidth: number;
+  borderColor: string;
 };
 
-export default function OutlineProperties({ onOpenOutline }: Props) {
+const steps = [0, 0.5, 1, 1.5, 2, 2.5];
+
+const stepLabels = [
+  "Select outline",
+  "Very thin",
+  "Thin",
+  "Medium",
+  "Thick",
+  "Very thick",
+];
+
+export default function OutlineProperties({
+  onOpenOutline,
+  borderWidth,
+  borderColor,
+}: Props) {
+  const numeric = Number(borderWidth);
+
+  const index = steps.findIndex(
+    (s) => Math.abs(s - numeric) < 0.001
+  );
+
+  const label = index !== -1 ? stepLabels[index] : "Select outline";
+
   return (
     <div className="flex items-center justify-between w-full py-2 cursor-pointer">
-      {/* Label */}
-      <div className="text-sm font-medium">
+      {/* Left label */}
+      <div className="text-base font-semibold">
         Outline
       </div>
 
-      {/* Clickable text on right */}
       <button
         onClick={onOpenOutline}
-        className="italic text-sm text-gray-500 hover:text-black transition"
+        className="flex items-center gap-2 italic text-base text-gray-600 hover:text-black transition"
       >
-        Select outline
+        {/* color preview square */}
+        <span
+          className="h-4 w-4 rounded border"
+          style={{ backgroundColor: borderColor }}
+        />
+
+        {label}
       </button>
     </div>
   );

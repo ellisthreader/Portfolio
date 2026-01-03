@@ -1,4 +1,3 @@
-// /TextProperties/ColorPicker.tsx
 "use client";
 
 import React from "react";
@@ -21,13 +20,13 @@ export default function ColorPicker({
   return (
     <div className="flex items-center justify-between gap-3">
       {/* Left side label */}
-      <div className="text-sm font-medium">
+      <div className="text-base font-semibold">
         {label}
       </div>
 
       {/* Right side: hex + picker */}
       <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-600">
+        <span className="text-sm text-gray-600">
           {color.toUpperCase()}
         </span>
 

@@ -17,6 +17,16 @@ type Props = {
 // Subtle outline steps
 const steps = [0, 0.5, 1, 1.5, 2, 2.5];
 
+const stepLabels = [
+  "Select outline",
+  "Very thin",
+  "Thin",
+  "Medium",
+  "Thick",
+  "Very thick",
+];
+
+
 export default function OutlinePage({
   borderColor,
   onBorderColorChange,
