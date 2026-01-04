@@ -76,7 +76,7 @@ export default function DraggableText({
     <div
       data-uid={uid}
       data-type="text"
-      data-font={fontSize}          {/* <<< IMPORTANT */}
+      data-font={fontSize}        
       draggable={false}
       onMouseDown={(e) => onPointerDown(e, uid, isMultiSelected)}
       className="absolute cursor-move select-none flex items-center justify-center"
