@@ -1,46 +1,84 @@
+// TextSelectionBox.tsx
 import React, { useEffect, useState } from "react";
 import { X, Copy, Move } from "lucide-react";
 
-interface SelectionBoxProps {
-  selectedImages: string[]; // uids
+interface Props {
+  selectedText: string[]; // uids
   canvasRef: React.RefObject<HTMLDivElement>;
   onDelete: (uids: string[]) => void;
   onDuplicate: (uids: string[]) => void;
-  onResize: (imageUid: string, width: number, height: number) => void;
-  onStartGroupResize?: (startClientX: number) => any;
-  onReset?: (uids: string[]) => void;
   onDeselectAll?: () => void;
+  onResizeText: (uid: string, newFontSize: number) => void;
 }
 
-const SelectionBox: React.FC<SelectionBoxProps> = ({
-  selectedImages,
+export default function TextSelectionBox({
+  selectedText,
   canvasRef,
   onDelete,
   onDuplicate,
-  onResize,
-  onStartGroupResize,
   onDeselectAll,
-}) => {
+  onResizeText
+}: Props) {
   const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [hoverLabel, setHoverLabel] = useState<string | null>(null);
   const [labelPos, setLabelPos] = useState<{ left: number; top: number } | null>(null);
 
-  const firstUid = selectedImages.length > 0 ? selectedImages[0] : null;
+  // Track font sizes locally to prevent snapping
+  const [fontSizes, setFontSizes] = useState<Record<string, number>>({});
+
+  const firstUid = selectedText.length > 0 ? selectedText[0] : null;
+
+  // Get current font size for a text element
+  const getFontSize = (uid: string) => {
+    if (fontSizes[uid] !== undefined) return fontSizes[uid];
+
+    const el = document.querySelector<HTMLElement>(
+      `[data-uid="${CSS.escape(uid)}"][data-type="text"]`
+    );
+    if (!el) return 40;
+
+    const attr = el.getAttribute("data-font");
+    const size = attr ? parseFloat(attr) : 40;
+
+    setFontSizes(prev => ({ ...prev, [uid]: size }));
+    return size;
+  };
+
+  // ✅ Populate fontSizes for newly selected texts
+  useEffect(() => {
+    if (selectedText.length === 0) return;
+
+    setFontSizes(prev => {
+      const newSizes = { ...prev };
+      selectedText.forEach(uid => {
+        if (newSizes[uid] === undefined) {
+          const el = document.querySelector<HTMLElement>(
+            `[data-uid="${CSS.escape(uid)}"][data-type="text"]`
+          );
+          if (el) {
+            const attr = el.getAttribute("data-font");
+            const size = attr ? parseFloat(attr) : 40;
+            newSizes[uid] = size;
+          }
+        }
+      });
+      return newSizes;
+    });
+  }, [selectedText]);
 
   const updateBoundingBox = () => {
-    if (!canvasRef.current || selectedImages.length === 0) {
+    if (!canvasRef.current || selectedText.length === 0) {
       setBox(null);
       return;
     }
 
     const canvasRect = canvasRef.current.getBoundingClientRect();
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-    selectedImages.forEach((uid) => {
-      const el = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
+    selectedText.forEach(uid => {
+      const el = document.querySelector<HTMLElement>(
+        `[data-uid="${CSS.escape(uid)}"][data-type="text"]`
+      );
       if (!el) return;
 
       const r = el.getBoundingClientRect();
@@ -66,15 +104,15 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
     const handleWindowResize = () => updateBoundingBox();
     window.addEventListener("resize", handleWindowResize);
     return () => window.removeEventListener("resize", handleWindowResize);
-  }, [selectedImages, canvasRef]);
+  }, [selectedText, canvasRef]);
 
   // click outside → deselect
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (!canvasRef.current) return;
-
-      const clickedOnSelected = selectedImages.some((uid) => {
-        const el = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(uid)}"]`);
+      const clickedOnSelected = selectedText.some(uid => {
+        const el = document.querySelector<HTMLElement>(
+          `[data-uid="${CSS.escape(uid)}"][data-type="text"]`
+        );
         return el?.contains(e.target as Node);
       });
 
@@ -83,7 +121,7 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
 
     window.addEventListener("mousedown", handleClickOutside);
     return () => window.removeEventListener("mousedown", handleClickOutside);
-  }, [selectedImages, canvasRef, onDeselectAll]);
+  }, [selectedText, onDeselectAll]);
 
   if (!box || !firstUid) return null;
 
@@ -91,6 +129,7 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
     setHoverLabel(text);
     setLabelPos({ left: x, top: y });
   };
+
   const hideLabel = () => {
     setHoverLabel(null);
     setLabelPos(null);
@@ -101,31 +140,25 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
     e.stopPropagation();
   };
 
-  // --- SIMPLE FIX: disable resize for text elements ---
-  const handleSingleResizeMouseDown = (e: React.MouseEvent) => {
+  //
+  // ⭐ SMOOTH TEXT RESIZE
+  //
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
     stopAll(e);
     if (!firstUid) return;
 
-    const el = document.querySelector<HTMLElement>(`[data-uid="${CSS.escape(firstUid)}"]`);
-    if (!el) return;
-
-    // if it's text, don't resize (prevents icon + weird behavior)
-    if (el.dataset.type === "text") return;
-
-    const startW = el.offsetWidth;
-    const startH = el.offsetHeight;
+    const startFont = getFontSize(firstUid);
     const startX = e.clientX;
-    const startY = e.clientY;
-    const aspect = startW / startH;
 
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-      const delta = Math.max(dx, dy);
-      const newW = Math.max(30, startW + delta);
-      const newH = Math.round(newW / aspect);
+      const newSize = Math.max(8, startFont + dx * 0.4);
 
-      onResize(firstUid, newW, newH);
+      // Update local font size
+      setFontSizes(prev => ({ ...prev, [firstUid]: newSize }));
+
+      // Call parent handler
+      onResizeText(firstUid, newSize);
       updateBoundingBox();
     };
 
@@ -136,15 +169,6 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
 
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-  };
-
-  const handleGroupResizeMouseDown = (e: React.MouseEvent) => {
-    stopAll(e);
-    if (typeof onStartGroupResize === "function") {
-      onStartGroupResize(e.clientX);
-    } else {
-      handleSingleResizeMouseDown(e);
-    }
   };
 
   return (
@@ -158,7 +182,7 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
             zIndex: 9999,
             whiteSpace: "nowrap",
             pointerEvents: "none",
-            transform: "translate(-50%, -100%)",
+            transform: "translate(-50%, -100%)"
           }}
         >
           {hoverLabel}
@@ -166,14 +190,14 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
       )}
 
       <div
-        className="absolute border-2 border-blue-500 pointer-events-none"
+        className="absolute border-2 border-purple-500 pointer-events-none"
         style={{
           left: box.left,
           top: box.top,
           width: box.width,
           height: box.height,
-          zIndex: 300,
-          background: "rgba(59,130,246,0.08)",
+          zIndex: 310,
+          background: "rgba(147,51,234,.06)"
         }}
       >
         {/* DELETE */}
@@ -181,11 +205,10 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
           className="absolute bg-white rounded-full shadow p-1 cursor-pointer selection-button"
           style={{ right: -15, top: -15, zIndex: 400, pointerEvents: "auto" }}
           onMouseDown={stopAll}
-          onClick={(e) => {
-            stopAll(e);
-            onDelete(selectedImages);
-          }}
-          onMouseEnter={() => showLabel("Delete", box.left + box.width - 10, box.top - 30)}
+          onClick={() => onDelete(selectedText)}
+          onMouseEnter={() =>
+            showLabel("Delete", box.left + box.width - 10, box.top - 30)
+          }
           onMouseLeave={hideLabel}
         >
           <X size={16} color="red" />
@@ -195,8 +218,10 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
         <div
           className="absolute bg-white rounded-full shadow p-1 cursor-se-resize selection-button"
           style={{ right: -15, bottom: -15, zIndex: 400, pointerEvents: "auto" }}
-          onMouseDown={handleGroupResizeMouseDown}
-          onMouseEnter={() => showLabel("Resize", box.left + box.width - 10, box.top + box.height + 20)}
+          onMouseDown={handleResizeMouseDown}
+          onMouseEnter={() =>
+            showLabel("Resize", box.left + box.width - 10, box.top + box.height + 20)
+          }
           onMouseLeave={hideLabel}
         >
           <Move size={16} />
@@ -207,11 +232,10 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
           className="absolute bg-white rounded-full shadow p-1 cursor-pointer selection-button"
           style={{ left: -15, bottom: -15, zIndex: 400, pointerEvents: "auto" }}
           onMouseDown={stopAll}
-          onClick={(e) => {
-            stopAll(e);
-            onDuplicate(selectedImages);
-          }}
-          onMouseEnter={() => showLabel("Duplicate", box.left - 10, box.top + box.height + 20)}
+          onClick={() => onDuplicate(selectedText)}
+          onMouseEnter={() =>
+            showLabel("Duplicate", box.left - 10, box.top + box.height + 20)
+          }
           onMouseLeave={hideLabel}
         >
           <Copy size={16} />
@@ -219,6 +243,4 @@ const SelectionBox: React.FC<SelectionBoxProps> = ({
       </div>
     </>
   );
-};
-
-export default SelectionBox;
+}

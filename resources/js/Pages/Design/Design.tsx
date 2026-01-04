@@ -12,15 +12,14 @@ import ChangeProductModal from "./ChangeProduct";
 import Canvas from "./Canvas/Canvas";
 import TextProperties from "./Sidebar/TextSideBar/TextProperties/TextProperties";
 
-// ---------------------- IMAGE STATE TYPE ----------------------
 export type ImageState = {
   url: string;
   type?: "image" | "text";
-  text?: string; // only for text layers
+  text?: string;
   rotation: number;
   flip: "none" | "horizontal" | "vertical";
   size: { w: number; h: number };
-  fontFamily?: string; // only for text layers
+  fontFamily?: string;
   color?: string;
   borderColor?: string;
   borderWidth?: number;
@@ -49,7 +48,6 @@ export default function Design() {
   const safeName = safeProduct.name ?? "Unknown";
   const [isChangeProductModalOpen, setIsChangeProductModalOpen] = useState(false);
 
-  // ---------------------- IMAGE STATE ----------------------
   const [imageState, setImageState] = useState<Record<string, ImageState>>({});
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [selectedUploadedImage, setSelectedUploadedImage] = useState<string | null>(null);
@@ -63,7 +61,6 @@ export default function Design() {
 
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
 
-  // ---------------------- PREVENT TEXT SELECTION ----------------------
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener("selectstart", prevent);
@@ -74,7 +71,6 @@ export default function Design() {
     };
   }, []);
 
-  // ---------------------- PRODUCT VARIANTS ----------------------
   const variantsByColour = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     if (Array.isArray(safeProduct.colourProducts)) {
@@ -103,7 +99,6 @@ export default function Design() {
   );
   const [selectedSize, setSelectedSize] = useState(propSize ?? null);
 
-  // ---------------------- CANVAS SIZE TRACKER ----------------------
   useEffect(() => {
     if (!canvasRef.current) return;
     const updateSize = () => {
@@ -122,79 +117,98 @@ export default function Design() {
     height: canvasSize.height * 0.65,
   };
 
-  // ---------------------- IMAGE HANDLERS ----------------------
   const handleRotateImage = (url: string, angle: number) => {
-    setImageState(prev => {
+    setImageState((prev) => {
       if (!prev[url]) return prev;
       return { ...prev, [url]: { ...prev[url], rotation: angle } };
     });
   };
 
   const handleFlipImage = (url: string, flip: "none" | "horizontal" | "vertical") => {
-    setImageState(prev => ({
+    setImageState((prev) => ({
       ...prev,
       [url]: { ...(prev[url] ?? { rotation: 0, size: { w: 150, h: 150 } }), flip },
     }));
   };
 
   const handleUpdateImageSize = (url: string, w: number, h: number) => {
-    setImageState(prev => ({
+    setImageState((prev) => ({
       ...prev,
       [url]: { ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }), size: { w, h } },
     }));
   };
 
-const handleResetImage = (uid: string) => {
+
+  const handleResizeText = (uid: string, newFontSize: number) => {
   setImageState(prev => {
     const layer = prev[uid];
-    if (!layer || !layer.original) return prev;
+    if (!layer || layer.type !== "text") return prev;
 
-    // ---- TEXT LAYER ----
-    if (layer.type === "text") {
-      return {
-        ...prev,
-        [uid]: {
-          ...layer,
-          rotation: layer.original.rotation,
-          flip: layer.original.flip,
-          size: { ...layer.original.size },
-        },
-      };
-    }
-
-    // ---- IMAGE LAYER ----
     return {
       ...prev,
       [uid]: {
         ...layer,
-        url: layer.original.url,
-        size: { ...layer.original.size },
-        rotation: layer.original.rotation,
-        flip: layer.original.flip,
+        size: {
+          ...layer.size,
+          h: newFontSize, // <- this is what DraggableText will read
+        },
       },
     };
   });
 };
 
 
+
+  const handleResetImage = (uid: string) => {
+    setImageState((prev) => {
+      const layer = prev[uid];
+      if (!layer || !layer.original) return prev;
+
+      if (layer.type === "text") {
+        return {
+          ...prev,
+          [uid]: {
+            ...layer,
+            rotation: layer.original.rotation,
+            flip: layer.original.flip,
+            size: { ...layer.original.size },
+          },
+        };
+      }
+
+      return {
+        ...prev,
+        [uid]: {
+          ...layer,
+          url: layer.original.url,
+          size: { ...layer.original.size },
+          rotation: layer.original.rotation,
+          flip: layer.original.flip,
+        },
+      };
+    });
+  };
+
   const handleRemoveUploadedImage = (url: string) => {
-    setUploadedImages(prev => prev.filter(u => u !== url));
-    setImageState(prev => {
+    setUploadedImages((prev) => prev.filter((u) => u !== url));
+    setImageState((prev) => {
       const next = { ...prev };
       delete next[url];
       return next;
     });
+
     if (selectedUploadedImage === url) setSelectedUploadedImage(null);
+    if (selectedText === url) setSelectedText(null);
   };
 
   const handleDeleteImages = (uids: string[]) => {
-    uids.forEach(uid => handleRemoveUploadedImage(uid));
+    uids.forEach((uid) => handleRemoveUploadedImage(uid));
   };
 
   const handleUpload = (url: string) => {
     const size = { w: 150, h: 150 };
-    setUploadedImages(prev => [...prev, url]);
-    setImageState(prev => ({
+    setUploadedImages((prev) => [...prev, url]);
+    setImageState((prev) => ({
       ...prev,
       [url]: {
         url,
@@ -211,8 +225,8 @@ const handleResetImage = (uid: string) => {
     const source = imageState[url];
     if (!source) return;
     const dup = `${url}#dup-${Date.now()}`;
-    setUploadedImages(prev => [...prev, dup]);
-    setImageState(prev => ({
+    setUploadedImages((prev) => [...prev, dup]);
+    setImageState((prev) => ({
       ...prev,
       [dup]: { ...source },
     }));
@@ -220,26 +234,23 @@ const handleResetImage = (uid: string) => {
     setActiveTab("upload");
   };
 
-  // ---------------------- TEXT HANDLER ----------------------
   const updateTextLayer = (uid: string, updates: Partial<ImageState>) => {
-    setImageState(prev => ({
+    setImageState((prev) => ({
       ...prev,
       [uid]: { ...prev[uid], ...updates },
     }));
   };
 
-  // ---------------------- DISPLAY IMAGES ----------------------
   useEffect(() => {
     if (!selectedColour) return;
     const variant =
-      variantsByColour[selectedColour].find(v => v.size === selectedSize) ??
+      variantsByColour[selectedColour].find((v) => v.size === selectedSize) ??
       variantsByColour[selectedColour][0];
     const sorted = normalizeImages(variant?.images ?? []);
     setDisplayImages(sorted);
     setMainImage(sorted[0] ?? "");
   }, [selectedColour, selectedSize, variantsByColour]);
 
-  // ---------------------- SIDEBAR RENDERER ----------------------
   const renderActiveTab = () => {
     switch (activeTab) {
       case "product":
@@ -275,57 +286,61 @@ const handleResetImage = (uid: string) => {
         );
 
       case "text":
-        return selectedText ? (
-          <TextProperties
-            textValue={imageState[selectedText].text ?? ""}
-            onTextChange={(val) => updateTextLayer(selectedText, { text: val })}
-            fontFamily={imageState[selectedText].fontFamily ?? "Arial"}
-            onFontChange={(val) => updateTextLayer(selectedText, { fontFamily: val })}
-            color={imageState[selectedText].color ?? "#000000"}
-            onColorChange={(val) => updateTextLayer(selectedText, { color: val })}
-            rotation={imageState[selectedText].rotation}
-            onRotationChange={(val) => updateTextLayer(selectedText, { rotation: val })}
-            fontSize={imageState[selectedText].size.h}
-            onFontSizeChange={(val) =>
-              updateTextLayer(selectedText, { size: { ...imageState[selectedText].size, h: val } })
-            }
-            borderColor={imageState[selectedText].borderColor ?? "#000000"}
-            onBorderColorChange={(val) => updateTextLayer(selectedText, { borderColor: val })}
-            borderWidth={imageState[selectedText].borderWidth ?? 0}
-            onBorderWidthChange={(val) => updateTextLayer(selectedText, { borderWidth: val })}
-          />
-        ) : (
+        // nothing selected → show AddText
+        if (!selectedText || !imageState[selectedText]) {
+          return (
             <AddText
               onAddText={(layer) => {
-                setImageState(prev => ({
-                  ...prev,
-                  [layer.id]: {
+                setImageState((prev) => ({
+                ...prev,
+                [layer.id]: {
+                  url: "",
+                  type: "text",
+                  text: layer.text,
+                  rotation: 0,
+                  flip: "none",
+                  size: { w: 200, h: layer.size }, // <- current line
+                  fontFamily: layer.font,
+                  color: layer.color,
+                  borderColor: layer.borderColor,
+                  borderWidth: layer.borderWidth,
+                  original: {
                     url: "",
-                    type: "text",
-                    text: layer.text,
                     rotation: 0,
                     flip: "none",
-                    size: { w: 200, h: layer.size },
-                    fontFamily: layer.font,
-                    color: layer.color,
-                    borderColor: layer.borderColor,
-                    borderWidth: layer.borderWidth,
-                    original: {
-                      url: "",
-                      rotation: 0,
-                      flip: "none",
-                      size: { w: 200, h: layer.size },
-                    },
+                    size: { w: 200, h: layer.size ?? 80 },
                   },
-                }));
-
-                // 👉 ADD THIS
-                setUploadedImages(prev => [...prev, layer.id]);
+                },
+              }));
 
                 setSelectedText(layer.id);
                 setActiveTab("text");
               }}
             />
+          );
+        }
+
+        const layer = imageState[selectedText];
+
+        return (
+          <TextProperties
+            textValue={layer.text ?? ""}
+            onTextChange={(val) => updateTextLayer(selectedText, { text: val })}
+            fontFamily={layer.fontFamily ?? "Arial"}
+            onFontChange={(val) => updateTextLayer(selectedText, { fontFamily: val })}
+            color={layer.color ?? "#000000"}
+            onColorChange={(val) => updateTextLayer(selectedText, { color: val })}
+            rotation={layer.rotation}
+            onRotationChange={(val) => updateTextLayer(selectedText, { rotation: val })}
+            fontSize={layer.size.h}
+            onFontSizeChange={(val) =>
+              updateTextLayer(selectedText, { size: { ...layer.size, h: val } })
+            }
+            borderColor={layer.borderColor ?? "#000000"}
+            onBorderColorChange={(val) => updateTextLayer(selectedText, { borderColor: val })}
+            borderWidth={layer.borderWidth ?? 0}
+            onBorderWidthChange={(val) => updateTextLayer(selectedText, { borderWidth: val })}
+          />
         );
 
       case "clipart":
@@ -343,30 +358,30 @@ const handleResetImage = (uid: string) => {
       {isChangeProductModalOpen && (
         <ChangeProductModal
           onClose={() => setIsChangeProductModalOpen(false)}
-          currentCategory={null} // Replace with actual category if available
+          currentCategory={null}
         />
       )}
 
       <div className={isChangeProductModalOpen ? "blur-lg opacity-40" : ""}>
-        {/* NAV */}
         <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b flex items-center justify-between px-6 h-16 z-40 shadow-sm">
           <div className="text-xl font-bold">{safeName}</div>
+
           <div className="flex items-center gap-4">
             <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-gray-100">
               <ArrowLeft size={24} />
             </button>
+
             <button onClick={() => alert("Next step coming soon")} className="p-2 rounded-full hover:bg-gray-100">
               <ArrowRight size={24} />
             </button>
+
             <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-red-100">
               <X size={28} className="text-red-600" />
             </button>
           </div>
         </div>
 
-        {/* LAYOUT */}
         <div className="pt-[96px] flex min-h-screen">
-          {/* LEFT SIDEBAR */}
           <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
             {[
               { id: "product", icon: <Shirt size={22} />, label: "Product" },
@@ -387,12 +402,10 @@ const handleResetImage = (uid: string) => {
             ))}
           </div>
 
-          {/* RIGHT SIDEBAR */}
           <div className="w-[480px] ml-4 mt-4 mb-6 bg-white dark:bg-gray-800 shadow-xl border rounded-2xl p-4 h-[calc(100vh-160px)] overflow-y-auto">
             {renderActiveTab()}
           </div>
 
-          {/* CANVAS */}
           <Canvas
             mainImage={mainImage}
             restrictedBox={restrictedBox}
@@ -405,6 +418,7 @@ const handleResetImage = (uid: string) => {
             onSelectText={setSelectedText}
             onSwitchTab={setActiveTab}
             onDelete={handleDeleteImages}
+            onResizeText={handleResizeText}
           />
         </div>
       </div>

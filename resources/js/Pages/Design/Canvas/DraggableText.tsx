@@ -6,7 +6,7 @@ type Props = {
   uid: string;
   text: string;
   pos: { x: number; y: number };
-  size: { w: number; h: number }; // desired font size
+  size: { w?: number; h?: number }; // h = font size
   rotation?: number;
   flip?: "none" | "horizontal" | "vertical";
   fontFamily?: string;
@@ -15,7 +15,7 @@ type Props = {
   borderWidth?: number;
   highlighted: boolean;
   selected?: string[];
-  restrictedBox?: { width: number; height: number }; // optional max
+  restrictedBox?: { width: number; height: number };
   onPointerDown: (e: React.MouseEvent, uid: string, multi: boolean) => void;
 };
 
@@ -35,12 +35,16 @@ export default function DraggableText({
   restrictedBox,
   onPointerDown,
 }: Props) {
-  const scaleX = flip === "horizontal" ? -1 : 1;
-  const scaleY = flip === "vertical" ? -1 : 1;
+  const spanRef = useRef<HTMLSpanElement>(null);
   const isMultiSelected = selected.includes(uid);
 
-  const spanRef = useRef<HTMLSpanElement>(null);
-  const [containerSize, setContainerSize] = useState({ w: size.w, h: size.h });
+  // reactive font size (true source)
+  const fontSize = size?.h && size.h > 0 ? size.h : 24;
+
+  const [containerSize, setContainerSize] = useState({
+    w: fontSize * 0.6,
+    h: fontSize,
+  });
 
   useLayoutEffect(() => {
     if (!spanRef.current) return;
@@ -49,27 +53,36 @@ export default function DraggableText({
     let textWidth = rect.width + (borderWidth || 0) * 2;
     let textHeight = rect.height + (borderWidth || 0) * 2;
 
-    // optionally cap to restrictedBox
     if (restrictedBox) {
       textWidth = Math.min(textWidth, restrictedBox.width);
       textHeight = Math.min(textHeight, restrictedBox.height);
     }
 
     setContainerSize({ w: textWidth, h: textHeight });
-  }, [text, size, fontFamily, borderWidth, restrictedBox]);
+  }, [text, fontSize, fontFamily, borderWidth, restrictedBox]);
+
+  const clampedX = restrictedBox
+    ? Math.min(Math.max(0, pos.x), restrictedBox.width - containerSize.w)
+    : pos.x;
+
+  const clampedY = restrictedBox
+    ? Math.min(Math.max(0, pos.y), restrictedBox.height - containerSize.h)
+    : pos.y;
+
+  const scaleX = flip === "horizontal" ? -1 : 1;
+  const scaleY = flip === "vertical" ? -1 : 1;
 
   return (
     <div
       data-uid={uid}
       data-type="text"
+      data-font={fontSize}          {/* <<< IMPORTANT */}
       draggable={false}
       onMouseDown={(e) => onPointerDown(e, uid, isMultiSelected)}
-      className={`absolute cursor-move select-none flex items-center justify-center ${
-        highlighted ? "ring-2 ring-blue-500" : ""
-      }`}
+      className="absolute cursor-move select-none flex items-center justify-center"
       style={{
-        left: pos.x,
-        top: pos.y,
+        left: clampedX,
+        top: clampedY,
         width: containerSize.w,
         height: containerSize.h,
         zIndex: highlighted ? 200 : 50,
@@ -77,14 +90,14 @@ export default function DraggableText({
         transformOrigin: "center center",
         pointerEvents: "auto",
         userSelect: "none",
-        overflow: "visible", // allow box to grow
+        overflow: "hidden",
       }}
     >
       <span
         ref={spanRef}
         style={{
           fontFamily,
-          fontSize: size.h,
+          fontSize: `${fontSize}px`,
           lineHeight: 1,
           color,
           WebkitTextStrokeWidth: `${borderWidth || 0}px`,

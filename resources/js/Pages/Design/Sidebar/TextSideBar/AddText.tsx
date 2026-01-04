@@ -8,10 +8,11 @@ export type TextLayer = {
   text: string;
   font: string;
   color: string;
-  size: number;
+  size: number;        // font size (number)
   rotation: number;
   borderColor: string;
   borderWidth: number;
+  initialWidth?: number; // optional initial width for the box
 };
 
 export default function AddText({
@@ -27,13 +28,14 @@ export default function AddText({
     const newTextLayer: TextLayer = {
       id: crypto.randomUUID(),
       type: "text",
-      text,
-      font: "Inter",
-      color: "#000000",
-      size: 40,
+      text,               // the text content
+      font: "Inter",      // font family
+      color: "#000000",   // text color
+      size: 40,           // font size in pixels
       rotation: 0,
       borderColor: "#000000",
       borderWidth: 0,
+      initialWidth: 200,  // optional starting width of the text box
     };
 
     onAddText(newTextLayer);

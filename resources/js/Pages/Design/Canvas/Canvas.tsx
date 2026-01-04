@@ -6,6 +6,7 @@ import MainProductImage from "./MainProductImage";
 import RestrictedArea from "./RestrictedArea";
 import Marquee from "./Marquee";
 import SelectionBox from "../SelectionBox";
+import TextSelectionBox from "../TextSelectionBox";
 
 import { useDragSelection } from "./Hooks/useDragSelection";
 import { useMarqueeSelection } from "./Hooks/useMarqueeSelection";
@@ -29,11 +30,12 @@ export type CanvasProps = {
   onDelete?: (uids: string[]) => void;
   onDuplicate?: (uids: string[]) => void;
   onResize?: (uid: string, w: number, h: number) => void;
+  onResizeText?: (uid: string, newFontSize: number) => void;
   onReset?: (uids: string[]) => void;
 
   onSelectImage?: (uid: string | null) => void;
-  onSelectText?: (uid: string | null) => void;  // ✅ New prop
-  onSwitchTab?: (tab: string) => void;          // ✅ New prop
+  onSelectText?: (uid: string | null) => void;
+  onSwitchTab?: (tab: string) => void;
 };
 
 export default function Canvas(props: CanvasProps) {
@@ -46,17 +48,22 @@ export default function Canvas(props: CanvasProps) {
     onSelectImage,
     onSelectText,
     onSwitchTab,
+    onResizeText
   } = props;
 
   // --------------------- Image sizes ---------------------
   const { sizes, setSizes } = useImageSizes(uploadedImages, imageState);
 
   // --------------------- Image positions ---------------------
-  const { positions, setPositions } = useImagePositions(
-    uploadedImages,
-    sizes,
-    restrictedBox
-  );
+// include EVERYTHING that exists in imageState
+const allUids = Object.keys(imageState);
+
+const { positions, setPositions } = useImagePositions(
+  allUids,
+  sizes,
+  restrictedBox
+);
+
 
   // --------------------- Drag selection ---------------------
   const drag = useDragSelection({
@@ -72,6 +79,15 @@ export default function Canvas(props: CanvasProps) {
     onReset: props.onReset,
     multiDrag: true,
   });
+
+  // --------------------- Split selection ---------------------
+  const selectedImages = drag.selected.filter(
+    (uid) => imageState[uid]?.type === "image"
+  );
+
+  const selectedText = drag.selected.filter(
+    (uid) => imageState[uid]?.type === "text"
+  );
 
   // --------------------- Group resize ---------------------
   const groupResize = useGroupResize({
@@ -99,13 +115,11 @@ export default function Canvas(props: CanvasProps) {
     setUploadedImages: props.setUploadedImages,
   });
 
-  // --------------------- SelectionBox duplicate ---------------------
   const handleDuplicateFromSelectionBox = () => {
     if (drag.selected.length === 0) return;
     duplicateImages(drag.selected);
   };
 
-  // --------------------- SelectionBox delete ---------------------
   const handleDeleteFromSelectionBox = (uids: string[]) => {
     if (!props.onDelete) return;
     props.onDelete(uids);
@@ -118,11 +132,11 @@ export default function Canvas(props: CanvasProps) {
     if (target.closest(".selection-button")) return;
 
     const uid = (target.closest("[data-uid]") as HTMLElement)?.dataset.uid;
+
     if (!uid) {
-      // clicked empty canvas
       drag.setSelected([]);
       onSelectImage?.(null);
-      onSelectText?.(null); // deselect any text layer
+      onSelectText?.(null);
       marquee.onPointerDown(e);
       return;
     }
@@ -131,20 +145,15 @@ export default function Canvas(props: CanvasProps) {
     if (!layer) return;
 
     if (layer.type === "text") {
-      // ---------------- TEXT LAYER ----------------
-      onSelectText?.(uid);       // select text layer
-      onSwitchTab?.("text");     // switch sidebar to text tab
-      drag.setSelected([]);       // deselect any images
+      onSelectText?.(uid);
+      onSwitchTab?.("text");
+      drag.setSelected([uid]);
     } else {
-      // ---------------- IMAGE LAYER ----------------
-      onSelectText?.(null);      // deselect text layers
-      if (!drag.selected.includes(uid)) {
-        drag.setSelected([uid]);
-      }
+      onSelectText?.(null);
+      drag.setSelected([uid]);
       onSelectImage?.(uid);
     }
 
-    // Always allow dragging/marquee selection
     drag.onPointerDown(e, uid);
     marquee.onPointerDown(e);
   };
@@ -169,34 +178,49 @@ export default function Canvas(props: CanvasProps) {
         onPointerDown={drag.onPointerDown}
       />
 
-    {Object.entries(imageState)
-      .filter(([_, layer]) => layer.type === "text")
-      .map(([uid, layer]: any) => (
-        <DraggableText
-          key={uid}
-          uid={uid}
-          text={layer.text}
-          pos={positions[uid] ?? { x: 200, y: 200 }}
-          size={layer.size}
-          rotation={layer.rotation ?? 0}
-          flip={layer.flip ?? "none"}
-          fontFamily={layer.fontFamily}
-          color={layer.color}
-          borderColor={layer.borderColor}
-          borderWidth={layer.borderWidth}
-          highlighted={drag.selected.includes(uid)}
-          selected={drag.selected}
-          onPointerDown={drag.onPointerDown}
-        />
-      ))}
+      {Object.entries(imageState)
+        .filter(([_, layer]) => layer.type === "text")
+        .map(([uid, layer]: any) => (
+          <DraggableText
+            key={uid}
+            uid={uid}
+            text={layer.text}
+            pos={positions[uid] ?? { x: 200, y: 200 }}
+            size={layer.size}
+            rotation={layer.rotation ?? 0}
+            flip={layer.flip ?? "none"}
+            fontFamily={layer.fontFamily}
+            color={layer.color}
+            borderColor={layer.borderColor}
+            borderWidth={layer.borderWidth}
+            highlighted={drag.selected.includes(uid)}
+            selected={drag.selected}
+            onPointerDown={drag.onPointerDown}
+          />
+        ))}
 
-
-      {drag.selected.length > 0 && (
+      {/* IMAGE SELECTION BOX */}
+      {selectedImages.length > 0 && (
         <SelectionBox
-          {...drag.selectionBoxProps}
+          selectedImages={selectedImages}
+          canvasRef={drag.selectionBoxProps.canvasRef}
           onDuplicate={handleDuplicateFromSelectionBox}
           onStartGroupResize={groupResize.startResize}
           onDelete={handleDeleteFromSelectionBox}
+          onResize={drag.selectionBoxProps.onResize}
+          onDeselectAll={drag.selectionBoxProps.onDeselectAll}
+        />
+      )}
+
+      {/* TEXT SELECTION BOX */}
+      {selectedText.length > 0 && (
+        <TextSelectionBox
+          selectedText={selectedText}
+          canvasRef={drag.selectionBoxProps.canvasRef}
+          onDuplicate={handleDuplicateFromSelectionBox}
+          onDelete={handleDeleteFromSelectionBox}
+          onDeselectAll={drag.selectionBoxProps.onDeselectAll}
+          onResizeText={onResizeText}
         />
       )}
 
@@ -204,4 +228,3 @@ export default function Canvas(props: CanvasProps) {
     </div>
   );
 }
-
