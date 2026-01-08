@@ -2,19 +2,31 @@
 
 import { useState } from "react";
 import UploadPanel from "./UploadPanel";
-import ImageEditor
- from "./ImageEditor";
+import ImageEditor from "./ImageEditor";
 import Crop from "./Crop";
 
-export default function UploadSidebar(props: any) {
-  const {
-    selectedImage,
-    imageState,
-    setImageState,
-  } = props;
+type UploadSidebarProps = {
+  selectedImage?: string;
+  imageState: Record<string, any>;
+  setImageState: (fn: (prev: any) => any) => void;
 
+  // NEW: UploadPanel props
+  onUpload: (url: string) => void;
+  recentImages?: string[];
+  onSelectImage?: (url: string) => void;
+};
+
+export default function UploadSidebar({
+  selectedImage,
+  imageState,
+  setImageState,
+  onUpload,
+  recentImages = [],
+  onSelectImage,
+}: UploadSidebarProps) {
   const [cropMode, setCropMode] = useState(false);
 
+  // ------------------- CROPPING MODE -------------------
   if (cropMode && selectedImage) {
     return (
       <Crop
@@ -32,15 +44,18 @@ export default function UploadSidebar(props: any) {
                 ...img,
                 url: newURL,
                 crop,
-                original: img.original ?? {
-                  url: img.url,
-                  size: img.size,
-                  rotation: img.rotation,
-                  flip: img.flip,
-                },
+                original:
+                  img.original ??
+                  {
+                    url: img.url,
+                    size: img.size,
+                    rotation: img.rotation,
+                    flip: img.flip,
+                  },
               },
             };
           });
+
           setCropMode(false);
         }}
         onClose={() => setCropMode(false)}
@@ -48,9 +63,24 @@ export default function UploadSidebar(props: any) {
     );
   }
 
+  // ------------------- IMAGE EDITOR -------------------
   if (selectedImage) {
-    return <ImageEditor {...props} onCrop={() => setCropMode(true)} />;
+    return (
+      <ImageEditor
+        selectedImage={selectedImage}
+        imageState={imageState}
+        setImageState={setImageState}
+        onCrop={() => setCropMode(true)}
+      />
+    );
   }
 
-  return <UploadPanel {...props} />;
+  // ------------------- DEFAULT: UPLOAD PANEL -------------------
+  return (
+    <UploadPanel
+      onUpload={onUpload} // ✅ critical fix: pass function
+      recentImages={recentImages}
+      onSelectImage={onSelectImage}
+    />
+  );
 }

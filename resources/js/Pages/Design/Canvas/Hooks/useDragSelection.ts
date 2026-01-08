@@ -62,6 +62,7 @@ const onPointerDown = (e: React.PointerEvent, uid: string) => {
   window.addEventListener("pointerup", onPointerUp);
 };
 
+
 const onPointerMove = (e: PointerEvent) => {
   if (!draggingUids.current.length) return;
   if (!args.restrictedBox) return;
@@ -71,45 +72,27 @@ const onPointerMove = (e: PointerEvent) => {
   args.setPositions(prev => {
     const next = { ...prev };
 
-    let dx = 0;
-    let dy = 0;
-
-    const refUid = draggingUids.current[0];
-    const refPos = prev[refUid];
-    const refOffset = dragOffsets.current[refUid];
-
-    // 🛡️ if something went out of sync, stop the drag gracefully
-    if (!refPos || !refOffset) return prev;
-
-    dx = e.clientX - refOffset.x - refPos.x;
-    dy = e.clientY - refOffset.y - refPos.y;
-
     draggingUids.current.forEach(uid => {
       const pos = prev[uid];
       const size = args.sizes[uid];
       const offset = dragOffsets.current[uid];
 
-      // 🛡️ skip if any part of state disappeared
-      if (!pos || !size || !offset) return;
+    if (!pos || !offset) return;
 
-      const minX = box.left - pos.x;
-      const maxX = box.left + box.width - size.w - pos.x;
+    // if we don't have size yet, don't move it (prevents jumping)
+    // text will clamp correctly once measured
+    if (!size) return;
 
-      const minY = box.top - pos.y;
-      const maxY = box.top + box.height - size.h - pos.y;
 
-      dx = Math.min(Math.max(dx, minX), maxX);
-      dy = Math.min(Math.max(dy, minY), maxY);
-    });
+      // proposed new position
+      let newX = e.clientX - offset.x;
+      let newY = e.clientY - offset.y;
 
-    draggingUids.current.forEach(uid => {
-      const pos = prev[uid];
-      if (!pos) return;
+      // clamp within restricted box
+      newX = Math.min(Math.max(box.left, newX), box.left + box.width - size.w);
+      newY = Math.min(Math.max(box.top, newY), box.top + box.height - size.h);
 
-      next[uid] = {
-        x: pos.x + dx,
-        y: pos.y + dy,
-      };
+      next[uid] = { x: newX, y: newY };
     });
 
     return next;

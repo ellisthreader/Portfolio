@@ -28,7 +28,11 @@ export function useImagePositions(
 
       safeUids.forEach((uid) => {
         const size = safeSizes[uid];
-        if (!size) return;
+        if (!size) {
+        // leave position as-is until we know the text size
+        return;
+      }
+
 
         // If brand-new → center + clamp
         if (!next[uid]) {

@@ -72,21 +72,55 @@ export default function TextProperties(props: Props) {
 
     const span = measureRef.current;
 
-    // Set text at 1px to measure relative size
+    // temporarily set text size to 1px
     span.style.fontSize = "1px";
+
     const rect = span.getBoundingClientRect();
     const textWidth = rect.width + props.borderWidth * 2;
     const textHeight = rect.height + props.borderWidth * 2;
 
     if (textWidth === 0 || textHeight === 0) return;
 
-    // Compute max font size for width/height limits
     const widthLimit = props.restrictedBox.width / textWidth;
     const heightLimit = props.restrictedBox.height / textHeight;
 
     const newMax = Math.floor(Math.min(widthLimit, heightLimit, 150));
+
+    // 👉 Log when text is touching / filling the restricted box
+    if (newMax <= props.fontSize) {
+      console.log(
+        "[TEXT] Touching restricted box:",
+        {
+          restrictedBox: props.restrictedBox,
+          newMax,
+          currentFontSize: props.fontSize
+        }
+      );
+    }
+
     setMaxFontSize(newMax);
-  }, [props.textValue, props.fontFamily, props.borderWidth, props.restrictedBox]);
+
+    // 👉 Auto shrink if too big (and log when it shrinks)
+    if (props.fontSize > newMax) {
+      console.log(
+        "[TEXT] Shrinking text:",
+        {
+          from: props.fontSize,
+          to: newMax
+        }
+      );
+
+      props.onFontSizeChange(newMax);
+    }
+
+  }, [
+    props.textValue,
+    props.fontFamily,
+    props.borderWidth,
+    props.restrictedBox,
+    props.fontSize
+  ]);
+
 
   // ---- Main panel ----
   return (

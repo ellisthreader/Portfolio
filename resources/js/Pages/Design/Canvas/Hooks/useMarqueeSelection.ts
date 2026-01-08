@@ -30,14 +30,14 @@ export function useMarqueeSelection({
   // -------------------- Pointer Down --------------------
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
-   const target = e.target as HTMLElement;
-
-if (target.dataset.type === "img") {
-  // allow drag if image is selected
-  return;
-}
-
     if (!canvasRef.current) return;
+
+    const target = e.target as HTMLElement;
+
+    // Prevent marquee on text or other draggable elements
+    if (target.dataset.type === "img" || target.dataset.type === "text") {
+      return;
+    }
 
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -54,6 +54,7 @@ if (target.dataset.type === "img") {
 
     setHovered({});
   };
+
 
   // -------------------- Pointer Move --------------------
   const onPointerMove = (e: React.PointerEvent) => {
@@ -72,26 +73,27 @@ if (target.dataset.type === "img") {
 
     const next: Record<string, boolean> = {};
 
-    uids.forEach((uid) => {
-      const el = document.querySelector(
-        `img[data-uid="${CSS.escape(uid)}"][data-type="img"]`
-      ) as HTMLImageElement | null;
+  uids.forEach((uid) => {
+    const el = document.querySelector(
+      `[data-uid="${CSS.escape(uid)}"]`
+    ) as HTMLElement | null;
 
-      if (!el) return;
+    if (!el) return;
 
-      const r = el.getBoundingClientRect();
-      const imgX = r.left - canvasRect.left;
-      const imgY = r.top - canvasRect.top;
+    const r = el.getBoundingClientRect();
+    const imgX = r.left - canvasRect.left;
+    const imgY = r.top - canvasRect.top;
 
-      if (
-        imgX < x + w &&
-        imgX + r.width > x &&
-        imgY < y + h &&
-        imgY + r.height > y
-      ) {
-        next[uid] = true;
-      }
-    });
+    if (
+      imgX < x + w &&
+      imgX + r.width > x &&
+      imgY < y + h &&
+      imgY + r.height > y
+    ) {
+      next[uid] = true;
+    }
+  });
+
 
     setHovered(next);
   };

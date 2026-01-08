@@ -6,7 +6,7 @@ import MainProductImage from "./MainProductImage";
 import RestrictedArea from "./RestrictedArea";
 import Marquee from "./Marquee";
 import SelectionBox from "../SelectionBox";
-import TextSelectionBox from "../TextSelectionBox";
+import TextSelectionBox from "../SelectionBox/TextSelectionBox/TextSelectionBox";
 
 import { useDragSelection } from "./Hooks/useDragSelection";
 import { useMarqueeSelection } from "./Hooks/useMarqueeSelection";
@@ -15,6 +15,8 @@ import { useImagePositions } from "./Hooks/useImagePositions";
 import { useGroupResize } from "./Hooks/useGroupResize";
 import { useDuplicateImages } from "./Hooks/useDuplicateImages";
 import DraggableText from "./DraggableText";
+import SelectionWatcher from "../Components/SelectionWatcher";
+
 
 export type CanvasProps = {
   canvasRef: React.RefObject<HTMLDivElement>;
@@ -103,9 +105,10 @@ const { positions, setPositions } = useImagePositions(
   // --------------------- Marquee selection ---------------------
   const marquee = useMarqueeSelection({
     canvasRef,
-    uids: uploadedImages,
+    uids: allUids,
     onSelect: drag.setSelected,
   });
+
 
   // --------------------- Duplicate hook ---------------------
   const duplicateImages = useDuplicateImages({
@@ -125,38 +128,48 @@ const { positions, setPositions } = useImagePositions(
     props.onDelete(uids);
   };
 
-  // --------------------- Canvas pointer down ---------------------
-  const handleCanvasPointerDown = (e: React.PointerEvent) => {
-    const target = e.target as HTMLElement;
+// --------------------- Canvas pointer down ---------------------
+const handleCanvasPointerDown = (e: React.PointerEvent) => {
+  const target = e.target as HTMLElement;
 
-    if (target.closest(".selection-button")) return;
+  if (target.closest(".selection-button")) return;
 
-    const uid = (target.closest("[data-uid]") as HTMLElement)?.dataset.uid;
+  const uid = (target.closest("[data-uid]") as HTMLElement)?.dataset.uid;
 
-    if (!uid) {
-      drag.setSelected([]);
-      onSelectImage?.(null);
-      onSelectText?.(null);
-      marquee.onPointerDown(e);
-      return;
-    }
-
-    const layer = imageState[uid];
-    if (!layer) return;
-
-    if (layer.type === "text") {
-      onSelectText?.(uid);
-      onSwitchTab?.("text");
-      drag.setSelected([uid]);
-    } else {
-      onSelectText?.(null);
-      drag.setSelected([uid]);
-      onSelectImage?.(uid);
-    }
-
-    drag.onPointerDown(e, uid);
+  // 👉 EMPTY SPACE → marquee
+  if (!uid) {
+    drag.setSelected([]);
+    onSelectImage?.(null);
+    onSelectText?.(null);
     marquee.onPointerDown(e);
-  };
+    return;
+  }
+
+  const layer = imageState[uid];
+  if (!layer) return;
+
+  // 👉 TEXT
+  if (layer.type === "text") {
+    onSelectText?.(uid);
+    onSwitchTab?.("text");
+    drag.setSelected([uid]);
+
+    // 🚫 NO MARQUEE FOR TEXT
+    drag.onPointerDown(e, uid);
+    return;
+  }
+
+  // 👉 IMAGE
+  onSelectText?.(null);
+  drag.setSelected([uid]);
+  onSelectImage?.(uid);
+
+  drag.onPointerDown(e, uid);
+
+  // 👍 ONLY images or canvas background should allow marquee logic
+  // (this simply records pointer start but won't run while dragging)
+  // If you prefer: you can even remove this line completely.
+};
 
   return (
     <div
@@ -168,6 +181,7 @@ const { positions, setPositions } = useImagePositions(
       <MainProductImage src={mainImage} />
       <RestrictedArea box={restrictedBox} />
 
+      {/* IMAGES */}
       <UploadedImagesLayer
         uids={uploadedImages}
         positions={positions}
@@ -177,27 +191,55 @@ const { positions, setPositions } = useImagePositions(
         hovered={marquee.hovered}
         onPointerDown={drag.onPointerDown}
       />
+      
+  {/* TEXT */}
+  {Object.entries(imageState)
+    .filter(([_, layer]) => layer.type === "text")
+    .map(([uid, layer]: any) => {
+      const p = positions[uid] ?? { x: 200, y: 200 };
 
-      {Object.entries(imageState)
-        .filter(([_, layer]) => layer.type === "text")
-        .map(([uid, layer]: any) => (
-          <DraggableText
-            key={uid}
-            uid={uid}
-            text={layer.text}
-            pos={positions[uid] ?? { x: 200, y: 200 }}
-            size={layer.size}
-            rotation={layer.rotation ?? 0}
-            flip={layer.flip ?? "none"}
-            fontFamily={layer.fontFamily}
-            color={layer.color}
-            borderColor={layer.borderColor}
-            borderWidth={layer.borderWidth}
-            highlighted={drag.selected.includes(uid)}
-            selected={drag.selected}
-            onPointerDown={drag.onPointerDown}
-          />
-        ))}
+      return (
+        <DraggableText
+          key={uid}
+          uid={uid}
+          text={layer.text}
+          pos={p}
+
+          // ✅ width uncontrolled
+          // ✅ height follows fontSize only
+          size={{ w: undefined, h: layer.fontSize }}
+
+          rotation={layer.rotation ?? 0}
+          flip={layer.flip ?? "none"}
+          fontFamily={layer.fontFamily}
+          color={layer.color}
+          borderColor={layer.borderColor}
+          borderWidth={layer.borderWidth}
+          highlighted={drag.selected.includes(uid)}
+          selected={drag.selected}
+          onPointerDown={drag.onPointerDown}
+
+          // ✅ READ-ONLY measurement
+          onMeasure={(uid, w, h) => {
+            setSizes(prev => {
+              const existing = prev[uid];
+              if (
+                existing &&
+                Math.abs(existing.w - w) < 0.5 &&
+                Math.abs(existing.h - h) < 0.5
+              ) {
+                return prev;
+              }
+              return { ...prev, [uid]: { w, h } };
+            });
+          }}
+        />
+      );
+    })}
+
+
+
+
 
       {/* IMAGE SELECTION BOX */}
       {selectedImages.length > 0 && (
@@ -221,8 +263,19 @@ const { positions, setPositions } = useImagePositions(
           onDelete={handleDeleteFromSelectionBox}
           onDeselectAll={drag.selectionBoxProps.onDeselectAll}
           onResizeText={onResizeText}
+          restrictedBox={restrictedBox}
         />
       )}
+
+      <SelectionWatcher
+        selected={drag.selected}          // the currently selected UIDs
+        imageState={imageState}           // full image/text state
+        onSelectImage={onSelectImage}     // callback for single image selection
+        onSelectText={onSelectText}       // callback for single text selection
+        onSwitchTab={onSwitchTab}         // callback to switch sidebar tab
+        onSelectionChange={props.onSelectionChange} // NEW: reports full selection array
+      />
+
 
       <Marquee marquee={marquee.marquee} />
     </div>

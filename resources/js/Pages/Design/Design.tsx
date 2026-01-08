@@ -11,6 +11,8 @@ import UploadSidebar from "./Sidebar/UploadSideBar/UploadSidebar";
 import ChangeProductModal from "./ChangeProduct";
 import Canvas from "./Canvas/Canvas";
 import TextProperties from "./Sidebar/TextSideBar/TextProperties/TextProperties";
+import MultiSelectPanel from "./Sidebar/MultiSelectPanel";
+
 
 export type ImageState = {
   url: string;
@@ -58,6 +60,8 @@ export default function Design() {
   const [mainImage, setMainImage] = useState("");
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const [selectedObjects, setSelectedObjects] = useState<string[]>([]);
+
 
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
 
@@ -139,7 +143,8 @@ export default function Design() {
   };
 
 
-  const handleResizeText = (uid: string, newFontSize: number) => {
+const handleResizeText = (uid: string, newFontSize: number) => {
+  console.log("[RESIZE TEXT] update from canvas", uid, newFontSize);
   setImageState(prev => {
     const layer = prev[uid];
     if (!layer || layer.type !== "text") return prev;
@@ -150,12 +155,15 @@ export default function Design() {
         ...layer,
         size: {
           ...layer.size,
-          h: newFontSize, // <- this is what DraggableText will read
-        },
-      },
+          h: newFontSize   // OK again — now consistent
+        }
+      }
     };
   });
 };
+
+
+
 
 
 
@@ -251,7 +259,18 @@ export default function Design() {
     setMainImage(sorted[0] ?? "");
   }, [selectedColour, selectedSize, variantsByColour]);
 
-  const renderActiveTab = () => {
+    const renderActiveTab = () => {
+    // MULTI-SELECTION WINS
+    if (selectedObjects.length > 1) {
+      return (
+        <MultiSelectPanel
+          selectedObjects={selectedObjects}
+          imageState={imageState}
+        />
+      );
+    }
+
+    // fallback to normal tabs
     switch (activeTab) {
       case "product":
         return (
@@ -286,33 +305,34 @@ export default function Design() {
         );
 
       case "text":
-        // nothing selected → show AddText
+        // If no text is selected, show AddText sidebar
         if (!selectedText || !imageState[selectedText]) {
           return (
             <AddText
               onAddText={(layer) => {
                 setImageState((prev) => ({
-                ...prev,
-                [layer.id]: {
-                  url: "",
-                  type: "text",
-                  text: layer.text,
-                  rotation: 0,
-                  flip: "none",
-                  size: { w: 200, h: layer.size }, // <- current line
-                  fontFamily: layer.font,
-                  color: layer.color,
-                  borderColor: layer.borderColor,
-                  borderWidth: layer.borderWidth,
-                  original: {
+                  ...prev,
+                  [layer.id]: {
                     url: "",
+                    type: "text",
+                    text: layer.text,
                     rotation: 0,
                     flip: "none",
-                    size: { w: 200, h: layer.size ?? 80 },
+                    size: { w: 200, h: layer.fontSize }, // <-- keep size for TS
+                    fontFamily: layer.font,
+                    color: layer.color,
+                    borderColor: layer.borderColor,
+                    borderWidth: layer.borderWidth,
+                    fontSize: layer.fontSize, // <-- optional, still store separately
+                    width: layer.width,       // <-- optional, same as w
+                    original: {
+                      url: "",
+                      rotation: 0,
+                      flip: "none",
+                      size: { w: 200, h: layer.fontSize },
+                    },
                   },
-                },
-              }));
-
+                }));
                 setSelectedText(layer.id);
                 setActiveTab("text");
               }}
@@ -332,10 +352,8 @@ export default function Design() {
             onColorChange={(val) => updateTextLayer(selectedText, { color: val })}
             rotation={layer.rotation}
             onRotationChange={(val) => updateTextLayer(selectedText, { rotation: val })}
-            fontSize={layer.size.h}
-            onFontSizeChange={(val) =>
-              updateTextLayer(selectedText, { size: { ...layer.size, h: val } })
-            }
+            fontSize={layer.fontSize} // <- use fontSize
+            onFontSizeChange={(val) => updateTextLayer(selectedText, { fontSize: val })}
             borderColor={layer.borderColor ?? "#000000"}
             onBorderColorChange={(val) => updateTextLayer(selectedText, { borderColor: val })}
             borderWidth={layer.borderWidth ?? 0}
@@ -350,6 +368,8 @@ export default function Design() {
         return null;
     }
   };
+
+
 
   return (
     <div className="min-h-screen bg-gray-200 dark:bg-gray-900 relative disable-selection">
@@ -406,6 +426,7 @@ export default function Design() {
             {renderActiveTab()}
           </div>
 
+
           <Canvas
             mainImage={mainImage}
             restrictedBox={restrictedBox}
@@ -419,6 +440,7 @@ export default function Design() {
             onSwitchTab={setActiveTab}
             onDelete={handleDeleteImages}
             onResizeText={handleResizeText}
+            onSelectionChange={setSelectedObjects}
           />
         </div>
       </div>

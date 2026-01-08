@@ -22,7 +22,7 @@ export default function UploadedImagesLayer({
   return (
     <>
       {uids
-        .filter(uid => imageState[uid]?.type === "image")   // ✅ ignore text
+        .filter(uid => imageState[uid]?.type === "image")
         .map(uid => {
           const s = sizes[uid];
           const p = positions[uid];

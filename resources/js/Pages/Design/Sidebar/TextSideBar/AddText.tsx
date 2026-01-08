@@ -8,11 +8,11 @@ export type TextLayer = {
   text: string;
   font: string;
   color: string;
-  size: number;        // font size (number)
+  fontSize: number; // actual font size
   rotation: number;
   borderColor: string;
   borderWidth: number;
-  initialWidth?: number; // optional initial width for the box
+  width?: number; // box width
 };
 
 export default function AddText({
@@ -22,21 +22,66 @@ export default function AddText({
 }) {
   const [text, setText] = useState("");
 
+  // Function to calculate the maximum font size that fits the box
+  const calculateFontSize = (
+    text: string,
+    fontFamily: string,
+    maxWidth: number,
+    maxFontSize: number
+  ) => {
+    console.log("Calculating font size for:", text);
+
+    // Create a canvas to measure text width
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      console.warn("Canvas context unavailable, returning maxFontSize");
+      return maxFontSize;
+    }
+
+    let fontSize = maxFontSize;
+
+    // Decrease font size until text fits
+    while (fontSize > 5) {
+      context.font = `${fontSize}px ${fontFamily}`;
+      const textWidth = context.measureText(text).width;
+
+      console.log(`FontSize: ${fontSize}, TextWidth: ${textWidth}, MaxWidth: ${maxWidth}`);
+
+      if (textWidth <= maxWidth) break;
+
+      fontSize -= 1;
+    }
+
+    console.log("Final font size:", fontSize);
+    return fontSize;
+  };
+
   const handleAddText = () => {
     if (!text.trim()) return;
+
+    const maxWidth = 200; // restricted box width
+    const maxFontSize = 40; // maximum font size
+
+    const adjustedFontSize = calculateFontSize(text, "Inter", maxWidth, maxFontSize);
+
+    console.log("Adjusted font size for text:", adjustedFontSize);
 
     const newTextLayer: TextLayer = {
       id: crypto.randomUUID(),
       type: "text",
-      text,               // the text content
-      font: "Inter",      // font family
-      color: "#000000",   // text color
-      size: 40,           // font size in pixels
+      text,
+      font: "Inter",
+      color: "#000000",
+      fontSize: adjustedFontSize,
       rotation: 0,
       borderColor: "#000000",
       borderWidth: 0,
-      initialWidth: 200,  // optional starting width of the text box
+      width: maxWidth,
     };
+
+    console.log("Adding new text layer:", newTextLayer);
 
     onAddText(newTextLayer);
     setText("");
