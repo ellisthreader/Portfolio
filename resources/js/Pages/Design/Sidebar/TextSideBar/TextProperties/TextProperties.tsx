@@ -29,7 +29,7 @@ type Props = {
   onBorderWidthChange: (v: number) => void;
   onBorderColorChange: (v: string) => void;
 
-  restrictedBox: { width: number; height: number }; // ⚡ REQUIRED for max font size
+  restrictedBox: { width: number; height: number };
 };
 
 export default function TextProperties(props: Props) {
@@ -37,7 +37,43 @@ export default function TextProperties(props: Props) {
   const measureRef = useRef<HTMLSpanElement>(null);
   const [maxFontSize, setMaxFontSize] = useState(150);
 
-  // ---- Fonts panel ----
+  /* ------------------------------------------------------------
+   * ✅ Hooks MUST be before any conditional return
+   * ------------------------------------------------------------ */
+  useLayoutEffect(() => {
+    if (!measureRef.current || !props.restrictedBox) return;
+
+    const span = measureRef.current;
+
+    span.style.fontSize = "1px";
+
+    const rect = span.getBoundingClientRect();
+    const textWidth = rect.width + props.borderWidth * 2;
+    const textHeight = rect.height + props.borderWidth * 2;
+
+    if (textWidth === 0 || textHeight === 0) return;
+
+    const widthLimit = props.restrictedBox.width / textWidth;
+    const heightLimit = props.restrictedBox.height / textHeight;
+
+    const newMax = Math.floor(Math.min(widthLimit, heightLimit, 150));
+
+    setMaxFontSize(newMax);
+
+    if (props.fontSize > newMax) {
+      props.onFontSizeChange(newMax);
+    }
+  }, [
+    props.textValue,
+    props.fontFamily,
+    props.borderWidth,
+    props.restrictedBox,
+    props.fontSize
+  ]);
+
+  /* ------------------------------------------------------------
+   * Panels (safe now)
+   * ------------------------------------------------------------ */
   if (panel === "fonts") {
     return (
       <div className="p-6">
@@ -51,7 +87,6 @@ export default function TextProperties(props: Props) {
     );
   }
 
-  // ---- Outline panel ----
   if (panel === "outline") {
     return (
       <div className="p-6">
@@ -66,63 +101,9 @@ export default function TextProperties(props: Props) {
     );
   }
 
-  // ---- Compute max font size dynamically ----
-  useLayoutEffect(() => {
-    if (!measureRef.current || !props.restrictedBox) return;
-
-    const span = measureRef.current;
-
-    // temporarily set text size to 1px
-    span.style.fontSize = "1px";
-
-    const rect = span.getBoundingClientRect();
-    const textWidth = rect.width + props.borderWidth * 2;
-    const textHeight = rect.height + props.borderWidth * 2;
-
-    if (textWidth === 0 || textHeight === 0) return;
-
-    const widthLimit = props.restrictedBox.width / textWidth;
-    const heightLimit = props.restrictedBox.height / textHeight;
-
-    const newMax = Math.floor(Math.min(widthLimit, heightLimit, 150));
-
-    // 👉 Log when text is touching / filling the restricted box
-    if (newMax <= props.fontSize) {
-      console.log(
-        "[TEXT] Touching restricted box:",
-        {
-          restrictedBox: props.restrictedBox,
-          newMax,
-          currentFontSize: props.fontSize
-        }
-      );
-    }
-
-    setMaxFontSize(newMax);
-
-    // 👉 Auto shrink if too big (and log when it shrinks)
-    if (props.fontSize > newMax) {
-      console.log(
-        "[TEXT] Shrinking text:",
-        {
-          from: props.fontSize,
-          to: newMax
-        }
-      );
-
-      props.onFontSizeChange(newMax);
-    }
-
-  }, [
-    props.textValue,
-    props.fontFamily,
-    props.borderWidth,
-    props.restrictedBox,
-    props.fontSize
-  ]);
-
-
-  // ---- Main panel ----
+  /* ------------------------------------------------------------
+   * Main panel
+   * ------------------------------------------------------------ */
   return (
     <div className="space-y-10 p-6">
       <TextArea
@@ -152,24 +133,29 @@ export default function TextProperties(props: Props) {
       <RangeSlider
         label="Text Size"
         min={8}
-        max={maxFontSize} // ⚡ dynamically capped
+        max={maxFontSize}
         value={props.fontSize}
-        onChange={(v) => props.onFontSizeChange(Math.min(v, maxFontSize))}
+        onChange={(v) =>
+          props.onFontSizeChange(Math.min(v, maxFontSize))
+        }
         icon={<Square size={20} />}
       />
 
-      {/* Hidden span to measure text */}
-      <span
-        ref={measureRef}
-        style={{
-          fontFamily: props.fontFamily,
-          fontWeight: "normal",
-          borderWidth: props.borderWidth,
-          visibility: "hidden",
-          position: "absolute",
-          whiteSpace: "pre",
-        }}
-      >
+      {/* Hidden measurement span */}
+        <span
+          ref={measureRef}
+          style={{
+            fontFamily: props.fontFamily,
+            borderWidth: props.borderWidth,
+            visibility: "hidden",
+            position: "absolute",
+            whiteSpace: "pre",
+
+            // ✅ VERY IMPORTANT
+            transform: "none",
+            rotate: "0deg",
+          }}
+        >
         {props.textValue || "Text"}
       </span>
 

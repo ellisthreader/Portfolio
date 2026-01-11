@@ -144,7 +144,6 @@ export default function Design() {
 
 
 const handleResizeText = (uid: string, newFontSize: number) => {
-  console.log("[RESIZE TEXT] update from canvas", uid, newFontSize);
   setImageState(prev => {
     const layer = prev[uid];
     if (!layer || layer.type !== "text") return prev;
@@ -153,14 +152,16 @@ const handleResizeText = (uid: string, newFontSize: number) => {
       ...prev,
       [uid]: {
         ...layer,
+        fontSize: newFontSize,     // ✅ actual font size
         size: {
           ...layer.size,
-          h: newFontSize   // OK again — now consistent
+          h: newFontSize           // ✅ keep height in sync
         }
       }
     };
   });
 };
+
 
 
 

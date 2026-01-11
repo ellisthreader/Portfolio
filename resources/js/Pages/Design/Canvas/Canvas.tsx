@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import UploadedImagesLayer from "./UploadedImagesLayer";
 import MainProductImage from "./MainProductImage";
 import RestrictedArea from "./RestrictedArea";
@@ -16,6 +16,39 @@ import { useGroupResize } from "./Hooks/useGroupResize";
 import { useDuplicateImages } from "./Hooks/useDuplicateImages";
 import DraggableText from "./DraggableText";
 import SelectionWatcher from "../Components/SelectionWatcher";
+import { useTextAutoShrink } from "./Hooks/TextAutoShrink";
+
+
+function fitsInRestrictedBox(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  box: { left: number; top: number; width: number; height: number }
+) {
+  return (
+    x >= box.left &&
+    y >= box.top &&
+    x + w <= box.left + box.width &&
+    y + h <= box.top + box.height
+  );
+}
+
+
+
+// 🔧 Helper: checks if text touches the restricted box
+function rectsIntersect(
+  a: { x: number; y: number; w: number; h: number },
+  b: { left: number; top: number; width: number; height: number }
+) {
+  return !(
+    a.x + a.w < b.left ||
+    a.x > b.left + b.width ||
+    a.y + a.h < b.top ||
+    a.y > b.top + b.height
+  );
+}
+
 
 
 export type CanvasProps = {
@@ -65,6 +98,15 @@ const { positions, setPositions } = useImagePositions(
   sizes,
   restrictedBox
 );
+  // --------------------- Text shrink auto ---------------------
+
+  useTextAutoShrink({
+    imageState,
+    positions,
+    sizes,
+    restrictedBox,
+    onResizeText,
+  });
 
 
   // --------------------- Drag selection ---------------------
@@ -127,6 +169,7 @@ const { positions, setPositions } = useImagePositions(
     if (!props.onDelete) return;
     props.onDelete(uids);
   };
+
 
 // --------------------- Canvas pointer down ---------------------
 const handleCanvasPointerDown = (e: React.PointerEvent) => {
@@ -204,11 +247,7 @@ const handleCanvasPointerDown = (e: React.PointerEvent) => {
           uid={uid}
           text={layer.text}
           pos={p}
-
-          // ✅ width uncontrolled
-          // ✅ height follows fontSize only
-          size={{ w: undefined, h: layer.fontSize }}
-
+          size={sizes[uid]}
           rotation={layer.rotation ?? 0}
           flip={layer.flip ?? "none"}
           fontFamily={layer.fontFamily}
@@ -218,8 +257,9 @@ const handleCanvasPointerDown = (e: React.PointerEvent) => {
           highlighted={drag.selected.includes(uid)}
           selected={drag.selected}
           onPointerDown={drag.onPointerDown}
-
-          // ✅ READ-ONLY measurement
+          style={{
+            lineHeight: `${layer.fontSize}px`, // ✅ NOW WORKS
+          }}
           onMeasure={(uid, w, h) => {
             setSizes(prev => {
               const existing = prev[uid];
@@ -236,9 +276,6 @@ const handleCanvasPointerDown = (e: React.PointerEvent) => {
         />
       );
     })}
-
-
-
 
 
       {/* IMAGE SELECTION BOX */}
@@ -264,6 +301,8 @@ const handleCanvasPointerDown = (e: React.PointerEvent) => {
           onDeselectAll={drag.selectionBoxProps.onDeselectAll}
           onResizeText={onResizeText}
           restrictedBox={restrictedBox}
+          positions={positions}
+          imageState={imageState}
         />
       )}
 
@@ -275,7 +314,6 @@ const handleCanvasPointerDown = (e: React.PointerEvent) => {
         onSwitchTab={onSwitchTab}         // callback to switch sidebar tab
         onSelectionChange={props.onSelectionChange} // NEW: reports full selection array
       />
-
 
       <Marquee marquee={marquee.marquee} />
     </div>

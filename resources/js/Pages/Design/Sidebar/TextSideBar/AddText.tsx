@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 
+const MAX_TEXT_LENGTH = 260;
+
 export type TextLayer = {
   id: string;
   type: "text";
   text: string;
   font: string;
   color: string;
-  fontSize: number; // actual font size
+  fontSize: number;
   rotation: number;
   borderColor: string;
   borderWidth: number;
-  width?: number; // box width
+  width?: number;
 };
 
 export default function AddText({
@@ -22,56 +24,50 @@ export default function AddText({
 }) {
   const [text, setText] = useState("");
 
-  // Function to calculate the maximum font size that fits the box
   const calculateFontSize = (
     text: string,
     fontFamily: string,
     maxWidth: number,
     maxFontSize: number
   ) => {
-    console.log("Calculating font size for:", text);
-
-    // Create a canvas to measure text width
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
 
-    if (!context) {
-      console.warn("Canvas context unavailable, returning maxFontSize");
-      return maxFontSize;
-    }
+    if (!context) return maxFontSize;
 
     let fontSize = maxFontSize;
 
-    // Decrease font size until text fits
     while (fontSize > 5) {
       context.font = `${fontSize}px ${fontFamily}`;
       const textWidth = context.measureText(text).width;
-
-      console.log(`FontSize: ${fontSize}, TextWidth: ${textWidth}, MaxWidth: ${maxWidth}`);
-
       if (textWidth <= maxWidth) break;
-
       fontSize -= 1;
     }
 
-    console.log("Final font size:", fontSize);
     return fontSize;
   };
 
   const handleAddText = () => {
-    if (!text.trim()) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
 
-    const maxWidth = 200; // restricted box width
-    const maxFontSize = 40; // maximum font size
+    // 🔒 HARD CLAMP (paste / programmatic safe)
+    const clampedText = trimmed.slice(0, MAX_TEXT_LENGTH);
 
-    const adjustedFontSize = calculateFontSize(text, "Inter", maxWidth, maxFontSize);
+    const maxWidth = 200;
+    const maxFontSize = 40;
 
-    console.log("Adjusted font size for text:", adjustedFontSize);
+    const adjustedFontSize = calculateFontSize(
+      clampedText,
+      "Inter",
+      maxWidth,
+      maxFontSize
+    );
 
-    const newTextLayer: TextLayer = {
+    onAddText({
       id: crypto.randomUUID(),
       type: "text",
-      text,
+      text: clampedText,
       font: "Inter",
       color: "#000000",
       fontSize: adjustedFontSize,
@@ -79,11 +75,8 @@ export default function AddText({
       borderColor: "#000000",
       borderWidth: 0,
       width: maxWidth,
-    };
+    });
 
-    console.log("Adding new text layer:", newTextLayer);
-
-    onAddText(newTextLayer);
     setText("");
   };
 
@@ -96,8 +89,15 @@ export default function AddText({
         placeholder="Enter text..."
         className="w-full p-2 bg-white rounded border border-gray-300"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        maxLength={MAX_TEXT_LENGTH}
+        onChange={(e) =>
+          setText(e.target.value.slice(0, MAX_TEXT_LENGTH))
+        }
       />
+
+      <div className="text-xs text-gray-500 text-right mt-1">
+        {text.length} / {MAX_TEXT_LENGTH}
+      </div>
 
       <button
         className="mt-4 w-full bg-blue-600 text-white p-2 rounded-lg"

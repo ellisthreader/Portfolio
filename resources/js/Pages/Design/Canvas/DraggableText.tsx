@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useLayoutEffect, useState } from "react";
 
 type RestrictedBox = { left: number; top: number; width: number; height: number };
 
@@ -6,7 +6,7 @@ type Props = {
   uid: string;
   text: string;
   pos?: { x: number; y: number };
-  size: { h?: number }; // only font size
+  size: { h?: number }; // font size only
   rotation?: number;
   flip?: "none" | "horizontal" | "vertical";
   fontFamily?: string;
@@ -41,39 +41,46 @@ export default function DraggableText({
 
   const isMultiSelected = selected.includes(uid);
 
-  // font size ONLY
   const fontSize = typeof size?.h === "number" && size.h > 0 ? size.h : 40;
 
-  // measured text size
   const [measured, setMeasured] = useState({ w: 0, h: 0 });
 
-  // raw x/y
+  const lastMeasuredRef = useRef<{ w: number; h: number } | null>(null);
+
   const rawX = pos?.x ?? 200;
   const rawY = pos?.y ?? 200;
 
-  // measure text size
-  useEffect(() => {
-    if (!spanRef.current) return;
+  
 
-    // temporarily remove transforms for accurate measurement
+  /* ------------------------------------------------------------
+   * Accurate measurement without triggering infinite updates
+   * ------------------------------------------------------------ */
+  useLayoutEffect(() => {
     const el = spanRef.current;
-    const oldTransform = el.style.transform;
+    if (!el) return;
+
+    const prevTransform = el.style.transform;
     el.style.transform = "none";
 
     const rect = el.getBoundingClientRect();
     const w = rect.width + (borderWidth || 0) * 2;
     const h = rect.height + (borderWidth || 0) * 2;
 
-    setMeasured(prev => {
-      if (Math.abs(prev.w - w) < 0.5 && Math.abs(prev.h - h) < 0.5) return prev;
-      queueMicrotask(() => onMeasure?.(uid, w, h));
-      return { w, h };
-    });
+    el.style.transform = prevTransform;
 
-    el.style.transform = oldTransform;
+    // Only update state if measurement has actually changed
+    const last = lastMeasuredRef.current;
+    if (!last || Math.abs(last.w - w) > 0.5 || Math.abs(last.h - h) > 0.5) {
+      lastMeasuredRef.current = { w, h };
+      setMeasured({ w, h });
+      // Call onMeasure AFTER state update to avoid loops
+      requestAnimationFrame(() => onMeasure?.(uid, w, h));
+    }
   }, [text, fontSize, fontFamily, borderWidth, uid, onMeasure]);
 
-  // clamp to restricted box
+  /* ------------------------------------------------------------
+   * Clamp position
+   * ------------------------------------------------------------ */
   const clampedX = restrictedBox
     ? Math.min(
         Math.max(rawX, restrictedBox.left),
@@ -95,6 +102,7 @@ export default function DraggableText({
     <div
       data-uid={uid}
       data-type="text"
+      data-font={fontSize}
       onMouseDown={(e) => onPointerDown(e, uid, isMultiSelected)}
       className="absolute cursor-move select-none"
       style={{
@@ -103,29 +111,44 @@ export default function DraggableText({
         width: measured.w,
         height: measured.h,
         zIndex: highlighted ? 200 : 50,
-        transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})`,
+
+        // ✅ ONLY flip here — NO rotation
+        transform: `scale(${scaleX}, ${scaleY})`,
         transformOrigin: "left top",
+
         pointerEvents: "auto",
         userSelect: "none",
       }}
     >
-      <span
-        ref={spanRef}
+      {/* 🔄 ROTATION LIVES HERE (visual only) */}
+      <div
         style={{
-          fontFamily,
-          fontSize: `${fontSize}px`,
-          lineHeight: 1,
-          color,
-          WebkitTextStrokeWidth: `${borderWidth || 0}px`,
-          WebkitTextStrokeColor: borderColor,
-          WebkitTextFillColor: color,
-          display: "inline-block",
-          whiteSpace: "nowrap",
+          transform: `rotate(${rotation}deg)`,
           transformOrigin: "left top",
+          display: "inline-block",
+          width: "fit-content",
+          height: "fit-content",
         }}
       >
-        {text || "Text"}
-      </span>
+        {/* 📏 MEASURED TEXT (never rotated directly) */}
+        <span
+          ref={spanRef}
+          style={{
+            fontFamily,
+            fontSize: `${fontSize}px`,
+            lineHeight: 1,
+            verticalAlign: "top",
+            display: "inline-block",
+            color,
+            WebkitTextStrokeWidth: `${borderWidth || 0}px`,
+            WebkitTextStrokeColor: borderColor,
+            WebkitTextFillColor: color,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {text || "Text"}
+        </span>
+      </div>
     </div>
   );
-}
+  }
