@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useRef, useLayoutEffect, useState } from "react";
 
 type RestrictedBox = { left: number; top: number; width: number; height: number };
@@ -6,7 +8,7 @@ type Props = {
   uid: string;
   text: string;
   pos?: { x: number; y: number };
-  size: { h?: number }; // font size only
+  size: { h?: number };
   rotation?: number;
   flip?: "none" | "horizontal" | "vertical";
   fontFamily?: string;
@@ -15,8 +17,7 @@ type Props = {
   borderWidth?: number;
   highlighted: boolean;
   selected?: string[];
-  restrictedBox?: RestrictedBox;
-  onPointerDown: (e: React.MouseEvent, uid: string, multi: boolean) => void;
+  onPointerDown: (e: React.PointerEvent, uid: string, multi: boolean) => void;
   onMeasure?: (uid: string, w: number, h: number) => void;
 };
 
@@ -33,122 +34,106 @@ export default function DraggableText({
   borderWidth = 0,
   highlighted,
   selected = [],
-  restrictedBox,
   onPointerDown,
   onMeasure,
 }: Props) {
-  const spanRef = useRef<HTMLSpanElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
 
   const isMultiSelected = selected.includes(uid);
-
   const fontSize = typeof size?.h === "number" && size.h > 0 ? size.h : 40;
 
   const [measured, setMeasured] = useState({ w: 0, h: 0 });
+  const lastMeasured = useRef<{ w: number; h: number } | null>(null);
 
-  const lastMeasuredRef = useRef<{ w: number; h: number } | null>(null);
-
-  const rawX = pos?.x ?? 200;
-  const rawY = pos?.y ?? 200;
-
-  
+  const x = pos?.x ?? 200;
+  const y = pos?.y ?? 200;
 
   /* ------------------------------------------------------------
-   * Accurate measurement without triggering infinite updates
+   * 📏 MEASURE (hidden, never rotated)
    * ------------------------------------------------------------ */
   useLayoutEffect(() => {
-    const el = spanRef.current;
+    const el = measureRef.current;
     if (!el) return;
-
-    const prevTransform = el.style.transform;
-    el.style.transform = "none";
 
     const rect = el.getBoundingClientRect();
     const w = rect.width + (borderWidth || 0) * 2;
     const h = rect.height + (borderWidth || 0) * 2;
 
-    el.style.transform = prevTransform;
-
-    // Only update state if measurement has actually changed
-    const last = lastMeasuredRef.current;
+    const last = lastMeasured.current;
     if (!last || Math.abs(last.w - w) > 0.5 || Math.abs(last.h - h) > 0.5) {
-      lastMeasuredRef.current = { w, h };
+      lastMeasured.current = { w, h };
       setMeasured({ w, h });
-      // Call onMeasure AFTER state update to avoid loops
       requestAnimationFrame(() => onMeasure?.(uid, w, h));
     }
   }, [text, fontSize, fontFamily, borderWidth, uid, onMeasure]);
 
-  /* ------------------------------------------------------------
-   * Clamp position
-   * ------------------------------------------------------------ */
-  const clampedX = restrictedBox
-    ? Math.min(
-        Math.max(rawX, restrictedBox.left),
-        restrictedBox.left + restrictedBox.width - measured.w
-      )
-    : rawX;
-
-  const clampedY = restrictedBox
-    ? Math.min(
-        Math.max(rawY, restrictedBox.top),
-        restrictedBox.top + restrictedBox.height - measured.h
-      )
-    : rawY;
-
   const scaleX = flip === "horizontal" ? -1 : 1;
   const scaleY = flip === "vertical" ? -1 : 1;
 
+  /* ------------------------------------------------------------
+   * 🧠 RENDER
+   * ------------------------------------------------------------ */
   return (
-    <div
-      data-uid={uid}
-      data-type="text"
-      data-font={fontSize}
-      onMouseDown={(e) => onPointerDown(e, uid, isMultiSelected)}
-      className="absolute cursor-move select-none"
-      style={{
-        left: clampedX,
-        top: clampedY,
-        width: measured.w,
-        height: measured.h,
-        zIndex: highlighted ? 200 : 50,
-
-        // ✅ ONLY flip here — NO rotation
-        transform: `scale(${scaleX}, ${scaleY})`,
-        transformOrigin: "left top",
-
-        pointerEvents: "auto",
-        userSelect: "none",
-      }}
-    >
-      {/* 🔄 ROTATION LIVES HERE (visual only) */}
-      <div
+    <>
+      {/* 🔒 HIDDEN MEASURER — NEVER ROTATED */}
+      <span
+        ref={measureRef}
         style={{
-          transform: `rotate(${rotation}deg)`,
-          transformOrigin: "left top",
-          display: "inline-block",
-          width: "fit-content",
-          height: "fit-content",
+          position: "absolute",
+          visibility: "hidden",
+          whiteSpace: "nowrap",
+          fontFamily,
+          fontSize: `${fontSize}px`,
+          lineHeight: 1,
+          WebkitTextStrokeWidth: `${borderWidth || 0}px`,
         }}
       >
-        {/* 📏 MEASURED TEXT (never rotated directly) */}
-        <span
-          ref={spanRef}
+        {text || "Text"}
+      </span>
+
+      {/* 🖱️ DRAG CONTAINER — NEVER TRANSFORMED */}
+      <div
+        data-uid={uid}
+        onPointerDown={(e) => onPointerDown(e, uid, isMultiSelected)}
+        className="absolute cursor-move select-none"
+        style={{
+          left: x,
+          top: y,
+          width: measured.w,
+          height: measured.h,
+          zIndex: highlighted ? 200 : 50,
+          userSelect: "none",
+        }}
+      >
+        {/* 🎨 VISUAL ONLY — ROTATION LIVES HERE */}
+        <div
           style={{
-            fontFamily,
-            fontSize: `${fontSize}px`,
-            lineHeight: 1,
-            verticalAlign: "top",
-            display: "inline-block",
-            color,
-            WebkitTextStrokeWidth: `${borderWidth || 0}px`,
-            WebkitTextStrokeColor: borderColor,
-            WebkitTextFillColor: color,
-            whiteSpace: "nowrap",
+            width: measured.w,
+            height: measured.h,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})`,
+            transformOrigin: "center center",
+            pointerEvents: "none",
           }}
         >
-          {text || "Text"}
-        </span>
+          <span
+            style={{
+              fontFamily,
+              fontSize: `${fontSize}px`,
+              lineHeight: 1,
+              whiteSpace: "nowrap",
+              color,
+              WebkitTextStrokeWidth: `${borderWidth || 0}px`,
+              WebkitTextStrokeColor: borderColor,
+              WebkitTextFillColor: color,
+            }}
+          >
+            {text || "Text"}
+          </span>
+        </div>
       </div>
-    </div>
+    </>
   );
-  }
+}

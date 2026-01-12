@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { useBoundingBox } from "./useBoundingBox";
-import { useTextResize } from "./useTextResize";
 import HoverLabel from "./HoverLabel";
 import SelectionBoundingBox from "./SelectionBoundingBox";
 import DeleteButton from "./DeleteButton";
 import DuplicateButton from "./DuplicateButton";
 import ResizeHandle from "./ResizeHandle";
-
+import { useTextResize } from "./useTextResize";
 
 interface Props {
   selectedText: string[];
@@ -16,59 +14,61 @@ interface Props {
   onDeselectAll?: () => void;
   onResizeText: (uid: string, newFontSize: number) => void;
   restrictedBox: { left: number; top: number; width: number; height: number };
+  positions: Record<string, { x: number; y: number }> | undefined;
+  sizes: Record<string, { w: number; h: number }> | undefined;
 }
 
-export default function TextSelectionBox(props: Props) {
-  const {
-    selectedText,
-    canvasRef,
-    onDelete,
-    onDuplicate,
-    onDeselectAll,
-    onResizeText,
-    restrictedBox
-  } = props;
-
+export default function TextSelectionBox({
+  selectedText,
+  canvasRef,
+  onDelete,
+  onDuplicate,
+  onDeselectAll,
+  onResizeText,
+  restrictedBox,
+  positions,
+  sizes,
+}: Props) {
   const [hoverLabel, setHoverLabel] = useState<string | null>(null);
   const [labelPos, setLabelPos] = useState<{ left: number; top: number } | null>(
     null
   );
-  const [fontSizes, setFontSizes] = useState<Record<string, number>>({});
 
-  const firstUid = selectedText[0] ?? null;
+  // ✅ Defensive: bail if positions or sizes are undefined
+  if (!positions || !sizes) return null;
 
-  const getFontSize = (uid: string) => {
-    if (fontSizes[uid] !== undefined) return fontSizes[uid];
+  // ✅ Only include selected UIDs that exist in both positions AND sizes
+  const readyUids = selectedText.filter(uid => positions[uid] && sizes[uid]);
 
-    const el = document.querySelector<HTMLElement>(
-      `[data-uid="${CSS.escape(uid)}"][data-type="text"]`
-    );
-    if (!el) return 40;
+  // ✅ Bail early if nothing is ready
+  if (readyUids.length === 0) return null;
 
-    const attr = el.getAttribute("data-font");
-    const size = attr ? parseFloat(attr) : 40;
+  const uid = readyUids[0]; // anchor UID
+  const pos = positions[uid]!;
+  const size = sizes[uid]!;
 
-    setFontSizes(prev => ({ ...prev, [uid]: size }));
-    return size;
+  const box = {
+    left: pos.x,
+    top: pos.y,
+    width: size.w,
+    height: size.h,
   };
 
-  const { box, update } = useBoundingBox(selectedText, canvasRef);
-
+  /* ------------------------------------------------------------
+   * 🧠 Outside click deselect
+   * ------------------------------------------------------------ */
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const clicked = selectedText.some(uid => {
-        const el = document.querySelector<HTMLElement>(
-          `[data-uid="${CSS.escape(uid)}"][data-type="text"]`
-        );
-        return el?.contains(e.target as Node);
-      });
-
-      if (!clicked) onDeselectAll?.();
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const clickedInside = readyUids.some(
+        uid => target.closest(`[data-uid="${CSS.escape(uid)}"]`)
+      );
+      if (!clickedInside) onDeselectAll?.();
     };
 
-    window.addEventListener("mousedown", handleClickOutside);
-    return () => window.removeEventListener("mousedown", handleClickOutside);
-  }, [selectedText, onDeselectAll]);
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [readyUids, onDeselectAll]);
 
   const showLabel = (text: string, left: number, top: number) => {
     setHoverLabel(text);
@@ -85,40 +85,22 @@ export default function TextSelectionBox(props: Props) {
     e.stopPropagation();
   };
 
-  // 👇 REAL bounding-measure function (critical)
-  const getTextBoxSize = (uid: string, fontSize: number) => {
-    const el = document.querySelector<HTMLElement>(
-      `[data-uid="${CSS.escape(uid)}"][data-type="text"]`
-    );
-    if (!el) return;
-
-    const clone = el.cloneNode(true) as HTMLElement;
-
-    clone.style.visibility = "hidden";
-    clone.style.position = "absolute";
-    clone.style.left = "-99999px";
-    clone.style.top = "-99999px";
-    clone.style.fontSize = `${fontSize}px`;
-
-    document.body.appendChild(clone);
-    const rect = clone.getBoundingClientRect();
-    document.body.removeChild(clone);
-
-    return { w: rect.width, h: rect.height };
-  };
-
+  /* ------------------------------------------------------------
+   * 🔄 Resize (font-size driven)
+   * ------------------------------------------------------------ */
   const handleResize = useTextResize(
-    firstUid,
+    uid,
     canvasRef,
     restrictedBox,
-    getFontSize,
-    setFontSizes,
+    () => size.h, // current font size
+    () => {},     // no local font state needed
     onResizeText,
-    getTextBoxSize // ✅ instead of update
+    () => size    // authoritative box size
   );
 
-  if (!box || !firstUid) return null;
-
+  /* ------------------------------------------------------------
+   * ✅ Render selection box
+   * ------------------------------------------------------------ */
   return (
     <>
       {hoverLabel && labelPos && (
@@ -128,8 +110,10 @@ export default function TextSelectionBox(props: Props) {
       <SelectionBoundingBox box={box}>
         <DeleteButton
           stopAll={stopAll}
-          onClick={() => onDelete(selectedText)}
-          onEnter={() => showLabel("Delete", box.left + box.width - 10, box.top - 30)}
+          onClick={() => onDelete(readyUids)}
+          onEnter={() =>
+            showLabel("Delete", box.left + box.width - 10, box.top - 30)
+          }
           onLeave={hideLabel}
         />
 
@@ -147,7 +131,7 @@ export default function TextSelectionBox(props: Props) {
 
         <DuplicateButton
           stopAll={stopAll}
-          onClick={() => onDuplicate(selectedText)}
+          onClick={() => onDuplicate(readyUids)}
           onEnter={() =>
             showLabel("Duplicate", box.left - 10, box.top + box.height + 20)
           }
