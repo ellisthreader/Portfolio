@@ -64,42 +64,71 @@ const onPointerDown = (e: React.PointerEvent, uid: string) => {
 
 
 const onPointerMove = (e: PointerEvent) => {
-  if (!draggingUids.current.length) return;
-  if (!args.restrictedBox) return;
+  if (!draggingUids.current.length || !args.restrictedBox) return;
 
   const box = args.restrictedBox;
 
   args.setPositions(prev => {
     const next = { ...prev };
 
-    draggingUids.current.forEach(uid => {
+    const refUid = draggingUids.current[0];
+    const refOffset = dragOffsets.current[refUid];
+    const refPos = prev[refUid];
+
+    if (!refOffset || !refPos) return prev;
+
+    let dx = e.clientX - refOffset.x - refPos.x;
+    let dy = e.clientY - refOffset.y - refPos.y;
+
+    let allowX = true;
+    let allowY = true;
+
+    // 🔍 Test each axis independently
+    for (const uid of draggingUids.current) {
       const pos = prev[uid];
       const size = args.sizes[uid];
-      const offset = dragOffsets.current[uid];
+      if (!pos || !size) return prev;
 
-    if (!pos || !offset) return;
+      if (allowX) {
+        const nextX = pos.x + dx;
+        if (
+          nextX < box.left ||
+          nextX + size.w > box.left + box.width
+        ) {
+          allowX = false;
+        }
+      }
 
-    // if we don't have size yet, don't move it (prevents jumping)
-    // text will clamp correctly once measured
-    if (!size) return;
+      if (allowY) {
+        const nextY = pos.y + dy;
+        if (
+          nextY < box.top ||
+          nextY + size.h > box.top + box.height
+        ) {
+          allowY = false;
+        }
+      }
 
+      // Early exit for perf
+      if (!allowX && !allowY) break;
+    }
 
-      // proposed new position
-      let newX = e.clientX - offset.x;
-      let newY = e.clientY - offset.y;
+    // 🚫 Block only failing axis
+    if (!allowX) dx = 0;
+    if (!allowY) dy = 0;
 
-      // clamp within restricted box
-      newX = Math.min(Math.max(box.left, newX), box.left + box.width - size.w);
-      newY = Math.min(Math.max(box.top, newY), box.top + box.height - size.h);
-
-      next[uid] = { x: newX, y: newY };
+    // ✅ Apply allowed movement
+    draggingUids.current.forEach(uid => {
+      const pos = prev[uid];
+      next[uid] = {
+        x: pos.x + dx,
+        y: pos.y + dy,
+      };
     });
 
     return next;
   });
 };
-
-
 
 
 const onPointerUp = () => {

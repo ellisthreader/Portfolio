@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import ColorPicker from "./ColorPicker";
 
@@ -17,16 +17,6 @@ type Props = {
 // Subtle outline steps
 const steps = [0, 0.5, 1, 1.5, 2, 2.5];
 
-const stepLabels = [
-  "Select outline",
-  "Very thin",
-  "Thin",
-  "Medium",
-  "Thick",
-  "Very thick",
-];
-
-
 export default function OutlinePage({
   borderColor,
   onBorderColorChange,
@@ -35,6 +25,9 @@ export default function OutlinePage({
   onBack,
 }: Props) {
   const stepIndex = steps.findIndex((s) => s === borderWidth);
+
+  // 🆕 controls custom input visibility
+  const [showCustom, setShowCustom] = useState(false);
 
   return (
     <div className="space-y-6 p-4">
@@ -64,7 +57,10 @@ export default function OutlinePage({
             WebkitTextFillColor: "#111827",
             textShadow:
               borderWidth > 0
-                ? `-${borderWidth / 2}px -${borderWidth / 2}px 0 ${borderColor}, ${borderWidth / 2}px -${borderWidth / 2}px 0 ${borderColor}, -${borderWidth / 2}px ${borderWidth / 2}px 0 ${borderColor}, ${borderWidth / 2}px ${borderWidth / 2}px 0 ${borderColor}`
+                ? `-${borderWidth / 2}px -${borderWidth / 2}px 0 ${borderColor},
+                   ${borderWidth / 2}px -${borderWidth / 2}px 0 ${borderColor},
+                  -${borderWidth / 2}px  ${borderWidth / 2}px 0 ${borderColor},
+                   ${borderWidth / 2}px  ${borderWidth / 2}px 0 ${borderColor}`
                 : "none",
           }}
         >
@@ -91,7 +87,7 @@ export default function OutlinePage({
 
           {/* Dots */}
           <div className="absolute left-0 right-0 flex justify-between pointer-events-none top-1/2 -translate-y-1/2">
-            {steps.map((s, i) => (
+            {steps.map((_, i) => (
               <div
                 key={i}
                 className={`h-2 w-2 rounded-full border-2 ${
@@ -109,12 +105,47 @@ export default function OutlinePage({
             min={0}
             max={steps.length - 1}
             step={1}
-            value={stepIndex}
-            onChange={(e) =>
-              onBorderWidthChange(steps[Number(e.target.value)])
-            }
+            value={Math.max(stepIndex, 0)}
+            onChange={(e) => {
+              onBorderWidthChange(steps[Number(e.target.value)]);
+              setShowCustom(false); // hide custom if slider used
+            }}
             className="w-full appearance-none h-6 bg-transparent cursor-pointer relative z-10"
           />
+        </div>
+
+        {/* 🆕 Custom option (minimal UI addition) */}
+        <div className="pt-2">
+          {!showCustom ? (
+            <button
+              onClick={() => setShowCustom(true)}
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Custom…
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={borderWidth}
+                onChange={(e) =>
+                  onBorderWidthChange(
+                    Math.max(0, Number(e.target.value) || 0)
+                  )
+                }
+                className="w-20 px-2 py-1 text-sm border rounded-md bg-white dark:bg-gray-900 dark:border-gray-700"
+              />
+              <span className="text-xs text-gray-400">px</span>
+              <button
+                onClick={() => setShowCustom(false)}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                done
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -142,7 +173,7 @@ export default function OutlinePage({
         </button>
       </div>
 
-      {/* Slider thumb styling */}
+      {/* Slider thumb styling (unchanged) */}
       <style>
         {`
           input[type="range"]::-webkit-slider-thumb {

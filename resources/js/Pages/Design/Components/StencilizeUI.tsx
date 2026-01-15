@@ -2,8 +2,8 @@
 
 import { useState, useRef } from "react";
 import { UploadCloud, Image as ImageIcon } from "lucide-react";
-import { stencilizeImage } from "../../Canvas/Utils/stencilizeImage";
-import ImagePreviewModal from "../../Components/ImagePreviewModal";
+import { stencilizeImage } from "../Canvas/Utils/stencilizeImage";
+import ImagePreviewModal from "./ImagePreviewModal";
 
 export default function StencilizeUI({
   onUpload,
@@ -51,8 +51,15 @@ export default function StencilizeUI({
     setLoading(true);
 
     try {
-      const processedImage = await stencilizeImage(objectUrl);
-      setProcessed(processedImage);
+      const result = await stencilizeImage(objectUrl, {
+        threshold: 140,
+        edgeStrength: 1.5,
+        blur: 1,
+        posterizeLevels: 2,
+        randomness: 0.45,
+      });
+
+      setProcessed(result);
     } catch (err) {
       console.error("Stencilize failed:", err);
       resetState();
@@ -83,7 +90,7 @@ export default function StencilizeUI({
         <div>
           <h2 className="text-xl font-bold">Upload Images</h2>
           <p className="text-gray-500 text-sm">
-            Add your own images to the canvas.
+            Add your own images to create stitch-ready stencils.
           </p>
         </div>
 
@@ -132,7 +139,6 @@ export default function StencilizeUI({
         {/* Recent Uploads */}
         <div className="pb-4">
           <h3 className="text-lg font-semibold mb-2">Recent Uploads</h3>
-
           {recentImages.length === 0 ? (
             <p className="text-gray-500 text-sm">No uploads yet.</p>
           ) : (
@@ -156,7 +162,7 @@ export default function StencilizeUI({
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Preview Modal */}
       {original && processed && (
         <ImagePreviewModal
           original={original}

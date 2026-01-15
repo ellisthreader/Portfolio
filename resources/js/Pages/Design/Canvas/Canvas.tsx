@@ -65,7 +65,7 @@ export type CanvasProps = {
   onDelete?: (uids: string[]) => void;
   onDuplicate?: (uids: string[]) => void;
   onResize?: (uid: string, w: number, h: number) => void;
-  onResizeText?: (uid: string, newFontSize: number) => void;
+  onResizeTextCommit: (uid: string, newFontSize: number) => void;
   onReset?: (uids: string[]) => void;
 
   onSelectImage?: (uid: string | null) => void;
@@ -83,8 +83,9 @@ export default function Canvas(props: CanvasProps) {
     onSelectImage,
     onSelectText,
     onSwitchTab,
-    onResizeText
+    onResizeTextCommit,
   } = props;
+
 
   // --------------------- Image sizes ---------------------
   const { sizes, setSizes } = useImageSizes(uploadedImages, imageState);
@@ -105,7 +106,7 @@ const { positions, setPositions } = useImagePositions(
     positions,
     sizes,
     restrictedBox,
-    onResizeText,
+    onResizeText: onResizeTextCommit,
   });
 
 
@@ -241,41 +242,65 @@ const handleCanvasPointerDown = (e: React.PointerEvent) => {
     .map(([uid, layer]: any) => {
       const p = positions[uid] ?? { x: 200, y: 200 };
 
+      const fontSize = layer.fontSize ?? 24; // ✅ hard default
+      const size = sizes[uid] ?? { w: 200, h: fontSize };
+
       return (
         <DraggableText
           key={uid}
           uid={uid}
-          text={layer.text}
+          text={layer.text ?? ""}
           pos={p}
-          size={sizes[uid]}
+          size={size}
           rotation={layer.rotation ?? 0}
           flip={layer.flip ?? "none"}
-          fontFamily={layer.fontFamily}
-          color={layer.color}
+          fontFamily={layer.fontFamily ?? "Arial"}
+          color={layer.color ?? "#000"}
           borderColor={layer.borderColor}
           borderWidth={layer.borderWidth}
           highlighted={drag.selected.includes(uid)}
           selected={drag.selected}
           onPointerDown={drag.onPointerDown}
-          style={{
-            lineHeight: `${layer.fontSize}px`, // ✅ NOW WORKS
-          }}
+          fontSize={fontSize}   // ✅ single source of truth
           onMeasure={(uid, w, h) => {
             setSizes(prev => {
               const existing = prev[uid];
-              if (
-                existing &&
-                Math.abs(existing.w - w) < 0.5 &&
-                Math.abs(existing.h - h) < 0.5
-              ) {
+              
+                 console.log("🧠 SIZE STATE UPDATE", {
+                    uid,
+                    previous: existing,
+                    next: { w, h },
+                  });
+
+              // Round to 0.1px to avoid tiny floating-point jitter
+              const roundedW = Math.round(w * 10) / 10;
+              const roundedH = Math.round(h * 10) / 10;
+
+              const firstMeasure = !existing;
+              const changed =
+                firstMeasure ||
+                Math.abs(existing?.w - roundedW) >= 0.5 ||
+                Math.abs(existing?.h - roundedH) >= 0.5;
+
+              if (!changed) {
+                // no significant change → skip re-render
                 return prev;
               }
-              return { ...prev, [uid]: { w, h } };
+
+              // ✅ Log for debugging
+              console.log("🔺 setSizes updating:", uid, existing, "->", { w: roundedW, h: roundedH });
+
+              // ✅ Update sizes
+              return {
+                ...prev,
+                [uid]: { w: roundedW, h: roundedH },
+              };
             });
           }}
         />
       );
     })}
+
 
 
       {/* IMAGE SELECTION BOX */}
@@ -293,16 +318,18 @@ const handleCanvasPointerDown = (e: React.PointerEvent) => {
 
       {/* TEXT SELECTION BOX */}
       {selectedText.length > 0 && (
+        
         <TextSelectionBox
           selectedText={selectedText}
           canvasRef={drag.selectionBoxProps.canvasRef}
           onDuplicate={handleDuplicateFromSelectionBox}
           onDelete={handleDeleteFromSelectionBox}
           onDeselectAll={drag.selectionBoxProps.onDeselectAll}
-          onResizeText={onResizeText}
+          onResizeText={onResizeTextCommit}
           restrictedBox={restrictedBox}
           positions={positions}
           imageState={imageState}
+          sizes={sizes}   
         />
       )}
 

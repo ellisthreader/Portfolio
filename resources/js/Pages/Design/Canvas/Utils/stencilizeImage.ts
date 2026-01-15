@@ -1,11 +1,12 @@
 /**
- * Converts an image into a black-and-white stencil / posterized cutout
- * @param url - Image URL
- * @param options.threshold - Main cutoff for black/white (0-255)
- * @param options.blur - Optional Gaussian blur before threshold to smooth edges
- * @param options.edgeDetection - Enable edge detection for crisp outlines
- * @param options.posterizeLevels - Number of grayscale levels (2 = pure B/W)
+ * Converts an image into a color-preserving stencil
+ * EMBROIDERY SAFE – uses alpha as stencil mask
+ * ENHANCED COLOR PRESERVATION
  */
+
+const rand = (min: number, max: number) =>
+  Math.random() * (max - min) + min;
+
 export const stencilizeImage = (
   url: string,
   options: {
@@ -13,9 +14,20 @@ export const stencilizeImage = (
     blur?: number;
     edgeDetection?: boolean;
     posterizeLevels?: number;
+    edgeStrength?: number;
+    randomness?: number;
+    interiorStrength?: number; // 🆕 how much interior color survives
   } = {}
 ): Promise<string> => {
-  const { threshold = 128, blur = 0, edgeDetection = true, posterizeLevels = 2 } = options;
+  const {
+    threshold = 140,
+    blur = 0,
+    edgeDetection = true,
+    posterizeLevels = 2,
+    edgeStrength = 1,
+    randomness = 0,
+    interiorStrength = 0.6,
+  } = options;
 
   return new Promise((resolve) => {
     const img = new Image();
@@ -30,40 +42,56 @@ export const stencilizeImage = (
 
       ctx.drawImage(img, 0, 0);
 
-      // Optional blur to smooth edges
+      /* -------------------- Optional Blur -------------------- */
       if (blur > 0) {
-        ctx.filter = `blur(${blur}px)`;
-        ctx.drawImage(canvas, 0, 0);
-        ctx.filter = "none";
+        const temp = document.createElement("canvas");
+        temp.width = canvas.width;
+        temp.height = canvas.height;
+        const tctx = temp.getContext("2d")!;
+        tctx.filter = `blur(${blur}px)`;
+        tctx.drawImage(canvas, 0, 0);
+        tctx.filter = "none";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(temp, 0, 0);
       }
 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
 
-      // Grayscale & optional posterization
-      for (let i = 0; i < data.length; i += 4) {
-        let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      // 🔐 Preserve original colors
+      const original = new Uint8ClampedArray(data);
 
-        // Posterize
+      /* -------------------- Grayscale (for edge detection only) -------------------- */
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] === 0) continue;
+
+        let g =
+          data[i] * 0.299 +
+          data[i + 1] * 0.587 +
+          data[i + 2] * 0.114;
+
         if (posterizeLevels > 2) {
-          gray = Math.floor((gray / 255) * (posterizeLevels - 1)) * (255 / (posterizeLevels - 1));
+          g =
+            Math.round((g / 255) * (posterizeLevels - 1)) *
+            (255 / (posterizeLevels - 1));
         }
 
-        data[i] = data[i + 1] = data[i + 2] = gray;
+        data[i] = data[i + 1] = data[i + 2] = g;
       }
 
-      // Optional edge detection (Sobel operator)
-      if (edgeDetection) {
-        const w = canvas.width;
-        const h = canvas.height;
-        const copy = new Uint8ClampedArray(data); // copy of original gray
+      const w = canvas.width;
+      const h = canvas.height;
 
-        const kernelX = [
+      /* -------------------- EDGE DETECTION -------------------- */
+      if (edgeDetection) {
+        const copy = new Uint8ClampedArray(data);
+
+        const kx = [
           [-1, 0, 1],
           [-2, 0, 2],
           [-1, 0, 1],
         ];
-        const kernelY = [
+        const ky = [
           [-1, -2, -1],
           [0, 0, 0],
           [1, 2, 1],
@@ -71,32 +99,83 @@ export const stencilizeImage = (
 
         for (let y = 1; y < h - 1; y++) {
           for (let x = 1; x < w - 1; x++) {
+            const idx = (y * w + x) * 4;
+            if (copy[idx + 3] === 0) continue;
+
             let gx = 0;
             let gy = 0;
 
-            for (let ky = -1; ky <= 1; ky++) {
-              for (let kx = -1; kx <= 1; kx++) {
-                const px = x + kx;
-                const py = y + ky;
-                const idx = (py * w + px) * 4;
-                const val = copy[idx]; // gray
-
-                gx += val * kernelX[ky + 1][kx + 1];
-                gy += val * kernelY[ky + 1][kx + 1];
+            for (let j = -1; j <= 1; j++) {
+              for (let i = -1; i <= 1; i++) {
+                const nidx = ((y + j) * w + (x + i)) * 4;
+                const v = copy[nidx];
+                gx += v * kx[j + 1][i + 1];
+                gy += v * ky[j + 1][i + 1];
               }
             }
 
-            const mag = Math.sqrt(gx * gx + gy * gy);
-            const i = (y * w + x) * 4;
-            const v = mag > threshold ? 0 : 255; // edges black, background white
-            data[i] = data[i + 1] = data[i + 2] = v;
+            const jitter = rand(-randomness, randomness);
+            const magnitude = Math.sqrt(gx * gx + gy * gy);
+
+            // 🔥 Soft edge alpha
+            const edgeAlpha = Math.min(
+              255,
+              Math.max(0, (magnitude - threshold) * edgeStrength * 2 + jitter * 50)
+            );
+
+            // 🎨 Interior brightness preservation
+            const brightness = copy[idx];
+            const interiorAlpha =
+              brightness < threshold
+                ? 255 * interiorStrength
+                : 0;
+
+            const alpha = Math.max(edgeAlpha, interiorAlpha);
+
+            // Restore original RGB, apply alpha stencil
+            data[idx]     = original[idx];
+            data[idx + 1] = original[idx + 1];
+            data[idx + 2] = original[idx + 2];
+            data[idx + 3] = alpha;
           }
         }
+
+        /* -------------------- Alpha Dilation (fills color gaps) -------------------- */
+        const dilated = new Uint8ClampedArray(data);
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            const idx = (y * w + x) * 4;
+            if (data[idx + 3] !== 0) continue;
+
+            let maxAlpha = 0;
+            for (let j = -1; j <= 1; j++) {
+              for (let i = -1; i <= 1; i++) {
+                const n = ((y + j) * w + (x + i)) * 4;
+                maxAlpha = Math.max(maxAlpha, data[n + 3]);
+              }
+            }
+
+            if (maxAlpha > 0) {
+              dilated[idx + 3] = maxAlpha * 0.6;
+              dilated[idx]     = original[idx];
+              dilated[idx + 1] = original[idx + 1];
+              dilated[idx + 2] = original[idx + 2];
+            }
+          }
+        }
+
+        data.set(dilated);
       } else {
-        // Simple threshold if no edge detection
+        /* -------------------- SIMPLE MASK -------------------- */
         for (let i = 0; i < data.length; i += 4) {
-          const v = data[i] < threshold ? 0 : 255;
-          data[i] = data[i + 1] = data[i + 2] = v;
+          if (data[i + 3] === 0) continue;
+
+          const mask = data[i] < threshold ? 255 : 0;
+
+          data[i]     = original[i];
+          data[i + 1] = original[i + 1];
+          data[i + 2] = original[i + 2];
+          data[i + 3] = mask;
         }
       }
 

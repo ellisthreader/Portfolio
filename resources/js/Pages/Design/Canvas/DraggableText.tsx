@@ -2,13 +2,11 @@
 
 import React, { useRef, useLayoutEffect, useState } from "react";
 
-type RestrictedBox = { left: number; top: number; width: number; height: number };
-
 type Props = {
   uid: string;
   text: string;
   pos?: { x: number; y: number };
-  size: { h?: number };
+  fontSize: number;
   rotation?: number;
   flip?: "none" | "horizontal" | "vertical";
   fontFamily?: string;
@@ -25,7 +23,7 @@ export default function DraggableText({
   uid,
   text,
   pos,
-  size,
+  fontSize,
   rotation = 0,
   flip = "none",
   fontFamily = "Arial",
@@ -38,9 +36,7 @@ export default function DraggableText({
   onMeasure,
 }: Props) {
   const measureRef = useRef<HTMLSpanElement>(null);
-
   const isMultiSelected = selected.includes(uid);
-  const fontSize = typeof size?.h === "number" && size.h > 0 ? size.h : 40;
 
   const [measured, setMeasured] = useState({ w: 0, h: 0 });
   const lastMeasured = useRef<{ w: number; h: number } | null>(null);
@@ -48,52 +44,50 @@ export default function DraggableText({
   const x = pos?.x ?? 200;
   const y = pos?.y ?? 200;
 
-  /* ------------------------------------------------------------
-   * 📏 MEASURE (hidden, never rotated)
-   * ------------------------------------------------------------ */
-  useLayoutEffect(() => {
-    const el = measureRef.current;
-    if (!el) return;
-
-    const rect = el.getBoundingClientRect();
-    const w = rect.width + (borderWidth || 0) * 2;
-    const h = rect.height + (borderWidth || 0) * 2;
-
-    const last = lastMeasured.current;
-    if (!last || Math.abs(last.w - w) > 0.5 || Math.abs(last.h - h) > 0.5) {
-      lastMeasured.current = { w, h };
-      setMeasured({ w, h });
-      requestAnimationFrame(() => onMeasure?.(uid, w, h));
-    }
-  }, [text, fontSize, fontFamily, borderWidth, uid, onMeasure]);
-
   const scaleX = flip === "horizontal" ? -1 : 1;
   const scaleY = flip === "vertical" ? -1 : 1;
 
-  /* ------------------------------------------------------------
-   * 🧠 RENDER
-   * ------------------------------------------------------------ */
+
+
+
+
+
+  // ----------------- MEASURE -----------------
+useLayoutEffect(() => {
+  const el = measureRef.current;
+  if (!el) return;
+
+  const range = document.createRange();
+  range.selectNodeContents(el);
+
+  const rect = range.getBoundingClientRect();
+
+  const w = Math.round(rect.width * 10) / 10;
+  const h = Math.round(rect.height * 10) / 10;
+
+  if (
+    !lastMeasured.current ||
+    lastMeasured.current.w !== w ||
+    lastMeasured.current.h !== h
+  ) {
+    lastMeasured.current = { w, h };
+    setMeasured({ w, h });
+    onMeasure?.(uid, w, h);
+  }
+}, [text, fontSize, fontFamily, borderWidth]);
+
+
+
+
+  // ----------------- RENDER -----------------
   return (
     <>
-      {/* 🔒 HIDDEN MEASURER — NEVER ROTATED */}
-      <span
-        ref={measureRef}
-        style={{
-          position: "absolute",
-          visibility: "hidden",
-          whiteSpace: "nowrap",
-          fontFamily,
-          fontSize: `${fontSize}px`,
-          lineHeight: 1,
-          WebkitTextStrokeWidth: `${borderWidth || 0}px`,
-        }}
-      >
-        {text || "Text"}
-      </span>
+      {/* Hidden measurer */}
 
-      {/* 🖱️ DRAG CONTAINER — NEVER TRANSFORMED */}
+      {/* Draggable container */}
       <div
         data-uid={uid}
+        data-type="text"
         onPointerDown={(e) => onPointerDown(e, uid, isMultiSelected)}
         className="absolute cursor-move select-none"
         style={{
@@ -105,27 +99,23 @@ export default function DraggableText({
           userSelect: "none",
         }}
       >
-        {/* 🎨 VISUAL ONLY — ROTATION LIVES HERE */}
+        {/* Rotated / flipped visual */}
         <div
           style={{
-            width: measured.w,
-            height: measured.h,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})`,
-            transformOrigin: "center center",
-            pointerEvents: "none",
+            transformOrigin: "center center", // ✅ rotate around center
+            display: "inline-block",
           }}
         >
           <span
+            ref={measureRef}
             style={{
               fontFamily,
               fontSize: `${fontSize}px`,
-              lineHeight: 1,
-              whiteSpace: "nowrap",
+              whiteSpace: "pre-wrap",
               color,
-              WebkitTextStrokeWidth: `${borderWidth || 0}px`,
+              display: "block",
+              WebkitTextStrokeWidth: `${borderWidth}px`,
               WebkitTextStrokeColor: borderColor,
               WebkitTextFillColor: color,
             }}

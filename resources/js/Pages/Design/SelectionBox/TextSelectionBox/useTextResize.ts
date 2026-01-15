@@ -1,26 +1,25 @@
 // useTextResize.ts
-import { Dispatch, SetStateAction } from "react";
-
 export function useTextResize(
-  firstUid: string | null,
+  uid: string | null,
   canvasRef: React.RefObject<HTMLDivElement>,
   restrictedBox: { left: number; top: number; width: number; height: number },
   getFontSize: (uid: string) => number,
-  setFontSizes: Dispatch<SetStateAction<Record<string, number>>>,
   onResizeText: (uid: string, size: number) => void
 ) {
   return (e: React.MouseEvent) => {
+    console.log("🔥 useTextResize START");
     e.preventDefault();
     e.stopPropagation();
 
-    if (!firstUid || !canvasRef.current) return;
+    if (!uid || !canvasRef.current) return;
 
     const el = document.querySelector<HTMLElement>(
-      `[data-uid="${CSS.escape(firstUid)}"][data-type="text"]`
+      `[data-uid="${CSS.escape(uid)}"][data-type="text"]`
     );
+    console.log("🔍 resize target", el);
     if (!el) return;
 
-    const startFont = getFontSize(firstUid);
+    const startFont = getFontSize(uid);
     const minFont = 8;
     const sensitivity = 0.005;
     const startX = e.clientX;
@@ -28,18 +27,13 @@ export function useTextResize(
     const canvasRect = canvasRef.current.getBoundingClientRect();
 
     let lastValidSize = startFont;
-    let blocked = false;
 
     const onMove = (ev: MouseEvent) => {
+      console.log("➡️ resizing move", ev.clientX);
       const dx = ev.clientX - startX;
-      let desired = Math.max(minFont, startFont * (1 + dx * sensitivity));
+      const desired = Math.max(minFont, startFont * (1 + dx * sensitivity));
 
-      // If blocked and user is still moving outward → ignore
-      if (blocked && desired > lastValidSize) {
-        return;
-      }
-
-      // Measure text size using temporary span
+      // Measure using temp span
       const style = window.getComputedStyle(el);
       const tmp = document.createElement("span");
       tmp.style.fontFamily = style.fontFamily;
@@ -68,19 +62,16 @@ export function useTextResize(
         left + rect.width > maxRight ||
         top + rect.height > maxBottom;
 
-      if (exceeds) {
-        // Lock at last valid size
-        blocked = true;
-        desired = lastValidSize;
-      } else {
-        blocked = false;
+      const finalSize = exceeds ? lastValidSize : desired;
+      console.log("📏 new size", desired);
+
+      if (!exceeds) {
         lastValidSize = desired;
       }
 
-      // Apply
-      el.style.fontSize = `${desired}px`;
-      setFontSizes(prev => ({ ...prev, [firstUid]: desired }));
-      onResizeText(firstUid, desired);
+      // ✅ SINGLE SOURCE OF TRUTH
+      onResizeText(uid, finalSize);
+      console.log("🧠 onResizeText", uid, desired);
     };
 
     const onUp = () => {

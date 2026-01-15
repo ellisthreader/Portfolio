@@ -17,7 +17,11 @@ export default function FontPage({
 }: Props) {
   const [search, setSearch] = useState("");
 
+  // ✅ Inter is default
+  const activeFont = fontFamily || "Inter";
+
   const allFonts = [
+    "Inter", // 👈 default font
     "Abril Fatface","Amaranth","Anton","BBH Bogle","Bebas Neue",
     "Caveat Brush","Changa","Chewy","Comfortaa","Comic Neue",
     "Courgette","DM Mono","Exo","Great Vibes","Indie Flower",
@@ -57,14 +61,14 @@ export default function FontPage({
           <div
             key={font}
             className={`p-3 rounded-md cursor-pointer hover:bg-blue-100 ${
-              font === fontFamily ? "bg-blue-200" : ""
+              font === activeFont ? "bg-blue-200" : ""
             }`}
             onClick={() => {
               onFontChange(font);
               onBack();
             }}
           >
-            {/* Preview text */}
+            {/* Preview */}
             <div
               className="text-lg"
               style={{ fontFamily: font }}
@@ -72,7 +76,7 @@ export default function FontPage({
               {textValue || "Sample Text"}
             </div>
 
-            {/* Font name label */}
+            {/* Label */}
             <div className="text-xs text-gray-500 mt-1">
               {font}
             </div>

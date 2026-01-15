@@ -45,6 +45,7 @@ export default function UploadedTextLayer({
             flip={layer.flip ?? "none"}
             highlighted={selected.includes(uid) || hovered[uid]}
             onPointerDown={onPointerDown}
+            fontSize={layer.fontSize}
           />
         );
       })}

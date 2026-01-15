@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, X, Shirt, Upload as UploadIcon, Type, Image as C
 
 import ProductEdit from "./Sidebar/ProductEdit";
 import AddText from "./Sidebar/TextSideBar/AddText";
-import Clipart from "./Sidebar/Clipart";
+import Clipart from "./Sidebar/ClipartSideBar/Clipart";
 import UploadSidebar from "./Sidebar/UploadSideBar/UploadSidebar";
 import ChangeProductModal from "./ChangeProduct";
 import Canvas from "./Canvas/Canvas";
@@ -64,7 +64,7 @@ export default function Design() {
 
 
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
-
+  const { onResizeTextCommit } = props;
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener("selectstart", prevent);
@@ -144,6 +144,7 @@ export default function Design() {
 
 
 const handleResizeText = (uid: string, newFontSize: number) => {
+  console.log("🖊 handleResizeText called:", { uid, newFontSize });
   setImageState(prev => {
     const layer = prev[uid];
     if (!layer || layer.type !== "text") return prev;
@@ -152,21 +153,11 @@ const handleResizeText = (uid: string, newFontSize: number) => {
       ...prev,
       [uid]: {
         ...layer,
-        fontSize: newFontSize,     // ✅ actual font size
-        size: {
-          ...layer.size,
-          h: newFontSize           // ✅ keep height in sync
-        }
-      }
+        fontSize: newFontSize, // ✅ ONLY source of truth
+      },
     };
   });
 };
-
-
-
-
-
-
 
   const handleResetImage = (uid: string) => {
     setImageState((prev) => {
@@ -440,7 +431,7 @@ const handleResizeText = (uid: string, newFontSize: number) => {
             onSelectText={setSelectedText}
             onSwitchTab={setActiveTab}
             onDelete={handleDeleteImages}
-            onResizeText={handleResizeText}
+            onResizeTextCommit={handleResizeText}
             onSelectionChange={setSelectedObjects}
           />
         </div>
