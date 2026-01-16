@@ -1,5 +1,6 @@
 export interface ClipartItem {
   id: string;
+  src: string;
   label: string;
 }
 

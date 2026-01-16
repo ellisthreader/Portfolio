@@ -6,7 +6,9 @@ import ClipartItemsPage from "./ClipartItemsPage";
 export default function Clipart() {
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
 
-  const activeCategory = clipartCategories.find(c => c.id === activeCategoryId);
+  const activeCategory = clipartCategories.find(
+    (c) => c.id === activeCategoryId
+  );
 
   return (
     <div className="p-4">

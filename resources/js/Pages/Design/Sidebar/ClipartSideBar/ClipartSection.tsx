@@ -6,7 +6,11 @@ interface ClipartSectionProps {
   icon?: React.ReactNode;
 }
 
-export default function ClipartSection({ title, onClick, icon }: ClipartSectionProps) {
+export default function ClipartSection({
+  title,
+  onClick,
+  icon,
+}: ClipartSectionProps) {
   return (
     <button
       onClick={onClick}
@@ -15,29 +19,23 @@ export default function ClipartSection({ title, onClick, icon }: ClipartSectionP
         p-4 w-full h-36
         bg-white dark:bg-gray-800
         rounded-xl
-        shadow-md hover:shadow-xl
-        transition-all duration-300
-        hover:scale-105
-        border border-gray-200 dark:border-gray-700
-        text-gray-800 dark:text-gray-200
+        shadow-md hover:shadow-lg
+        transition
+        border
       "
     >
-      {/* Icon in neutral circle */}
       <div className="
         flex items-center justify-center
         w-16 h-16
-        mb-3
         rounded-full
         bg-gray-100 dark:bg-gray-700
-        text-gray-700 dark:text-gray-200
+        text-gray-700
         text-3xl
-        shadow-sm
       ">
-        {icon ?? <div className="w-8 h-8 bg-gray-300 rounded-full" />}
+        {icon}
       </div>
 
-      {/* Section title */}
-      <h3 className="font-semibold text-center text-sm">
+      <h3 className="font-semibold text-sm text-center">
         {title}
       </h3>
     </button>
