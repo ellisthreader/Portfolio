@@ -6,16 +6,18 @@ import { ClipartCategoryType } from "./types";
  * Current file: resources/js/Pages/Design/Sidebar/ClipartSideBar/clipartCategories.ts
  * So we go up 3 levels: ../../../assets/clipart/**
  */
+
 const allClipartModules = import.meta.glob(
-  "../../../assets/clipart/**/*.{svg,png}", // 3 levels up from this file
+  "/resources/js/assets/clipart/**/*.{svg,png}",
   { eager: true }
 ) as Record<string, { default: string }>;
 
 console.log("🧠 ALL CLIPART MODULES:", allClipartModules);
+
 if (Object.keys(allClipartModules).length === 0) {
-  console.log("ALL CLIPART MODULES:", allClipartModules);
-  console.error("❌ VITE CANNOT SEE CLIPART FILES. Check relative path and casing.");
+  console.error("❌ VITE CANNOT SEE CLIPART FILES. Check path & casing.");
 }
+
 
 /**
  * Load a single category

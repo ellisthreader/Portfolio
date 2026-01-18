@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import UploadPanel from "./UploadPanel";
 import ImageEditor from "./ImageEditor";
 import Crop from "./Crop";
@@ -10,7 +10,7 @@ type UploadSidebarProps = {
   imageState: Record<string, any>;
   setImageState: (fn: (prev: any) => any) => void;
 
-  // NEW: UploadPanel props
+  // UploadPanel props
   onUpload: (url: string) => void;
   recentImages?: string[];
   onSelectImage?: (url: string) => void;
@@ -25,6 +25,12 @@ export default function UploadSidebar({
   onSelectImage,
 }: UploadSidebarProps) {
   const [cropMode, setCropMode] = useState(false);
+
+  // ✅ FILTER OUT CLIPART
+  const uploadOnlyImages = useMemo(
+    () => recentImages.filter(uid => !imageState[uid]?.isClipart),
+    [recentImages, imageState]
+  );
 
   // ------------------- CROPPING MODE -------------------
   if (cropMode && selectedImage) {
@@ -45,8 +51,7 @@ export default function UploadSidebar({
                 url: newURL,
                 crop,
                 original:
-                  img.original ??
-                  {
+                  img.original ?? {
                     url: img.url,
                     size: img.size,
                     rotation: img.rotation,
@@ -78,9 +83,10 @@ export default function UploadSidebar({
   // ------------------- DEFAULT: UPLOAD PANEL -------------------
   return (
     <UploadPanel
-      onUpload={onUpload} // ✅ critical fix: pass function
-      recentImages={recentImages}
+      onUpload={onUpload}
+      recentImages={uploadOnlyImages} // ✅ FIX HERE
       onSelectImage={onSelectImage}
     />
   );
 }
+  

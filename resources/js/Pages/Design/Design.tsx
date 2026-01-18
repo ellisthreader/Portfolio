@@ -6,17 +6,19 @@ import { ArrowLeft, ArrowRight, X, Shirt, Upload as UploadIcon, Type, Image as C
 
 import ProductEdit from "./Sidebar/ProductEdit";
 import AddText from "./Sidebar/TextSideBar/AddText";
-import Clipart from "./Sidebar/ClipartSideBar/Clipart";
+import Clipart from "./Sidebar/ClipartSideBar/UI/Clipart";
 import UploadSidebar from "./Sidebar/UploadSideBar/UploadSidebar";
 import ChangeProductModal from "./ChangeProduct";
 import Canvas from "./Canvas/Canvas";
 import TextProperties from "./Sidebar/TextSideBar/TextProperties/TextProperties";
 import MultiSelectPanel from "./Sidebar/MultiSelectPanel";
+import ClipartProperties from "./Sidebar/ClipartSideBar/ClipartProperties";
 
 
 export type ImageState = {
   url: string;
-  type?: "image" | "text";
+  type: "image" | "text";
+  isClipart?: boolean;
   text?: string;
   rotation: number;
   flip: "none" | "horizontal" | "vertical";
@@ -54,6 +56,8 @@ export default function Design() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [selectedUploadedImage, setSelectedUploadedImage] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [selectedClipart, setSelectedClipart] = useState<string | null>(null);
+
 
   const [activeTab, setActiveTab] = useState<"product" | "upload" | "text" | "clipart">("product");
   const [displayImages, setDisplayImages] = useState<string[]>([]);
@@ -141,6 +145,35 @@ export default function Design() {
       [url]: { ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }), size: { w, h } },
     }));
   };
+
+  const handleAddClipart = (src: string) => {
+    const uid = crypto.randomUUID();
+    const size = { w: 150, h: 150 };
+
+    // MUST register as uploaded image
+
+    setImageState(prev => ({
+      ...prev,
+      [uid]: {
+        url: src,
+        type: "image",      // ✅ Canvas-compatible
+        isClipart: true,    // ✅ Sidebar-only meaning
+        rotation: 0,
+        flip: "none",
+        size,
+        original: {
+          url: src,
+          rotation: 0,
+          flip: "none",
+          size: { ...size },
+        },
+      },
+    }));
+
+    setSelectedUploadedImage(uid);
+    setActiveTab("clipart");
+  };
+
 
 
 const handleResizeText = (uid: string, newFontSize: number) => {
@@ -262,6 +295,8 @@ const handleResizeText = (uid: string, newFontSize: number) => {
       );
     }
 
+    // 👀 Clipart selection takes priority
+
     // fallback to normal tabs
     switch (activeTab) {
       case "product":
@@ -353,8 +388,30 @@ const handleResizeText = (uid: string, newFontSize: number) => {
           />
         );
 
-      case "clipart":
-        return <Clipart />;
+          case "clipart": {
+    const layer =
+      selectedUploadedImage &&
+      imageState[selectedUploadedImage]?.isClipart
+        ? imageState[selectedUploadedImage]
+        : null;
+
+    // 👉 Clipart selected → show properties
+    if (layer) {
+      return (
+        <ClipartProperties
+          layer={layer}
+          onRotate={(v) => handleRotateImage(selectedUploadedImage!, v)}
+          onFlip={(v) => handleFlipImage(selectedUploadedImage!, v)}
+        />
+      );
+    }
+
+    // 👉 No clipart selected → show library
+    return <Clipart onAddClipart={handleAddClipart} />;
+  }
+
+
+
 
       default:
         return null;
@@ -393,30 +450,45 @@ const handleResizeText = (uid: string, newFontSize: number) => {
           </div>
         </div>
 
-        <div className="pt-[96px] flex min-h-screen">
-          <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
-            {[
-              { id: "product", icon: <Shirt size={22} />, label: "Product" },
-              { id: "upload", icon: <UploadIcon size={22} />, label: "Upload" },
-              { id: "text", icon: <Type size={22} />, label: "Text" },
-              { id: "clipart", icon: <ClipartIcon size={22} />, label: "Clipart" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`w-full h-16 flex flex-col items-center justify-center rounded-xl transition ${
-                  activeTab === tab.id ? "bg-neutral-600" : "bg-neutral-700 hover:bg-neutral-600"
-                }`}
-              >
-                {React.cloneElement(tab.icon, { className: "text-white" })}
-                <span className="text-white text-sm">{tab.label}</span>
-              </button>
-            ))}
-          </div>
+  <div className="pt-[96px] flex min-h-screen">
+    {/* LEFT SIDEBAR */}
+    <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
+      {[
+        { id: "product", icon: <Shirt size={22} />, label: "Product" },
+        { id: "upload", icon: <UploadIcon size={22} />, label: "Upload" },
+        { id: "text", icon: <Type size={22} />, label: "Text" },
+        { id: "clipart", icon: <ClipartIcon size={22} />, label: "Clipart" },
+      ].map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => {
+            setActiveTab(tab.id as any);
 
-          <div className="w-[480px] ml-4 mt-4 mb-6 bg-white dark:bg-gray-800 shadow-xl border rounded-2xl p-4 h-[calc(100vh-160px)] overflow-y-auto">
-            {renderActiveTab()}
-          </div>
+            // 🔑 STEP 3 — clear incompatible selections
+            if (tab.id !== "clipart") {
+              setSelectedUploadedImage(null);
+            }
+            if (tab.id !== "text") {
+              setSelectedText(null);
+            }
+          }}
+          className={`w-full h-16 flex flex-col items-center justify-center rounded-xl transition ${
+            activeTab === tab.id
+              ? "bg-neutral-600"
+              : "bg-neutral-700 hover:bg-neutral-600"
+          }`}
+        >
+          {React.cloneElement(tab.icon, { className: "text-white" })}
+          <span className="text-white text-sm">{tab.label}</span>
+        </button>
+      ))}
+    </div>
+
+    {/* RIGHT SIDEBAR CONTENT */}
+    <div className="w-[480px] ml-4 mt-4 mb-6 bg-white dark:bg-gray-800 shadow-xl border rounded-2xl p-4 h-[calc(100vh-160px)] overflow-y-auto">
+      {renderActiveTab()}
+    </div>
+
 
 
           <Canvas

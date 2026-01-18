@@ -88,7 +88,13 @@ export default function Canvas(props: CanvasProps) {
 
 
   // --------------------- Image sizes ---------------------
-  const { sizes, setSizes } = useImageSizes(uploadedImages, imageState);
+  const visualUids = Object.keys(imageState).filter(
+  uid => imageState[uid]?.type === "image" || imageState[uid]?.type === "clipart"
+);
+
+const { sizes, setSizes } = useImageSizes(visualUids, imageState);
+
+
 
   // --------------------- Image positions ---------------------
 // include EVERYTHING that exists in imageState
@@ -127,7 +133,9 @@ const { positions, setPositions } = useImagePositions(
 
   // --------------------- Split selection ---------------------
   const selectedImages = drag.selected.filter(
-    (uid) => imageState[uid]?.type === "image"
+    (uid) =>
+      imageState[uid]?.type === "image" ||
+      imageState[uid]?.type === "clipart"
   );
 
   const selectedText = drag.selected.filter(
@@ -173,47 +181,59 @@ const { positions, setPositions } = useImagePositions(
 
 
 // --------------------- Canvas pointer down ---------------------
-const handleCanvasPointerDown = (e: React.PointerEvent) => {
-  const target = e.target as HTMLElement;
+// --------------------- Canvas pointer down ---------------------
+  const handleCanvasPointerDown = (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement;
 
-  if (target.closest(".selection-button")) return;
+    if (target.closest(".selection-button")) return;
 
-  const uid = (target.closest("[data-uid]") as HTMLElement)?.dataset.uid;
+    const uid = (target.closest("[data-uid]") as HTMLElement)?.dataset.uid;
 
-  // 👉 EMPTY SPACE → marquee
-  if (!uid) {
-    drag.setSelected([]);
-    onSelectImage?.(null);
-    onSelectText?.(null);
-    marquee.onPointerDown(e);
-    return;
-  }
+    // 👉 EMPTY SPACE → marquee
+    if (!uid) {
+      drag.setSelected([]);
+      onSelectImage?.(null);
+      onSelectText?.(null);
+      onSwitchTab?.(null);
+      marquee.onPointerDown(e);
+      return;
+    }
 
-  const layer = imageState[uid];
-  if (!layer) return;
+    const layer = imageState[uid];
+    if (!layer) return;
 
-  // 👉 TEXT
-  if (layer.type === "text") {
-    onSelectText?.(uid);
-    onSwitchTab?.("text");
-    drag.setSelected([uid]);
+    // 👉 TEXT
+    if (layer.type === "text") {
+      onSelectImage?.(null);
+      onSelectText?.(uid);
+      onSwitchTab?.("text");
+      drag.setSelected([uid]);
+      drag.onPointerDown(e, uid);
+      return;
+    }
 
-    // 🚫 NO MARQUEE FOR TEXT
-    drag.onPointerDown(e, uid);
-    return;
-  }
+    // 👉 CLIPART (⚠️ BEFORE normal image)
+    if (layer.type === "image" && layer.isClipart) {
+      onSelectText?.(null);
+      onSelectImage?.(uid);
+      onSwitchTab?.("clipart"); // ✅ auto-open clipart sidebar
+      drag.setSelected([uid]);
+      drag.onPointerDown(e, uid);
+      return;
+    }
 
-  // 👉 IMAGE
-  onSelectText?.(null);
-  drag.setSelected([uid]);
-  onSelectImage?.(uid);
+    // 👉 NORMAL IMAGE (upload)
+    if (layer.type === "image") {
+      onSelectText?.(null);
+      onSelectImage?.(uid);
+      onSwitchTab?.("upload");
+      drag.setSelected([uid]);
+      drag.onPointerDown(e, uid);
+      return;
+    }
+  };
 
-  drag.onPointerDown(e, uid);
 
-  // 👍 ONLY images or canvas background should allow marquee logic
-  // (this simply records pointer start but won't run while dragging)
-  // If you prefer: you can even remove this line completely.
-};
 
   return (
     <div
@@ -227,7 +247,9 @@ const handleCanvasPointerDown = (e: React.PointerEvent) => {
 
       {/* IMAGES */}
       <UploadedImagesLayer
-        uids={uploadedImages}
+        uids={Object.keys(imageState).filter(
+          uid => imageState[uid]?.type === "image" || imageState[uid]?.type === "clipart"
+        )}
         positions={positions}
         sizes={sizes}
         imageState={imageState}
