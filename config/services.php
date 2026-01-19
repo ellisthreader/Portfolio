@@ -35,4 +35,25 @@ return [
         ],
     ],
 
+    // ---------------------------
+    // Unsplash API
+    // ---------------------------
+    'unsplash' => [
+        'access_key' => env('UNSPLASH_ACCESS_KEY'),
+    ],
+
+    // ---------------------------
+    // Stripe API
+    // ---------------------------
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET'),
+    ],
+
+    // ---------------------------
+    // Shippo API
+    // ---------------------------
+    'shippo' => [
+        'token' => env('SHIPPO_TOKEN'),
+    ],
+
 ];
