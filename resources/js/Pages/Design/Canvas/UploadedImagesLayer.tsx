@@ -40,6 +40,7 @@ export default function UploadedImagesLayer({
               flip={imageState[uid]?.flip ?? "none"}
               highlighted={selected.includes(uid) || hovered[uid]}
               onPointerDown={onPointerDown}
+              color={imageState[uid]?.color} // ✅ ADD THIS
             />
           );
         })}

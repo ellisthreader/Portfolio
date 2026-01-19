@@ -36,7 +36,7 @@ function fitsInRestrictedBox(
 
 
 
-// 🔧 Helper: checks if text touches the restricted box
+// 🔧 Helper: checksf if text touches the restricted box
 function rectsIntersect(
   a: { x: number; y: number; w: number; h: number },
   b: { left: number; top: number; width: number; height: number }

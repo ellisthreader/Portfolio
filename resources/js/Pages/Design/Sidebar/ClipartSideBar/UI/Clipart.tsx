@@ -5,10 +5,19 @@ import ClipartItemsPage from "./ClipartItemsPage";
 
 interface ClipartProps {
   onAddClipart: (src: string) => void;
+  forceSections?: boolean; // 🔥 NEW
 }
 
-export default function Clipart({ onAddClipart }: ClipartProps) {
+export default function Clipart({
+  onAddClipart,
+  forceSections,
+}: ClipartProps) {
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+
+  // 🔥 When Change Art is clicked → reset view
+  if (forceSections && activeCategoryId !== null) {
+    setActiveCategoryId(null);
+  }
 
   const activeCategory = clipartCategories.find(
     (c) => c.id === activeCategoryId
@@ -16,7 +25,7 @@ export default function Clipart({ onAddClipart }: ClipartProps) {
 
   return (
     <div className="p-4">
-      {/* HEADER (only show on category list) */}
+      {/* HEADER */}
       {!activeCategory && (
         <>
           <h2 className="text-xl font-bold mb-3">Clipart Library</h2>
@@ -26,7 +35,7 @@ export default function Clipart({ onAddClipart }: ClipartProps) {
         </>
       )}
 
-      {/* CATEGORY LIST */}
+      {/* SECTIONS */}
       {!activeCategory && (
         <ClipartSectionsPage
           categories={clipartCategories}
@@ -34,7 +43,7 @@ export default function Clipart({ onAddClipart }: ClipartProps) {
         />
       )}
 
-      {/* ITEMS GRID */}
+      {/* ITEMS */}
       {activeCategory && (
         <ClipartItemsPage
           category={activeCategory}
@@ -45,3 +54,4 @@ export default function Clipart({ onAddClipart }: ClipartProps) {
     </div>
   );
 }
+  

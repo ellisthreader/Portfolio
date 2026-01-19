@@ -4,11 +4,10 @@ import {
   ArrowLeft,
   FlipHorizontal,
   FlipVertical,
-  Copy,
   Palette,
   Trash2,
-  RefreshCcw,
 } from "lucide-react";
+import ColorPicker from "./ColorPicker";
 
 type Props = {
   layer: ImageState;
@@ -20,7 +19,6 @@ type Props = {
 
   onResize: (w: number, h: number) => void;
 
-  onDuplicate: () => void;
   onChangeArt: () => void;
   onChangeColor: (color: string) => void;
   onDelete: () => void;
@@ -29,19 +27,20 @@ type Props = {
 export default function ClipartProperties({
   layer,
   onBack,
-
   onRotate,
   onFlip,
   onResize,
-
-  onDuplicate,
   onChangeArt,
   onChangeColor,
   onDelete,
 }: Props) {
+  const isSvg =
+    layer.url?.endsWith(".svg") ||
+    layer.src?.endsWith(".svg");
+
   return (
     <div className="p-6 space-y-7 h-full overflow-y-auto relative">
-      {/* Back arrow (top-left) */}
+      {/* Back */}
       {onBack && (
         <button
           onClick={onBack}
@@ -65,9 +64,9 @@ export default function ClipartProperties({
             <label className="text-xs text-gray-500">Width</label>
             <input
               type="number"
-              value={layer.width}
+              value={layer.size.w}
               onChange={(e) =>
-                onResize(Number(e.target.value), layer.height)
+                onResize(Number(e.target.value), layer.size.h)
               }
               className="w-full px-3 py-2.5 border rounded-lg font-mono text-right focus:ring-2 focus:ring-blue-400"
             />
@@ -77,9 +76,9 @@ export default function ClipartProperties({
             <label className="text-xs text-gray-500">Height</label>
             <input
               type="number"
-              value={layer.height}
+              value={layer.size.h}
               onChange={(e) =>
-                onResize(layer.width, Number(e.target.value))
+                onResize(layer.size.w, Number(e.target.value))
               }
               className="w-full px-3 py-2.5 border rounded-lg font-mono text-right focus:ring-2 focus:ring-blue-400"
             />
@@ -96,7 +95,7 @@ export default function ClipartProperties({
             type="range"
             min={-180}
             max={180}
-            value={layer.rotation}
+            value={layer.rotation ?? 0}
             onChange={(e) => onRotate(Number(e.target.value))}
             className="flex-1"
           />
@@ -105,34 +104,20 @@ export default function ClipartProperties({
             type="number"
             min={-180}
             max={180}
-            value={layer.rotation}
+            value={layer.rotation ?? 0}
             onChange={(e) => onRotate(Number(e.target.value))}
             className="w-20 px-3 py-2.5 border rounded-lg font-mono text-right focus:ring-2 focus:ring-blue-400"
           />
         </div>
       </div>
 
-      {/* Color (moved above Flip) */}
-      <div className="space-y-3">
-        <p className="font-semibold text-lg text-gray-900">Color</p>
-
-        <div className="flex items-center gap-4">
-          <input
-            type="color"
-            value={layer.color ?? "#000000"}
-            onChange={(e) => onChangeColor(e.target.value)}
-            className="w-12 h-12 rounded-lg border cursor-pointer"
-          />
-
-          <button
-            onClick={() => onChangeColor("#000000")}
-            className="px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition font-medium flex items-center gap-2"
-          >
-            <RefreshCcw size={16} />
-            Reset
-          </button>
-        </div>
-      </div>
+      {/* Color (SVG only) */}
+      {isSvg && (
+        <ColorPicker
+          color={layer.color ?? "#000000"}
+          onChangeColor={onChangeColor}
+        />
+      )}
 
       {/* Flip */}
       <div className="space-y-3">
@@ -171,23 +156,13 @@ export default function ClipartProperties({
 
       {/* Bottom actions */}
       <div className="pt-4 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            onClick={onDuplicate}
-            className="py-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition font-medium flex items-center justify-center gap-2"
-          >
-            <Copy size={18} />
-            Duplicate
-          </button>
-
-          <button
-            onClick={onChangeArt}
-            className="py-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition font-medium flex items-center justify-center gap-2"
-          >
-            <Palette size={18} />
-            Change Art
-          </button>
-        </div>
+        <button
+          onClick={onChangeArt}
+          className="w-full py-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition font-medium flex items-center justify-center gap-2"
+        >
+          <Palette size={18} />
+          Change Art
+        </button>
 
         <button
           onClick={onDelete}

@@ -12,7 +12,7 @@ import ChangeProductModal from "./ChangeProduct";
 import Canvas from "./Canvas/Canvas";
 import TextProperties from "./Sidebar/TextSideBar/TextProperties/TextProperties";
 import MultiSelectPanel from "./Sidebar/MultiSelectPanel";
-import ClipartProperties from "./Sidebar/ClipartSideBar/ClipartProperties";
+import ClipartProperties from "./Sidebar/ClipartSideBar/Properties/ClipartProperties";
 
 
 export type ImageState = {
@@ -69,6 +69,58 @@ export default function Design() {
 
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
   const { onResizeTextCommit } = props;
+
+  type ClipartView =
+  | "sections"
+  | "category"
+  | "items"
+  | "properties";
+
+const [clipartView, setClipartView] = useState<ClipartView>("sections");
+
+
+  const handleResizeImage = (uid: string, w: number, h: number) => {
+  setImageState((prev) => ({
+    ...prev,
+    [uid]: {
+      ...prev[uid],
+      size: { w, h },
+    },
+  }));
+};
+
+
+const [replacingClipartUid, setReplacingClipartUid] =
+  useState<string | null>(null);
+
+
+const handleChangeClipartColor = (uid: string, color: string) => {
+  setImageState((prev) => ({
+    ...prev,
+    [uid]: {
+      ...prev[uid],
+      color,
+    },
+  }));
+};
+
+const openClipartPicker = () => {
+  setActiveTab("clipart");
+};
+
+
+const handleDeleteImage = (uid: string) => {
+  setImageState((prev) => {
+    const next = { ...prev };
+    delete next[uid];
+    return next;
+  });
+
+  setUploadedImages((prev) => prev.filter((id) => id !== uid));
+  setSelectedUploadedImage(null);
+};
+
+
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener("selectstart", prevent);
@@ -106,6 +158,7 @@ export default function Design() {
     propColour && uniqueColours.includes(propColour) ? propColour : uniqueColours[0] ?? null
   );
   const [selectedSize, setSelectedSize] = useState(propSize ?? null);
+  
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -145,35 +198,61 @@ export default function Design() {
       [url]: { ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }), size: { w, h } },
     }));
   };
+const handleAddClipart = (src: string) => {
+  const size = { w: 150, h: 150 };
 
-  const handleAddClipart = (src: string) => {
-    const uid = crypto.randomUUID();
-    const size = { w: 150, h: 150 };
+  // 🔁 REPLACE EXISTING CLIPART
+  if (replacingClipartUid) {
+    setImageState(prev => {
+      const existing = prev[replacingClipartUid];
+      if (!existing) return prev;
 
-    // MUST register as uploaded image
+      return {
+        ...prev,
+        [replacingClipartUid]: {
+          ...existing,
+          url: src,
+          original: {
+            ...existing.original,
+            url: src,
+          },
+        },
+      };
+    });
 
-    setImageState(prev => ({
-      ...prev,
-      [uid]: {
+    // keep selection + exit replace mode
+    setSelectedUploadedImage(replacingClipartUid);
+    setReplacingClipartUid(null);
+    setActiveTab("clipart");
+    return;
+  }
+
+  // ➕ ADD NEW CLIPART
+  const uid = crypto.randomUUID();
+
+  setImageState(prev => ({
+    ...prev,
+    [uid]: {
+      url: src,
+      type: "image",      // canvas-compatible
+      isClipart: true,    // sidebar meaning
+      rotation: 0,
+      flip: "none",
+      size,
+      color: "#000000",  // ✅ important for SVG recoloring
+      original: {
         url: src,
-        type: "image",      // ✅ Canvas-compatible
-        isClipart: true,    // ✅ Sidebar-only meaning
         rotation: 0,
         flip: "none",
-        size,
-        original: {
-          url: src,
-          rotation: 0,
-          flip: "none",
-          size: { ...size },
-        },
+        size: { ...size },
+        color: "#000000",
       },
-    }));
+    },
+  }));
 
-    setSelectedUploadedImage(uid);
-    setActiveTab("clipart");
-  };
-
+  setSelectedUploadedImage(uid);
+  setActiveTab("clipart");
+};
 
 
 const handleResizeText = (uid: string, newFontSize: number) => {
@@ -274,6 +353,8 @@ const handleResizeText = (uid: string, newFontSize: number) => {
     }));
   };
 
+  
+
   useEffect(() => {
     if (!selectedColour) return;
     const variant =
@@ -284,8 +365,7 @@ const handleResizeText = (uid: string, newFontSize: number) => {
     setMainImage(sorted[0] ?? "");
   }, [selectedColour, selectedSize, variantsByColour]);
 
-    const renderActiveTab = () => {
-    // MULTI-SELECTION WINS
+  const renderActiveTab = () => {
     if (selectedObjects.length > 1) {
       return (
         <MultiSelectPanel
@@ -295,9 +375,6 @@ const handleResizeText = (uid: string, newFontSize: number) => {
       );
     }
 
-    // 👀 Clipart selection takes priority
-
-    // fallback to normal tabs
     switch (activeTab) {
       case "product":
         return (
@@ -307,7 +384,9 @@ const handleResizeText = (uid: string, newFontSize: number) => {
             selectedSize={selectedSize}
             onColourChange={setSelectedColour}
             onSizeChange={setSelectedSize}
-            onOpenChangeProductModal={() => setIsChangeProductModalOpen(true)}
+            onOpenChangeProductModal={() =>
+              setIsChangeProductModalOpen(true)
+            }
           />
         );
 
@@ -331,8 +410,7 @@ const handleResizeText = (uid: string, newFontSize: number) => {
           />
         );
 
-      case "text":
-        // If no text is selected, show AddText sidebar
+      case "text": {
         if (!selectedText || !imageState[selectedText]) {
           return (
             <AddText
@@ -345,13 +423,13 @@ const handleResizeText = (uid: string, newFontSize: number) => {
                     text: layer.text,
                     rotation: 0,
                     flip: "none",
-                    size: { w: 200, h: layer.fontSize }, // <-- keep size for TS
+                    size: { w: 200, h: layer.fontSize },
                     fontFamily: layer.font,
                     color: layer.color,
                     borderColor: layer.borderColor,
                     borderWidth: layer.borderWidth,
-                    fontSize: layer.fontSize, // <-- optional, still store separately
-                    width: layer.width,       // <-- optional, same as w
+                    fontSize: layer.fontSize,
+                    width: layer.width,
                     original: {
                       url: "",
                       rotation: 0,
@@ -366,6 +444,92 @@ const handleResizeText = (uid: string, newFontSize: number) => {
             />
           );
         }
+
+        const layer = imageState[selectedText];
+
+        return (
+          <TextProperties
+            textValue={layer.text ?? ""}
+            onTextChange={(val) =>
+              updateTextLayer(selectedText, { text: val })
+            }
+            fontFamily={layer.fontFamily ?? "Arial"}
+            onFontChange={(val) =>
+              updateTextLayer(selectedText, { fontFamily: val })
+            }
+            color={layer.color ?? "#000000"}
+            onColorChange={(val) =>
+              updateTextLayer(selectedText, { color: val })
+            }
+            rotation={layer.rotation}
+            onRotationChange={(val) =>
+              updateTextLayer(selectedText, { rotation: val })
+            }
+            fontSize={layer.fontSize}
+            onFontSizeChange={(val) =>
+              updateTextLayer(selectedText, { fontSize: val })
+            }
+            borderColor={layer.borderColor ?? "#000000"}
+            onBorderColorChange={(val) =>
+              updateTextLayer(selectedText, { borderColor: val })
+            }
+            borderWidth={layer.borderWidth ?? 0}
+            onBorderWidthChange={(val) =>
+              updateTextLayer(selectedText, { borderWidth: val })
+            }
+          />
+        );
+      } // ✅ REQUIRED
+
+      case "clipart": {
+        const layer =
+          selectedUploadedImage &&
+          imageState[selectedUploadedImage]?.isClipart
+            ? imageState[selectedUploadedImage]
+            : null;
+
+        return layer && selectedUploadedImage ? (
+          <ClipartProperties
+            layer={layer}
+            onBack={() => setSelectedUploadedImage(null)}
+            onRotate={(v) =>
+              handleRotateImage(selectedUploadedImage, v)
+            }
+            onFlip={(v) =>
+              handleFlipImage(selectedUploadedImage, v)
+            }
+            onResize={(w, h) =>
+              handleResizeImage(selectedUploadedImage, w, h)
+            }
+            onChangeArt={() => {
+              setReplacingClipartUid(selectedUploadedImage);
+              setClipartView("sections");
+              setActiveTab("clipart");
+            }}
+            onChangeColor={(color) =>
+              handleChangeClipartColor(
+                selectedUploadedImage,
+                color
+              )
+            }
+            onDelete={() =>
+              handleDeleteImage(selectedUploadedImage)
+            }
+          />
+        ) : (
+          <Clipart
+            onAddClipart={handleAddClipart}
+            view={clipartView}
+            onViewChange={setClipartView}
+          />
+        );
+      }
+
+      default:
+        return null;
+    }
+  };
+
 
         const layer = imageState[selectedText];
 
@@ -388,126 +552,115 @@ const handleResizeText = (uid: string, newFontSize: number) => {
           />
         );
 
-          case "clipart": {
-    const layer =
-      selectedUploadedImage &&
-      imageState[selectedUploadedImage]?.isClipart
-        ? imageState[selectedUploadedImage]
-        : null;
+          
+      case "clipart": {
+        const layer =
+          selectedUploadedImage &&
+          imageState[selectedUploadedImage]?.isClipart
+            ? imageState[selectedUploadedImage]
+            : null;
 
-    // 👉 Clipart selected → show properties
-    if (layer) {
-      return (
-        <ClipartProperties
-          layer={layer}
-          onRotate={(v) => handleRotateImage(selectedUploadedImage!, v)}
-          onFlip={(v) => handleFlipImage(selectedUploadedImage!, v)}
-        />
-      );
-    }
-
-    // 👉 No clipart selected → show library
-    return <Clipart onAddClipart={handleAddClipart} />;
-  }
-
-
-
-
-      default:
-        return null;
-    }
-  };
-
-
-
-  return (
-    <div className="min-h-screen bg-gray-200 dark:bg-gray-900 relative disable-selection">
-      <Head title="Start Designing" />
-
-      {isChangeProductModalOpen && (
-        <ChangeProductModal
-          onClose={() => setIsChangeProductModalOpen(false)}
-          currentCategory={null}
-        />
-      )}
-
-      <div className={isChangeProductModalOpen ? "blur-lg opacity-40" : ""}>
-        <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b flex items-center justify-between px-6 h-16 z-40 shadow-sm">
-          <div className="text-xl font-bold">{safeName}</div>
-
-          <div className="flex items-center gap-4">
-            <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-gray-100">
-              <ArrowLeft size={24} />
-            </button>
-
-            <button onClick={() => alert("Next step coming soon")} className="p-2 rounded-full hover:bg-gray-100">
-              <ArrowRight size={24} />
-            </button>
-
-            <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-red-100">
-              <X size={28} className="text-red-600" />
-            </button>
-          </div>
-        </div>
-
-  <div className="pt-[96px] flex min-h-screen">
-    {/* LEFT SIDEBAR */}
-    <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
-      {[
-        { id: "product", icon: <Shirt size={22} />, label: "Product" },
-        { id: "upload", icon: <UploadIcon size={22} />, label: "Upload" },
-        { id: "text", icon: <Type size={22} />, label: "Text" },
-        { id: "clipart", icon: <ClipartIcon size={22} />, label: "Clipart" },
-      ].map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => {
-            setActiveTab(tab.id as any);
-
-            // 🔑 STEP 3 — clear incompatible selections
-            if (tab.id !== "clipart") {
-              setSelectedUploadedImage(null);
+        return layer && selectedUploadedImage ? (
+          <ClipartProperties
+            layer={layer}
+            onBack={() => setSelectedUploadedImage(null)}
+            onRotate={(v) => handleRotateImage(selectedUploadedImage, v)}
+            onFlip={(v) => handleFlipImage(selectedUploadedImage, v)}
+            onResize={(w, h) => handleResizeImage(selectedUploadedImage, w, h)}
+            onChangeArt={() => {
+              setReplacingClipartUid(selectedUploadedImage); // ✅ replace mode
+              setClipartView("sections");
+            }}
+            onChangeColor={(color) =>
+              handleChangeClipartColor(selectedUploadedImage, color)
             }
-            if (tab.id !== "text") {
-              setSelectedText(null);
-            }
-          }}
-          className={`w-full h-16 flex flex-col items-center justify-center rounded-xl transition ${
-            activeTab === tab.id
-              ? "bg-neutral-600"
-              : "bg-neutral-700 hover:bg-neutral-600"
-          }`}
-        >
-          {React.cloneElement(tab.icon, { className: "text-white" })}
-          <span className="text-white text-sm">{tab.label}</span>
-        </button>
-      ))}
-    </div>
-
-    {/* RIGHT SIDEBAR CONTENT */}
-    <div className="w-[480px] ml-4 mt-4 mb-6 bg-white dark:bg-gray-800 shadow-xl border rounded-2xl p-4 h-[calc(100vh-160px)] overflow-y-auto">
-      {renderActiveTab()}
-    </div>
-
-
-
-          <Canvas
-            mainImage={mainImage}
-            restrictedBox={restrictedBox}
-            canvasRef={canvasRef}
-            uploadedImages={uploadedImages}
-            setUploadedImages={setUploadedImages}
-            imageState={imageState}
-            setImageState={setImageState}
-            onSelectImage={setSelectedUploadedImage}
-            onSelectText={setSelectedText}
-            onSwitchTab={setActiveTab}
-            onDelete={handleDeleteImages}
-            onResizeTextCommit={handleResizeText}
-            onSelectionChange={setSelectedObjects}
+            onDelete={() => handleDeleteImage(selectedUploadedImage)}
           />
+        ) : (
+          <Clipart
+            onAddClipart={handleAddClipart}
+            view={clipartView}
+            onViewChange={setClipartView}
+          />
+        );
+      }
+
+
+
+return (
+  <div className="min-h-screen bg-gray-200 dark:bg-gray-900 relative disable-selection">
+    <Head title="Start Designing" />
+
+    {isChangeProductModalOpen && (
+      <ChangeProductModal
+        onClose={() => setIsChangeProductModalOpen(false)}
+        currentCategory={null}
+      />
+    )}
+
+    <div className={isChangeProductModalOpen ? "blur-lg opacity-40" : ""}>
+      {/* TOP BAR */}
+      <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b flex items-center justify-between px-6 h-16 z-40 shadow-sm">
+        {/* top bar buttons */}
+      </div>
+
+      <div className="pt-[96px] flex min-h-screen">
+        {/* LEFT SIDEBAR */}
+        <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
+          {/* sidebar buttons */}
         </div>
+
+        {/* RIGHT SIDEBAR */}
+        <div className="w-[480px] ml-4 mt-4 mb-6 bg-white dark:bg-gray-800 shadow-xl border rounded-2xl p-4 h-[calc(100vh-160px)] overflow-y-auto">
+          {layer && selectedUploadedImage ? (
+            <ClipartProperties
+              layer={layer}
+              onBack={() => setSelectedUploadedImage(null)}
+              onRotate={(v) => handleRotateImage(selectedUploadedImage, v)}
+              onFlip={(v) => handleFlipImage(selectedUploadedImage, v)}
+              onResize={(w, h) =>
+                handleResizeImage(selectedUploadedImage, w, h)
+              }
+              onChangeArt={() => {
+                setActiveTab("clipart");
+                setClipartView("sections");
+              }}
+              onChangeColor={(color) =>
+                handleChangeClipartColor(selectedUploadedImage, color)
+              }
+              onDelete={() =>
+                handleDeleteImage(selectedUploadedImage)
+              }
+            />
+          ) : (
+            <Clipart
+              view={clipartView}
+              onViewChange={setClipartView}
+              onAddClipart={(src: string) => {
+                handleAddClipart(src);
+                setClipartView("sections");
+              }}
+            />
+          )}
+        </div>
+
+        {/* CANVAS */}
+        <Canvas
+          mainImage={mainImage}
+          restrictedBox={restrictedBox}
+          canvasRef={canvasRef}
+          uploadedImages={uploadedImages}
+          setUploadedImages={setUploadedImages}
+          imageState={imageState}
+          setImageState={setImageState}
+          onSelectImage={setSelectedUploadedImage}
+          onSelectText={setSelectedText}
+          onSwitchTab={setActiveTab}
+          onDelete={handleDeleteImages}
+          onResizeTextCommit={handleResizeText}
+          onSelectionChange={setSelectedObjects}
+        />
       </div>
     </div>
-  );
-}
+  </div>
+);

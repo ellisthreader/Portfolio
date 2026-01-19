@@ -1,7 +1,7 @@
-// 🖼️ Renders a draggable image on the canvas, visually reflecting selection state and forwarding pointer events for single or multi-item dragging.
-
+"use client";
 
 import React from "react";
+import InlineSvg from "../Components/InlineSvg";
 
 type Props = {
   uid: string;
@@ -11,7 +11,8 @@ type Props = {
   rotation?: number;
   flip?: "none" | "horizontal" | "vertical";
   highlighted: boolean;
-  selected?: string[]; // ⬅️ optional for runtime safety
+  selected?: string[];
+  color?: string;
   onPointerDown: (
     e: React.MouseEvent,
     uid: string,
@@ -27,21 +28,20 @@ export default function DraggableImage({
   rotation = 0,
   flip = "none",
   highlighted,
-  selected = [], // ⬅️ default prevents undefined.includes crash
+  selected = [],
+  color,
   onPointerDown,
 }: Props) {
   const scaleX = flip === "horizontal" ? -1 : 1;
   const scaleY = flip === "vertical" ? -1 : 1;
 
   const isMultiSelected = selected.includes(uid);
+  const isSvg = url.split("?")[0].toLowerCase().endsWith(".svg");
 
   return (
-    <img
-      src={url}
-      alt=""
+    <div
       data-uid={uid}
       data-type="img"
-      draggable={false}
       onMouseDown={(e) => onPointerDown(e, uid, isMultiSelected)}
       className={`
         absolute
@@ -63,6 +63,17 @@ export default function DraggableImage({
         transformOrigin: "center center",
         pointerEvents: "auto",
       }}
-    />
+    >
+      {isSvg ? (
+        <InlineSvg src={url} color={color} />
+      ) : (
+        <img
+          src={url}
+          draggable={false}
+          className="w-full h-full object-contain pointer-events-none"
+          alt=""
+        />
+      )}
+    </div>
   );
 }
