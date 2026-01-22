@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 type Layer =
   | { type: "text" }
@@ -23,8 +23,22 @@ export default function SelectionWatcher({
   onSwitchTab,
   onSelectionChange,
 }: Props) {
+  // Keep track of previous selection to prevent loops
+  const prevSelectedRef = useRef<string[]>([]);
+
   useEffect(() => {
-    // 🔔 notify external listeners
+    const prevSelected = prevSelectedRef.current;
+
+    // Check if selection has actually changed
+    const isSame =
+      prevSelected.length === selected.length &&
+      prevSelected.every((v, i) => v === selected[i]);
+
+    if (isSame) return; // ✅ skip if no change
+
+    prevSelectedRef.current = selected;
+
+    // Notify external listeners
     onSelectionChange?.(selected);
 
     // ---------------- EMPTY ----------------
@@ -66,8 +80,6 @@ export default function SelectionWatcher({
       } else {
         onSwitchTab?.("upload");
       }
-
-      return;
     }
   }, [
     selected,

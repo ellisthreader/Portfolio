@@ -1,42 +1,52 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+"use client";
+
+import { useEffect } from "react";
+import { ArrowLeft } from "lucide-react";
 import { ClipartCategoryType } from "./types";
 
 interface Props {
   category: ClipartCategoryType;
   onBack: () => void;
   onAddClipart: (src: string) => void;
+
+  // 🔥 Sidebar controls
+  setSidebarTitle?: (title: string | null) => void;
+  setSidebarBackOverride?: (value: boolean) => void;
 }
 
 export default function ClipartItemsPage({
   category,
   onBack,
   onAddClipart,
+  setSidebarTitle,
+  setSidebarBackOverride,
 }: Props) {
+  // ✅ When page opens
+  useEffect(() => {
+    setSidebarTitle?.(`Clipart – ${category.name}`);
+    setSidebarBackOverride?.(true);
+
+    // ✅ Cleanup when page closes
+    return () => {
+      setSidebarTitle?.(null);
+      setSidebarBackOverride?.(false);
+    };
+  }, [category.name, setSidebarTitle, setSidebarBackOverride]);
+
   return (
     <div className="space-y-4">
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        className="
-          inline-flex
-          items-center
-          gap-2
-          text-sm
-          font-medium
-          text-blue-600
-          hover:text-blue-700
-          transition
-        "
-      >
-        <FontAwesomeIcon icon={faArrowLeft} />
-        Back
-      </button>
+      {/* Header with back arrow */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition transform hover:scale-110"
+        >
+          <ArrowLeft size={24} />
+        </button>
 
-      {/* Category title */}
-      <h3 className="text-lg font-semibold text-gray-900">
-        {category.name}
-      </h3>
+        <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+        </span>
+      </div>
 
       {/* Empty state */}
       {category.items.length === 0 && (
@@ -51,7 +61,12 @@ export default function ClipartItemsPage({
           <button
             key={item.id}
             type="button"
-            onClick={() => onAddClipart(item.src)}
+            onClick={() => {
+              // 🔥 Clear overrides before navigating away
+              setSidebarTitle?.(null);
+              setSidebarBackOverride?.(false);
+              onAddClipart(item.src);
+            }}
             className="
               group
               aspect-square

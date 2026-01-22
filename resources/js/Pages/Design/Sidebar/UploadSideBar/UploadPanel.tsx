@@ -5,15 +5,17 @@ import { UploadCloud, Image as ImageIcon } from "lucide-react";
 import { stencilizeImage } from "../../Canvas/Utils/stencilizeImage";
 import ImagePreviewModal from "../../Components/ImagePreviewModal";
 
+type StencilizeUIProps = {
+  onUpload: (url: string) => void;
+  recentImages?: string[];
+  onSelectImage?: (url: string) => void;
+};
+
 export default function StencilizeUI({
   onUpload,
   recentImages = [],
   onSelectImage,
-}: {
-  onUpload: (url: string) => void;
-  recentImages?: string[];
-  onSelectImage?: (url: string) => void;
-}) {
+}: StencilizeUIProps) {
   const [loading, setLoading] = useState(false);
   const [original, setOriginal] = useState<string | null>(null);
   const [processed, setProcessed] = useState<string | null>(null);
@@ -22,7 +24,6 @@ export default function StencilizeUI({
   const objectUrlRef = useRef<string | null>(null);
 
   /* ---------------- Cleanup ---------------- */
-
   const cleanupObjectUrl = () => {
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
@@ -38,7 +39,6 @@ export default function StencilizeUI({
   };
 
   /* ---------------- Upload ---------------- */
-
   const handleFile = async (file?: File) => {
     if (!file || loading) return;
 
@@ -62,8 +62,6 @@ export default function StencilizeUI({
     }
   };
 
-  /* ---------------- Confirm / Cancel ---------------- */
-
   const handleConfirm = () => {
     if (!processed) return;
     onUpload(processed);
@@ -75,24 +73,13 @@ export default function StencilizeUI({
   };
 
   /* ---------------- UI ---------------- */
-
   return (
     <>
-      <div className="p-5 space-y-6 h-full overflow-y-auto bg-white shadow-lg rounded-xl">
-        {/* Header */}
-        <div>
-          <h2 className="text-xl font-bold">Upload Images</h2>
-          <p className="text-gray-500 text-sm">
-            Add your own images to the canvas.
-          </p>
-        </div>
-
+      <div className="p-6 space-y-6 h-full overflow-y-auto bg-white rounded-xl">
         {/* Browse Button */}
-        <label className="w-full flex items-center gap-3 cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-xl border border-gray-300 transition shadow-sm">
+        <label className="w-full flex items-center gap-3 cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-lg border border-gray-300 transition">
           <UploadCloud size={22} />
-          <span className="font-medium">
-            {loading ? "Processing…" : "Browse your computer"}
-          </span>
+          <span className="font-medium">{loading ? "Processing…" : "Browse your computer"}</span>
           <input
             ref={fileInputRef}
             type="file"
@@ -110,18 +97,15 @@ export default function StencilizeUI({
             handleFile(e.dataTransfer.files?.[0]);
           }}
           onDragOver={(e) => e.preventDefault()}
-          className="w-full h-36 border-2 border-dashed border-gray-400 rounded-xl flex flex-col items-center justify-center text-gray-600 bg-gray-50 hover:bg-gray-100 transition"
+          className="w-full h-36 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-600 bg-gray-50 hover:bg-gray-100 transition"
         >
           <ImageIcon size={30} className="mb-2 opacity-70" />
           <p className="text-sm font-medium">Or drag and drop</p>
-          <p className="text-xs text-gray-500 mt-1">
-            PNG, JPG, SVG supported
-          </p>
+          <p className="text-xs text-gray-500 mt-1">PNG, JPG, SVG supported</p>
         </div>
 
         {/* Image Requirements */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-900 text-sm shadow-sm">
-          <p className="font-semibold mb-1">Image Requirements</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-900 text-sm">
           <ul className="list-disc ml-5 space-y-1">
             <li>High-resolution images (300 DPI+) look best</li>
             <li>Transparent backgrounds recommended</li>
@@ -130,12 +114,9 @@ export default function StencilizeUI({
         </div>
 
         {/* Recent Uploads */}
-        <div className="pb-4">
-          <h3 className="text-lg font-semibold mb-2">Recent Uploads</h3>
-
-          {recentImages.length === 0 ? (
-            <p className="text-gray-500 text-sm">No uploads yet.</p>
-          ) : (
+        {recentImages.length > 0 && (
+          <div className="pb-4">
+            <p className="text-sm font-semibold mb-2 text-gray-800">Recent Uploads</p>
             <div className="grid grid-cols-2 gap-4 pr-1">
               {recentImages.map((url, i) => (
                 <div
@@ -152,8 +133,8 @@ export default function StencilizeUI({
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Modal */}

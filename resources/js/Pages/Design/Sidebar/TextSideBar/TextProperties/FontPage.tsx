@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 
 type Props = {
   fontFamily: string;
@@ -17,11 +18,10 @@ export default function FontPage({
 }: Props) {
   const [search, setSearch] = useState("");
 
-  // ✅ Inter is default
   const activeFont = fontFamily || "Inter";
 
   const allFonts = [
-    "Inter", // 👈 default font
+    "Inter", // default font
     "Abril Fatface","Amaranth","Anton","BBH Bogle","Bebas Neue",
     "Caveat Brush","Changa","Chewy","Comfortaa","Comic Neue",
     "Courgette","DM Mono","Exo","Great Vibes","Indie Flower",
@@ -31,16 +31,16 @@ export default function FontPage({
   const filtered = allFonts.filter(f =>
     f.toLowerCase().includes(search.toLowerCase())
   );
-
+  
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-2">
+      {/* Header with arrow back */}
+      <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="px-3 py-1 border rounded-md"
+          className="hover:text-blue-600 transition"
         >
-          Back
+          <ArrowLeft size={20} />
         </button>
 
         <h2 className="text-lg font-semibold">Choose a Font</h2>
@@ -52,7 +52,7 @@ export default function FontPage({
         value={search}
         placeholder="Search fonts..."
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full p-2 border rounded-md"
+        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
       />
 
       {/* Font list */}
@@ -60,7 +60,7 @@ export default function FontPage({
         {filtered.map(font => (
           <div
             key={font}
-            className={`p-3 rounded-md cursor-pointer hover:bg-blue-100 ${
+            className={`p-3 rounded-md cursor-pointer hover:bg-blue-100 transition ${
               font === activeFont ? "bg-blue-200" : ""
             }`}
             onClick={() => {

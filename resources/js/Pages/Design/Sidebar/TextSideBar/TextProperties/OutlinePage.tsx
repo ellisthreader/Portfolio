@@ -25,24 +25,19 @@ export default function OutlinePage({
   onBack,
 }: Props) {
   const stepIndex = steps.findIndex((s) => s === borderWidth);
-
-  // 🆕 controls custom input visibility
   const [showCustom, setShowCustom] = useState(false);
 
   return (
     <div className="space-y-6 p-4">
-      {/* Header */}
-      <div className="flex items-center gap-2 text-sm font-semibold">
+      {/* Header with back arrow */}
+      <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="flex items-center gap-1 text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white transition"
+          className="text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition transform hover:scale-110"
         >
-          <ArrowLeft size={16} />
-          Back
+          <ArrowLeft size={24} />
         </button>
-        <div className="ml-auto text-base font-bold text-gray-700 dark:text-gray-200">
-          Outline
-        </div>
+        <h2 className="text-lg font-semibold">Outline</h2>
       </div>
 
       {/* Live Preview */}
@@ -82,10 +77,7 @@ export default function OutlinePage({
 
         {/* Slider track with dots */}
         <div className="relative h-6 flex items-center">
-          {/* Track */}
           <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-gray-200 dark:bg-gray-700 rounded-full" />
-
-          {/* Dots */}
           <div className="absolute left-0 right-0 flex justify-between pointer-events-none top-1/2 -translate-y-1/2">
             {steps.map((_, i) => (
               <div
@@ -99,7 +91,6 @@ export default function OutlinePage({
             ))}
           </div>
 
-          {/* Slider input */}
           <input
             type="range"
             min={0}
@@ -108,13 +99,13 @@ export default function OutlinePage({
             value={Math.max(stepIndex, 0)}
             onChange={(e) => {
               onBorderWidthChange(steps[Number(e.target.value)]);
-              setShowCustom(false); // hide custom if slider used
+              setShowCustom(false);
             }}
             className="w-full appearance-none h-6 bg-transparent cursor-pointer relative z-10"
           />
         </div>
 
-        {/* 🆕 Custom option (minimal UI addition) */}
+        {/* Custom input */}
         <div className="pt-2">
           {!showCustom ? (
             <button
@@ -131,9 +122,7 @@ export default function OutlinePage({
                 step={0.1}
                 value={borderWidth}
                 onChange={(e) =>
-                  onBorderWidthChange(
-                    Math.max(0, Number(e.target.value) || 0)
-                  )
+                  onBorderWidthChange(Math.max(0, Number(e.target.value) || 0))
                 }
                 className="w-20 px-2 py-1 text-sm border rounded-md bg-white dark:bg-gray-900 dark:border-gray-700"
               />
@@ -173,7 +162,7 @@ export default function OutlinePage({
         </button>
       </div>
 
-      {/* Slider thumb styling (unchanged) */}
+      {/* Slider thumb styling */}
       <style>
         {`
           input[type="range"]::-webkit-slider-thumb {

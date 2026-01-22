@@ -51,7 +51,6 @@ export default function AddText({
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    // 🔒 HARD CLAMP (paste / programmatic safe)
     const clampedText = trimmed.slice(0, MAX_TEXT_LENGTH);
 
     const maxWidth = 200;
@@ -81,13 +80,12 @@ export default function AddText({
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-3">Add Text</h2>
-
+    <div className="space-y-3">
+      {/* Input */}
       <input
         type="text"
-        placeholder="Enter text..."
-        className="w-full p-2 bg-white rounded border border-gray-300"
+        placeholder="Enter text here..."
+        className="w-full p-3 text-gray-800 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none transition placeholder-gray-400"
         value={text}
         maxLength={MAX_TEXT_LENGTH}
         onChange={(e) =>
@@ -95,16 +93,23 @@ export default function AddText({
         }
       />
 
-      <div className="text-xs text-gray-500 text-right mt-1">
+      {/* Character Counter */}
+      <div className="text-xs text-gray-400 text-right">
         {text.length} / {MAX_TEXT_LENGTH}
       </div>
 
+      {/* Add Button */}
       <button
-        className="mt-4 w-full bg-blue-600 text-white p-2 rounded-lg"
+        className="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl transition-transform hover:scale-105"
         onClick={handleAddText}
       >
         Add Text
       </button>
+
+      {/* Optional Tip */}
+      <p className="text-gray-400 text-xs text-center">
+        Tip: Keep text concise for best results
+      </p>
     </div>
   );
 }

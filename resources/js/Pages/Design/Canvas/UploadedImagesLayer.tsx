@@ -4,7 +4,7 @@ type Props = {
   uids: string[];
   positions: Record<string, { x: number; y: number }>;
   sizes: Record<string, { w: number; h: number }>;
-  imageState: any;
+  imageState: Record<string, any>;
   selected: string[];
   hovered: Record<string, boolean>;
   onPointerDown: (e: React.MouseEvent, uid: string) => void;
@@ -22,8 +22,8 @@ export default function UploadedImagesLayer({
   return (
     <>
       {uids
-        .filter(uid => imageState[uid]?.type === "image")
-        .map(uid => {
+        .filter((uid) => imageState[uid]?.type === "image")
+        .map((uid) => {
           const s = sizes[uid];
           const p = positions[uid];
 
@@ -31,7 +31,7 @@ export default function UploadedImagesLayer({
 
           return (
             <DraggableImage
-              key={uid}
+              key={imageState[uid]?.renderKey ?? uid}
               uid={uid}
               url={imageState[uid]?.src ?? imageState[uid]?.url ?? ""}
               pos={p}
@@ -40,7 +40,7 @@ export default function UploadedImagesLayer({
               flip={imageState[uid]?.flip ?? "none"}
               highlighted={selected.includes(uid) || hovered[uid]}
               onPointerDown={onPointerDown}
-              color={imageState[uid]?.color} // ✅ ADD THIS
+              color={imageState[uid]?.color ?? "#000000"} // ✅ Ensure color is always passed
             />
           );
         })}

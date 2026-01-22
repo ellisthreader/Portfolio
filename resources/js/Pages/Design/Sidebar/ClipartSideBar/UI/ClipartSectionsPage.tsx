@@ -3,7 +3,6 @@ import { ClipartCategoryType } from "./types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRight,
-  faFlag,
   faCity,
   faSmile,
   faLeaf,
@@ -21,7 +20,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 interface Props {
-  categories: ClipartCategoryType[];
+  categories?: ClipartCategoryType[];
   onSelectCategory: (id: string) => void;
 }
 
@@ -45,7 +44,7 @@ const icons: Record<string, any> = {
 };
 
 export default function ClipartSectionsPage({
-  categories,
+  categories = [],
   onSelectCategory,
 }: Props) {
   return (
@@ -54,7 +53,11 @@ export default function ClipartSectionsPage({
         <ClipartSection
           key={category.id}
           title={category.name}
-          icon={<FontAwesomeIcon icon={icons[category.id]} />}
+          icon={
+            <FontAwesomeIcon
+              icon={icons[category.id] ?? faBorderAll}
+            />
+          }
           onClick={() => onSelectCategory(category.id)}
         />
       ))}

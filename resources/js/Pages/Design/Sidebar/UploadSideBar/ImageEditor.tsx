@@ -24,20 +24,7 @@ export default function ImageEditor({
   if (!st) return null;
 
   return (
-    <div className="p-5 space-y-6 h-full overflow-y-auto bg-white shadow-lg rounded-xl">
-      {/* Back */}
-      <button
-        onClick={() => onSelectImage(null)}
-        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-      >
-        <ArrowLeft size={18} />
-        Back to uploads
-      </button>
-
-      {/* Header */}
-      <h2 className="text-2xl font-bold">Photo Properties</h2>
-
-
+    <div className="p-5 space-y-6 h-full overflow-y-auto bg-white">
       {/* Size */}
       <SizeControls
         selectedImage={selectedImage}
@@ -78,7 +65,7 @@ export default function ImageEditor({
         <p className="font-semibold text-lg">Flip</p>
         <div className="flex gap-3">
           <button
-            className={`flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${
+            className={`flex-1 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition ${
               st.flip === "horizontal"
                 ? "bg-blue-200"
                 : "bg-gray-200 hover:bg-gray-300"
@@ -95,7 +82,7 @@ export default function ImageEditor({
           </button>
 
           <button
-            className={`flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${
+            className={`flex-1 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition ${
               st.flip === "vertical"
                 ? "bg-blue-200"
                 : "bg-gray-200 hover:bg-gray-300"

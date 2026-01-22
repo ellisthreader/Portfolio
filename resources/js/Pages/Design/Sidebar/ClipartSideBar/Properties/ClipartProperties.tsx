@@ -1,31 +1,46 @@
 "use client";
 
-import {
-  ArrowLeft,
-  FlipHorizontal,
-  FlipVertical,
-  Palette,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, Trash2, Copy } from "lucide-react";
+
 import ColorPicker from "./ColorPicker";
+import ChangeArtButton from "./ChangeArtButton";
+import RotateControls from "./RotateControls";
+import FlipControls from "./FlipControls";
+import ClipartSizeControls from "./ClipartSizeControls";
+
+import { getClampedSize } from "./utils/getClampedSize";
 
 type Props = {
   layer: ImageState;
+
+  restrictedBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+
+  canvasPosition: {
+    x: number;
+    y: number;
+  };
 
   onBack?: () => void;
 
   onRotate: (v: number) => void;
   onFlip: (v: "none" | "horizontal" | "vertical") => void;
-
   onResize: (w: number, h: number) => void;
 
   onChangeArt: () => void;
   onChangeColor: (color: string) => void;
   onDelete: () => void;
+  onDuplicate: () => void; // ✅ New prop
 };
 
 export default function ClipartProperties({
   layer,
+  restrictedBox,
+  canvasPosition,
   onBack,
   onRotate,
   onFlip,
@@ -33,13 +48,33 @@ export default function ClipartProperties({
   onChangeArt,
   onChangeColor,
   onDelete,
+  onDuplicate, // ✅ New prop
 }: Props) {
   const isSvg =
     layer.url?.endsWith(".svg") ||
     layer.src?.endsWith(".svg");
 
+  const handleResize = (requestedWidth: number) => {
+    // ✅ Prevent user from typing < 1
+    const clampedWidth = Math.max(requestedWidth, 1);
+
+    const pos = canvasPosition ?? { x: 0, y: 0 };
+
+    const result = getClampedSize({
+      requestedWidth: clampedWidth,
+      currentWidth: layer.size.w,
+      currentHeight: layer.size.h,
+      position: pos,
+      restrictedBox,
+    });
+
+    if (!result) return;
+
+    onResize(result.width, result.height);
+  };
+
   return (
-    <div className="p-6 space-y-7 h-full overflow-y-auto relative">
+    <div className="p-6 space-y-5 h-full overflow-y-auto relative">
       {/* Back */}
       {onBack && (
         <button
@@ -50,68 +85,21 @@ export default function ClipartProperties({
         </button>
       )}
 
-      {/* Header */}
-      <h2 className="text-2xl font-bold text-gray-900 pt-6">
-        Clipart Properties
-      </h2>
+      {/* SIZE */}
+      <ClipartSizeControls
+        value={layer.size.w}
+        min={20}
+        max={600}
+        onChange={handleResize}
+      />
 
-      {/* Size */}
-      <div className="space-y-3">
-        <p className="font-semibold text-lg text-gray-900">Size</p>
+      {/* ROTATE */}
+      <RotateControls
+        value={layer.rotation ?? 0}
+        onRotate={onRotate}
+      />
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-xs text-gray-500">Width</label>
-            <input
-              type="number"
-              value={layer.size.w}
-              onChange={(e) =>
-                onResize(Number(e.target.value), layer.size.h)
-              }
-              className="w-full px-3 py-2.5 border rounded-lg font-mono text-right focus:ring-2 focus:ring-blue-400"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-gray-500">Height</label>
-            <input
-              type="number"
-              value={layer.size.h}
-              onChange={(e) =>
-                onResize(layer.size.w, Number(e.target.value))
-              }
-              className="w-full px-3 py-2.5 border rounded-lg font-mono text-right focus:ring-2 focus:ring-blue-400"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Rotate */}
-      <div className="space-y-3">
-        <p className="font-semibold text-lg text-gray-900">Rotate</p>
-
-        <div className="flex items-center gap-4">
-          <input
-            type="range"
-            min={-180}
-            max={180}
-            value={layer.rotation ?? 0}
-            onChange={(e) => onRotate(Number(e.target.value))}
-            className="flex-1"
-          />
-
-          <input
-            type="number"
-            min={-180}
-            max={180}
-            value={layer.rotation ?? 0}
-            onChange={(e) => onRotate(Number(e.target.value))}
-            className="w-20 px-3 py-2.5 border rounded-lg font-mono text-right focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-      </div>
-
-      {/* Color (SVG only) */}
+      {/* COLOR (SVG only) */}
       {isSvg && (
         <ColorPicker
           color={layer.color ?? "#000000"}
@@ -119,51 +107,32 @@ export default function ClipartProperties({
         />
       )}
 
-      {/* Flip */}
-      <div className="space-y-3">
-        <p className="font-semibold text-lg text-gray-900">Flip</p>
-
-        <div className="flex gap-4">
-          <button
-            onClick={() =>
-              onFlip(layer.flip === "horizontal" ? "none" : "horizontal")
-            }
-            className={`flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${
-              layer.flip === "horizontal"
-                ? "bg-blue-100 text-blue-900"
-                : "bg-gray-100 hover:bg-gray-200"
-            }`}
-          >
-            <FlipHorizontal size={18} />
-            Horizontal
-          </button>
-
-          <button
-            onClick={() =>
-              onFlip(layer.flip === "vertical" ? "none" : "vertical")
-            }
-            className={`flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition ${
-              layer.flip === "vertical"
-                ? "bg-blue-100 text-blue-900"
-                : "bg-gray-100 hover:bg-gray-200"
-            }`}
-          >
-            <FlipVertical size={18} />
-            Vertical
-          </button>
-        </div>
-      </div>
+      {/* FLIP */}
+      <FlipControls
+        value={layer.flip}
+        onFlip={onFlip}
+      />
 
       {/* Bottom actions */}
-      <div className="pt-4 space-y-4">
-        <button
-          onClick={onChangeArt}
-          className="w-full py-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition font-medium flex items-center justify-center gap-2"
-        >
-          <Palette size={18} />
-          Change Art
-        </button>
+      <div className="space-y-4">
+        {/* Change Art */}
+        <ChangeArtButton
+          onBack={onBack}
+          onChangeArt={onChangeArt}
+        />
 
+        {/* Duplicate Clipart */}
+        {onDuplicate && (
+          <button
+            onClick={onDuplicate}
+            className="w-full py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold flex items-center justify-center gap-2 transition"
+          >
+            <Copy size={18} />
+            Duplicate Clipart
+          </button>
+        )}
+
+        {/* Delete Clipart */}
         <button
           onClick={onDelete}
           className="w-full py-3 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 font-semibold flex items-center justify-center gap-2 transition"

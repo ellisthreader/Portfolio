@@ -13,25 +13,50 @@ import Canvas from "./Canvas/Canvas";
 import TextProperties from "./Sidebar/TextSideBar/TextProperties/TextProperties";
 import MultiSelectPanel from "./Sidebar/MultiSelectPanel";
 import ClipartProperties from "./Sidebar/ClipartSideBar/Properties/ClipartProperties";
+import SidebarHeader from "./Components/SidebarHeader";
+
+import ClipartSectionsPage from "./Sidebar/ClipartSideBar/UI/ClipartSectionsPage";
+import BlankSidebar from "./Sidebar/BlankSidebar";
+
+
+
 
 
 export type ImageState = {
   url: string;
+
+  /** What kind of layer this is */
   type: "image" | "text";
+
+  /** Clipart / uploaded image */
   isClipart?: boolean;
+
+  /** Explicit SVG flag (IMPORTANT) */
+  isSvg?: boolean;
+
+  /** Text layer only */
   text?: string;
+  fontFamily?: string;
+
+  /** Shared transforms */
   rotation: number;
   flip: "none" | "horizontal" | "vertical";
   size: { w: number; h: number };
-  fontFamily?: string;
-  color?: string;
+
+  /** Visual styling */
+  color?: string;        // SVG fill OR text color
   borderColor?: string;
   borderWidth?: number;
+
+  /** Original values for reset */
   original: {
     url: string;
     rotation: number;
     flip: "none" | "horizontal" | "vertical";
     size: { w: number; h: number };
+    color?: string;
+
+    renderKey?: string; // 👈 add this
   };
 };
 
@@ -57,70 +82,83 @@ export default function Design() {
   const [selectedUploadedImage, setSelectedUploadedImage] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [selectedClipart, setSelectedClipart] = useState<string | null>(null);
+  
+// ------------------------------------
+// Sidebar UI state
+// ------------------------------------
+const [sidebarTitleOverride, setSidebarTitleOverride] = useState<string | null>(null);
+
+type SidebarView =
+  | "blank"
+  | "product"
+  | "upload"
+  | "text"
+  | "clipart"
+  | "clipart-sections"
+  | "clipart-properties"
+  | "text-properties"
+  | "image-properties";
+
+// ------------------------------------
+// Sidebar navigation stack
+// ------------------------------------
+const [sidebarStack, setSidebarStack] = useState<SidebarView[]>(["product"]);
+
+const activeSidebar = sidebarStack[sidebarStack.length - 1];
+
+// ------------------------------------
+// Navigation helpers
+// ------------------------------------
+
+// ➕ Push a new page
+const pushSidebar = (view: SidebarView) => {
+  console.log("[Sidebar] push →", view);
+
+  setSidebarTitleOverride(null);
+  setSidebarStack(prev => [...prev, view]);
+};
+
+// ⬅️ Pop current page
+const goBackSidebar = () => {
+  console.log("[Sidebar] back");
+
+  setSidebarStack(prev => {
+    if (prev.length <= 1) {
+      console.log("[Sidebar] ❌ already at root");
+      return prev;
+    }
+
+    const next = prev.slice(0, -1);
+    console.log("[Sidebar] stack →", next);
+
+    return next;
+  });
+};
 
 
-  const [activeTab, setActiveTab] = useState<"product" | "upload" | "text" | "clipart">("product");
+// ✅ Compute if back arrow should be shown
+const canGoBack = sidebarStack.length > 1;
+
+
+
+// ❌ close sidebar (blank page)
+const closeSidebar = () => {
+  setSidebarStack(["blank"]);
+};
+
+
+
   const [displayImages, setDisplayImages] = useState<string[]>([]);
   const [mainImage, setMainImage] = useState("");
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [selectedObjects, setSelectedObjects] = useState<string[]>([]);
+  const [replaceClipartId, setReplaceClipartId] = useState<string | null>(null);
+
 
 
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
   const { onResizeTextCommit } = props;
-
-  type ClipartView =
-  | "sections"
-  | "category"
-  | "items"
-  | "properties";
-
-const [clipartView, setClipartView] = useState<ClipartView>("sections");
-
-
-  const handleResizeImage = (uid: string, w: number, h: number) => {
-  setImageState((prev) => ({
-    ...prev,
-    [uid]: {
-      ...prev[uid],
-      size: { w, h },
-    },
-  }));
-};
-
-
-const [replacingClipartUid, setReplacingClipartUid] =
-  useState<string | null>(null);
-
-
-const handleChangeClipartColor = (uid: string, color: string) => {
-  setImageState((prev) => ({
-    ...prev,
-    [uid]: {
-      ...prev[uid],
-      color,
-    },
-  }));
-};
-
-const openClipartPicker = () => {
-  setActiveTab("clipart");
-};
-
-
-const handleDeleteImage = (uid: string) => {
-  setImageState((prev) => {
-    const next = { ...prev };
-    delete next[uid];
-    return next;
-  });
-
-  setUploadedImages((prev) => prev.filter((id) => id !== uid));
-  setSelectedUploadedImage(null);
-};
-
-
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener("selectstart", prevent);
@@ -158,7 +196,6 @@ const handleDeleteImage = (uid: string) => {
     propColour && uniqueColours.includes(propColour) ? propColour : uniqueColours[0] ?? null
   );
   const [selectedSize, setSelectedSize] = useState(propSize ?? null);
-  
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -198,61 +235,104 @@ const handleDeleteImage = (uid: string) => {
       [url]: { ...(prev[url] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }), size: { w, h } },
     }));
   };
-const handleAddClipart = (src: string) => {
-  const size = { w: 150, h: 150 };
+  // Inside your component:
 
-  // 🔁 REPLACE EXISTING CLIPART
-  if (replacingClipartUid) {
-    setImageState(prev => {
-      const existing = prev[replacingClipartUid];
-      if (!existing) return prev;
+  const colorTimeout = useRef<NodeJS.Timeout | null>(null);
 
-      return {
-        ...prev,
-        [replacingClipartUid]: {
-          ...existing,
-          url: src,
-          original: {
-            ...existing.original,
-            url: src,
+  const handleChangeImageColor = (uid: string, color: string) => {
+    // Clear previous timeout
+    if (colorTimeout.current) clearTimeout(colorTimeout.current);
+
+    // Set a new timeout
+    colorTimeout.current = setTimeout(() => {
+      setImageState((prev) => {
+        const layer = prev[uid];
+        if (!layer) return prev;
+
+        if (layer.color === color) return prev; // no change
+
+        return {
+          ...prev,
+          [uid]: {
+            ...layer,
+            color,
           },
-        },
-      };
-    });
+        };
+      });
+    }, 50); // 50ms throttle
+  };
 
-    // keep selection + exit replace mode
-    setSelectedUploadedImage(replacingClipartUid);
-    setReplacingClipartUid(null);
-    setActiveTab("clipart");
-    return;
-  }
 
-  // ➕ ADD NEW CLIPART
+const handleAddClipart = (src: string) => {
   const uid = crypto.randomUUID();
+  const size = { w: 150, h: 150 };
 
   setImageState(prev => ({
     ...prev,
     [uid]: {
       url: src,
-      type: "image",      // canvas-compatible
-      isClipart: true,    // sidebar meaning
+      src,
+      type: "image",
+      isClipart: true,
       rotation: 0,
       flip: "none",
       size,
-      color: "#000000",  // ✅ important for SVG recoloring
-      original: {
-        url: src,
-        rotation: 0,
-        flip: "none",
-        size: { ...size },
-        color: "#000000",
-      },
+      color: "#000000",
+      renderKey: crypto.randomUUID(),
+      original: { url: src, rotation: 0, flip: "none", size: { ...size } },
     },
   }));
 
   setSelectedUploadedImage(uid);
-  setActiveTab("clipart");
+
+  // push picker page first if not already on it
+  if (activeSidebar !== "clipart") pushSidebar("clipart"); 
+
+  // push properties page so back button appears
+  pushSidebar("clipart-sections");
 };
+
+
+
+// 2️⃣ REPLACE an existing clipart
+const handleReplaceClipart = (src: string) => {
+  if (!replaceClipartId) return;
+
+  setImageState(prev => {
+    const layer = prev[replaceClipartId];
+    if (!layer || !layer.isClipart) return prev;
+
+    return {
+      ...prev,
+      [replaceClipartId]: {
+        ...layer,
+        url: src,
+        src,
+        color: "#000000",
+        original: { ...layer.original, url: src },
+      },
+    };
+  });
+
+  setSelectedUploadedImage(replaceClipartId);
+  setReplaceClipartId(null);
+
+  // ✅ Return to properties view
+  pushSidebar("clipart");
+};
+
+
+// 3️⃣ CHANGE an existing clipart (trigger picker)
+const handleChangeClipart = () => {
+  if (!selectedUploadedImage) return;
+
+  setReplaceClipartId(selectedUploadedImage);
+  setSelectedUploadedImage(null);
+
+  // ✅ Go back to clipart picker
+  pushSidebar("clipart");
+};
+
 
 
 const handleResizeText = (uid: string, newFontSize: number) => {
@@ -317,6 +397,22 @@ const handleResizeText = (uid: string, newFontSize: number) => {
     uids.forEach((uid) => handleRemoveUploadedImage(uid));
   };
 
+  const deleteTextLayer = (uid: string) => {
+  setImageState(prev => {
+    const next = { ...prev };
+    delete next[uid];
+    return next;
+  });
+
+  // Clear selection
+  setSelectedText(null);
+  setSelectedObjects(prev => prev.filter(id => id !== uid));
+
+  // Go somewhere safe
+  setSidebarStack(["text"]); // or ["product"] if you prefer
+};
+
+
   const handleUpload = (url: string) => {
     const size = { w: 150, h: 150 };
     setUploadedImages((prev) => [...prev, url]);
@@ -336,331 +432,460 @@ const handleResizeText = (uid: string, newFontSize: number) => {
   const handleDuplicateUploadedImage = (url: string) => {
     const source = imageState[url];
     if (!source) return;
+
     const dup = `${url}#dup-${Date.now()}`;
+
     setUploadedImages((prev) => [...prev, dup]);
+
     setImageState((prev) => ({
       ...prev,
-      [dup]: { ...source },
+      [dup]: {
+        ...source,
+              renderKey: crypto.randomUUID(), // 🔥 forces remount
+        color: source.color ?? "#000000", // ensure color is copied
+      },
     }));
+
     setSelectedUploadedImage(dup);
-    setActiveTab("upload");
+    pushSidebar("upload");
   };
+
+  const duplicateTextLayer = (uid: string) => {
+  const source = imageState[uid];
+  if (!source || source.type !== "text") return;
+
+  const newId = crypto.randomUUID();
+
+  setImageState(prev => ({
+    ...prev,
+    [newId]: {
+      ...source,
+    },
+  }));
+
+  setSelectedText(newId);
+  pushSidebar("text");
+};
 
   const updateTextLayer = (uid: string, updates: Partial<ImageState>) => {
     setImageState((prev) => ({
       ...prev,
-      [uid]: { ...prev[uid], ...updates },
+      [uid]: {
+        ...prev[uid],
+        ...updates,
+      },
     }));
   };
 
-  
 
   useEffect(() => {
     if (!selectedColour) return;
+
+    const colourVariants = variantsByColour[selectedColour];
+    if (!colourVariants || colourVariants.length === 0) return;
+
     const variant =
-      variantsByColour[selectedColour].find((v) => v.size === selectedSize) ??
-      variantsByColour[selectedColour][0];
-    const sorted = normalizeImages(variant?.images ?? []);
-    setDisplayImages(sorted);
-    setMainImage(sorted[0] ?? "");
+      colourVariants.find((v) => v.size === selectedSize) ??
+      colourVariants[0];
+
+    if (!variant) return;
+
+    const sorted = normalizeImages(variant.images ?? []);
+
+    // Bail out if nothing changed
+    setDisplayImages((prev) => {
+      if (prev.length === sorted.length && prev.every((v, i) => v === sorted[i])) {
+        return prev; // no change
+      }
+      return sorted;
+    });
+
+    setMainImage((prev) => (prev === (sorted[0] ?? "") ? prev : (sorted[0] ?? "")));
   }, [selectedColour, selectedSize, variantsByColour]);
 
-  const renderActiveTab = () => {
-    if (selectedObjects.length > 1) {
+const SIDEBAR_TITLES: Record<
+  string,
+  string | ((props: any) => string)
+> = {
+  product: "Product",
+  text: ({ selectedText }) =>
+    selectedText ? "Text Properties" : "Text",
+
+  clipart: ({ selectedUploadedImage, imageState }) =>
+    selectedUploadedImage && imageState[selectedUploadedImage]?.isClipart
+      ? "Clipart Properties"
+      : "Clipart",
+
+  upload: ({ selectedUploadedImage, imageState }) =>
+    selectedUploadedImage && !imageState[selectedUploadedImage]?.isClipart
+      ? "Image Properties"
+      : "Upload",
+};
+
+
+
+const renderActiveTab = () => {
+  // MULTI-SELECTION WINS
+  if (selectedObjects.length > 1) {
+    return (
+      <MultiSelectPanel
+        selectedObjects={selectedObjects}
+        imageState={imageState}
+      />
+    );
+  }
+
+  const resetAndOpen = (view: SidebarView) => {
+    setSelectedObjects([]);
+    setSelectedUploadedImage(null);
+    setSelectedText(null);
+    setSidebarStack([view]);
+  };
+
+  switch (activeSidebar) {
+    // ✅ BLANK STATE (no tools open)
+    case "blank":
       return (
-        <MultiSelectPanel
-          selectedObjects={selectedObjects}
+        <BlankSidebar
+          onOpenProduct={() => resetAndOpen("product")}
+          onOpenUpload={() => resetAndOpen("upload")}
+          onOpenText={() => resetAndOpen("text")}
+          onOpenClipart={() => resetAndOpen("clipart")}
+        />
+      );
+
+    // ------------------------------------
+    // PRODUCT
+    // ------------------------------------
+    case "product":
+      return (
+        <ProductEdit
+          product={safeProduct}
+          selectedColour={selectedColour}
+          selectedSize={selectedSize}
+          onColourChange={setSelectedColour}
+          onSizeChange={setSelectedSize}
+          onOpenChangeProductModal={() =>
+            setIsChangeProductModalOpen(true)
+          }
+        />
+      );
+
+    // ------------------------------------
+    // UPLOAD
+    // ------------------------------------
+    case "upload":
+      return (
+        <UploadSidebar
+          onUpload={handleUpload}
+          recentImages={uploadedImages}
+          selectedImage={selectedUploadedImage}
+          onSelectImage={setSelectedUploadedImage}
+          onRotateImage={handleRotateImage}
+          onFlipImage={handleFlipImage}
+          onUpdateImageSize={handleUpdateImageSize}
+          onRemoveUploadedImage={handleRemoveUploadedImage}
+          onDuplicateUploadedImage={handleDuplicateUploadedImage}
           imageState={imageState}
+          restrictedBox={restrictedBox}
+          canvasPositions={positions}
+          setImageState={setImageState}
+          onResetImage={handleResetImage}
+        />
+      );
+
+    // ------------------------------------
+    // TEXT
+    // ------------------------------------
+    case "text": {
+      if (!selectedText || !imageState[selectedText]) {
+        return (
+          <AddText
+            onAddText={(layer) => {
+              setImageState((prev) => ({
+                ...prev,
+                [layer.id]: {
+                  url: "",
+                  type: "text",
+                  text: layer.text,
+                  rotation: 0,
+                  flip: "none",
+                  size: { w: 200, h: layer.fontSize },
+                  fontFamily: layer.font,
+                  color: layer.color,
+                  borderColor: layer.borderColor,
+                  borderWidth: layer.borderWidth,
+                  fontSize: layer.fontSize,
+                  width: layer.width,
+                  original: {
+                    url: "",
+                    rotation: 0,
+                    flip: "none",
+                    size: { w: 200, h: layer.fontSize },
+                  },
+                },
+              }));
+
+              setSelectedText(layer.id);
+              pushSidebar("text");
+            }}
+          />
+        );
+      }
+
+      const layer = imageState[selectedText];
+
+      return (
+        <TextProperties
+          textValue={layer.text ?? ""}
+          onTextChange={(val) =>
+            updateTextLayer(selectedText, { text: val })
+          }
+          fontFamily={layer.fontFamily ?? "Arial"}
+          onFontChange={(val) =>
+            updateTextLayer(selectedText, { fontFamily: val })
+          }
+          color={layer.color ?? "#000000"}
+          onColorChange={(val) =>
+            updateTextLayer(selectedText, { color: val })
+          }
+          rotation={layer.rotation ?? 0}
+          onRotationChange={(val) =>
+            updateTextLayer(selectedText, { rotation: val })
+          }
+          fontSize={layer.fontSize ?? 24}
+          onFontSizeChange={(val) =>
+            updateTextLayer(selectedText, { fontSize: val })
+          }
+          borderColor={layer.borderColor ?? "#000000"}
+          onBorderColorChange={(val) =>
+            updateTextLayer(selectedText, { borderColor: val })
+          }
+          borderWidth={layer.borderWidth ?? 0}
+          onBorderWidthChange={(val) =>
+            updateTextLayer(selectedText, { borderWidth: val })
+          }
+          flip={layer.flip ?? "none"}
+          onFlipChange={(val) =>
+            updateTextLayer(selectedText, { flip: val })
+          }
+          onDuplicate={() => duplicateTextLayer(selectedText)}
+          onDelete={() => deleteTextLayer(selectedText)}
+          restrictedBox={restrictedBox}
         />
       );
     }
 
-    switch (activeTab) {
-      case "product":
+    // ------------------------------------
+    // CLIPART
+    // ------------------------------------
+    case "clipart": {
+      const layer =
+        selectedUploadedImage &&
+        imageState[selectedUploadedImage]?.isClipart
+          ? imageState[selectedUploadedImage]
+          : null;
+
+      // -------- CLIPART PROPERTIES --------
+      if (layer) {
         return (
-          <ProductEdit
-            product={safeProduct}
-            selectedColour={selectedColour}
-            selectedSize={selectedSize}
-            onColourChange={setSelectedColour}
-            onSizeChange={setSelectedSize}
-            onOpenChangeProductModal={() =>
-              setIsChangeProductModalOpen(true)
-            }
-          />
-        );
-
-      case "upload":
-        return (
-          <UploadSidebar
-            onUpload={handleUpload}
-            recentImages={uploadedImages}
-            selectedImage={selectedUploadedImage}
-            onSelectImage={setSelectedUploadedImage}
-            onRotateImage={handleRotateImage}
-            onFlipImage={handleFlipImage}
-            onUpdateImageSize={handleUpdateImageSize}
-            onRemoveUploadedImage={handleRemoveUploadedImage}
-            onDuplicateUploadedImage={handleDuplicateUploadedImage}
-            imageState={imageState}
-            restrictedBox={restrictedBox}
-            canvasPositions={positions}
-            setImageState={setImageState}
-            onResetImage={handleResetImage}
-          />
-        );
-
-      case "text": {
-        if (!selectedText || !imageState[selectedText]) {
-          return (
-            <AddText
-              onAddText={(layer) => {
-                setImageState((prev) => ({
-                  ...prev,
-                  [layer.id]: {
-                    url: "",
-                    type: "text",
-                    text: layer.text,
-                    rotation: 0,
-                    flip: "none",
-                    size: { w: 200, h: layer.fontSize },
-                    fontFamily: layer.font,
-                    color: layer.color,
-                    borderColor: layer.borderColor,
-                    borderWidth: layer.borderWidth,
-                    fontSize: layer.fontSize,
-                    width: layer.width,
-                    original: {
-                      url: "",
-                      rotation: 0,
-                      flip: "none",
-                      size: { w: 200, h: layer.fontSize },
-                    },
-                  },
-                }));
-                setSelectedText(layer.id);
-                setActiveTab("text");
-              }}
-            />
-          );
-        }
-
-        const layer = imageState[selectedText];
-
-        return (
-          <TextProperties
-            textValue={layer.text ?? ""}
-            onTextChange={(val) =>
-              updateTextLayer(selectedText, { text: val })
-            }
-            fontFamily={layer.fontFamily ?? "Arial"}
-            onFontChange={(val) =>
-              updateTextLayer(selectedText, { fontFamily: val })
-            }
-            color={layer.color ?? "#000000"}
-            onColorChange={(val) =>
-              updateTextLayer(selectedText, { color: val })
-            }
-            rotation={layer.rotation}
-            onRotationChange={(val) =>
-              updateTextLayer(selectedText, { rotation: val })
-            }
-            fontSize={layer.fontSize}
-            onFontSizeChange={(val) =>
-              updateTextLayer(selectedText, { fontSize: val })
-            }
-            borderColor={layer.borderColor ?? "#000000"}
-            onBorderColorChange={(val) =>
-              updateTextLayer(selectedText, { borderColor: val })
-            }
-            borderWidth={layer.borderWidth ?? 0}
-            onBorderWidthChange={(val) =>
-              updateTextLayer(selectedText, { borderWidth: val })
-            }
-          />
-        );
-      } // ✅ REQUIRED
-
-      case "clipart": {
-        const layer =
-          selectedUploadedImage &&
-          imageState[selectedUploadedImage]?.isClipart
-            ? imageState[selectedUploadedImage]
-            : null;
-
-        return layer && selectedUploadedImage ? (
           <ClipartProperties
             layer={layer}
-            onBack={() => setSelectedUploadedImage(null)}
+            restrictedBox={{
+              x: restrictedBox.left,
+              y: restrictedBox.top,
+              width: restrictedBox.width,
+              height: restrictedBox.height,
+            }}
+            canvasPosition={positions[layer.id]}
             onRotate={(v) =>
-              handleRotateImage(selectedUploadedImage, v)
+              handleRotateImage(selectedUploadedImage!, v)
             }
             onFlip={(v) =>
-              handleFlipImage(selectedUploadedImage, v)
+              handleFlipImage(selectedUploadedImage!, v)
             }
             onResize={(w, h) =>
-              handleResizeImage(selectedUploadedImage, w, h)
+              handleUpdateImageSize(selectedUploadedImage!, w, h)
             }
-            onChangeArt={() => {
-              setReplacingClipartUid(selectedUploadedImage);
-              setClipartView("sections");
-              setActiveTab("clipart");
-            }}
             onChangeColor={(color) =>
-              handleChangeClipartColor(
-                selectedUploadedImage,
-                color
-              )
+              handleChangeImageColor(selectedUploadedImage!, color)
             }
+            onChangeArt={handleChangeClipart}
             onDelete={() =>
-              handleDeleteImage(selectedUploadedImage)
+              handleRemoveUploadedImage(selectedUploadedImage!)
             }
-          />
-        ) : (
-          <Clipart
-            onAddClipart={handleAddClipart}
-            view={clipartView}
-            onViewChange={setClipartView}
+            onDuplicate={() =>
+              handleDuplicateUploadedImage(selectedUploadedImage!)
+            }
           />
         );
       }
 
-      default:
-        return null;
-    }
-  };
-
-
-        const layer = imageState[selectedText];
-
-        return (
-          <TextProperties
-            textValue={layer.text ?? ""}
-            onTextChange={(val) => updateTextLayer(selectedText, { text: val })}
-            fontFamily={layer.fontFamily ?? "Arial"}
-            onFontChange={(val) => updateTextLayer(selectedText, { fontFamily: val })}
-            color={layer.color ?? "#000000"}
-            onColorChange={(val) => updateTextLayer(selectedText, { color: val })}
-            rotation={layer.rotation}
-            onRotationChange={(val) => updateTextLayer(selectedText, { rotation: val })}
-            fontSize={layer.fontSize} // <- use fontSize
-            onFontSizeChange={(val) => updateTextLayer(selectedText, { fontSize: val })}
-            borderColor={layer.borderColor ?? "#000000"}
-            onBorderColorChange={(val) => updateTextLayer(selectedText, { borderColor: val })}
-            borderWidth={layer.borderWidth ?? 0}
-            onBorderWidthChange={(val) => updateTextLayer(selectedText, { borderWidth: val })}
-          />
-        );
-
-          
-      case "clipart": {
-        const layer =
-          selectedUploadedImage &&
-          imageState[selectedUploadedImage]?.isClipart
-            ? imageState[selectedUploadedImage]
-            : null;
-
-        return layer && selectedUploadedImage ? (
-          <ClipartProperties
-            layer={layer}
-            onBack={() => setSelectedUploadedImage(null)}
-            onRotate={(v) => handleRotateImage(selectedUploadedImage, v)}
-            onFlip={(v) => handleFlipImage(selectedUploadedImage, v)}
-            onResize={(w, h) => handleResizeImage(selectedUploadedImage, w, h)}
-            onChangeArt={() => {
-              setReplacingClipartUid(selectedUploadedImage); // ✅ replace mode
-              setClipartView("sections");
-            }}
-            onChangeColor={(color) =>
-              handleChangeClipartColor(selectedUploadedImage, color)
+      // -------- CLIPART LIBRARY --------
+      return (
+        <Clipart
+          onBack={goBackSidebar}
+          onAddClipart={(url) => {
+            if (replaceClipartId) {
+              handleReplaceClipart(url);
+              setReplaceClipartId(null);
+            } else {
+              handleAddClipart(url);
             }
-            onDelete={() => handleDeleteImage(selectedUploadedImage)}
-          />
-        ) : (
-          <Clipart
-            onAddClipart={handleAddClipart}
-            view={clipartView}
-            onViewChange={setClipartView}
-          />
-        );
-      }
-
-
-
-return (
-  <div className="min-h-screen bg-gray-200 dark:bg-gray-900 relative disable-selection">
-    <Head title="Start Designing" />
-
-    {isChangeProductModalOpen && (
-      <ChangeProductModal
-        onClose={() => setIsChangeProductModalOpen(false)}
-        currentCategory={null}
-      />
-    )}
-
-    <div className={isChangeProductModalOpen ? "blur-lg opacity-40" : ""}>
-      {/* TOP BAR */}
-      <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b flex items-center justify-between px-6 h-16 z-40 shadow-sm">
-        {/* top bar buttons */}
-      </div>
-
-      <div className="pt-[96px] flex min-h-screen">
-        {/* LEFT SIDEBAR */}
-        <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
-          {/* sidebar buttons */}
-        </div>
-
-        {/* RIGHT SIDEBAR */}
-        <div className="w-[480px] ml-4 mt-4 mb-6 bg-white dark:bg-gray-800 shadow-xl border rounded-2xl p-4 h-[calc(100vh-160px)] overflow-y-auto">
-          {layer && selectedUploadedImage ? (
-            <ClipartProperties
-              layer={layer}
-              onBack={() => setSelectedUploadedImage(null)}
-              onRotate={(v) => handleRotateImage(selectedUploadedImage, v)}
-              onFlip={(v) => handleFlipImage(selectedUploadedImage, v)}
-              onResize={(w, h) =>
-                handleResizeImage(selectedUploadedImage, w, h)
-              }
-              onChangeArt={() => {
-                setActiveTab("clipart");
-                setClipartView("sections");
-              }}
-              onChangeColor={(color) =>
-                handleChangeClipartColor(selectedUploadedImage, color)
-              }
-              onDelete={() =>
-                handleDeleteImage(selectedUploadedImage)
-              }
-            />
-          ) : (
-            <Clipart
-              view={clipartView}
-              onViewChange={setClipartView}
-              onAddClipart={(src: string) => {
-                handleAddClipart(src);
-                setClipartView("sections");
-              }}
-            />
-          )}
-        </div>
-
-        {/* CANVAS */}
-        <Canvas
-          mainImage={mainImage}
-          restrictedBox={restrictedBox}
-          canvasRef={canvasRef}
-          uploadedImages={uploadedImages}
-          setUploadedImages={setUploadedImages}
-          imageState={imageState}
-          setImageState={setImageState}
-          onSelectImage={setSelectedUploadedImage}
-          onSelectText={setSelectedText}
-          onSwitchTab={setActiveTab}
-          onDelete={handleDeleteImages}
-          onResizeTextCommit={handleResizeText}
-          onSelectionChange={setSelectedObjects}
+          }}
+          setSidebarTitle={setSidebarTitleOverride}
+          onOpenSections={() => {
+            setSidebarTitleOverride(null);
+            pushSidebar("clipart-sections");
+          }}
         />
+      );
+    }
+
+    // ------------------------------------
+    // CLIPART SECTIONS
+    // ------------------------------------
+    case "clipart-sections":
+      return (
+        <ClipartSectionsPage
+          onBack={() => {
+            setSidebarTitleOverride(null);
+            goBackSidebar();
+          }}
+        />
+      );
+
+    // ------------------------------------
+    // FALLBACK (safety)
+    // ------------------------------------
+    default:
+      return (
+        <BlankSidebar
+          onOpenProduct={() => resetAndOpen("product")}
+          onOpenUpload={() => resetAndOpen("upload")}
+          onOpenText={() => resetAndOpen("text")}
+          onOpenClipart={() => resetAndOpen("clipart")}
+        />
+      );
+  }
+};
+
+
+  return (
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-900 relative disable-selection">
+      <Head title="Start Designing" />
+
+      {isChangeProductModalOpen && (
+        <ChangeProductModal
+          onClose={() => setIsChangeProductModalOpen(false)}
+          currentCategory={null}
+        />
+      )}
+
+      <div className={isChangeProductModalOpen ? "blur-lg opacity-40" : ""}>
+        <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b flex items-center justify-between px-6 h-16 z-40 shadow-sm">
+          <div className="text-xl font-bold">{safeName}</div>
+
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-gray-100">
+              <ArrowLeft size={24} />
+            </button>
+
+            <button onClick={() => alert("Next step coming soon")} className="p-2 rounded-full hover:bg-gray-100">
+              <ArrowRight size={24} />
+            </button>
+
+            <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-red-100">
+              <X size={28} className="text-red-600" />
+            </button>
+          </div>
+        </div>
+
+  <div className="pt-[96px] flex min-h-screen">
+    {/* LEFT SIDEBAR */}
+    <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
+      {[
+        { id: "product", icon: <Shirt size={22} />, label: "Product" },
+        { id: "upload", icon: <UploadIcon size={22} />, label: "Upload" },
+        { id: "text", icon: <Type size={22} />, label: "Text" },
+        { id: "clipart", icon: <ClipartIcon size={22} />, label: "Clipart" },
+      ].map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => {
+            setSidebarStack([tab.id as SidebarView]);
+
+
+            // 🔑 STEP 3 — clear incompatible selections
+            if (tab.id !== "clipart") {
+              setSelectedUploadedImage(null);
+            }
+            if (tab.id !== "text") {
+              setSelectedText(null);
+            }
+          }}
+          className={`w-full h-16 flex flex-col items-center justify-center rounded-xl transition ${
+            activeSidebar === tab.id
+              ? "bg-neutral-600"
+              : "bg-neutral-700 hover:bg-neutral-600"
+          }`}
+        >
+          {React.cloneElement(tab.icon, { className: "text-white" })}
+          <span className="text-white text-sm">{tab.label}</span>
+        </button>
+      ))}
+    </div>
+
+
+            {/* RIGHT SIDEBAR CONTENT */}
+            <div className="w-[480px] ml-4 mt-4 mb-6 bg-white dark:bg-gray-800 shadow-xl border rounded-2xl h-[calc(100vh-160px)] overflow-y-auto">
+
+              {/* --------------------- Compute dynamic sidebar title --------------------- */}
+              {(() => {
+                const sidebarTitle =
+                  sidebarTitleOverride ??
+                  (typeof SIDEBAR_TITLES[activeSidebar] === "function"
+                    ? SIDEBAR_TITLES[activeSidebar]!({
+                        selectedText,
+                        selectedUploadedImage,
+                        imageState,
+                      })
+                    : SIDEBAR_TITLES[activeSidebar] ?? "");
+
+                return (
+                    <SidebarHeader
+                      title={sidebarTitle}
+                      canGoBack={sidebarStack.length > 1} // ✅ ONLY THIS
+                      onBack={goBackSidebar}
+                      onClose={closeSidebar}
+                    />
+                );
+              })()}
+
+              {/* --------------------- SIDEBAR CONTENT --------------------- */}
+              <div className="p-4">
+                {renderActiveTab()}
+              </div>
+            </div>
+
+            {/* --------------------- MAIN CANVAS --------------------- */}
+            <Canvas
+              mainImage={mainImage}
+              restrictedBox={restrictedBox}
+              canvasRef={canvasRef}
+              uploadedImages={uploadedImages}
+              setUploadedImages={setUploadedImages}
+              imageState={imageState}
+              setImageState={setImageState}
+              onSelectImage={setSelectedUploadedImage}
+              onSelectText={setSelectedText}
+              onSwitchTab={pushSidebar} // ✅ push to sidebar stack
+              onDelete={handleDeleteImages}
+              onResizeTextCommit={handleResizeText}
+              onSelectionChange={setSelectedObjects}
+            />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+}

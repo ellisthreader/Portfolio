@@ -9,8 +9,10 @@ import ColorPicker from "./ColorPicker";
 import RangeSlider from "./RangeSlider";
 import OutlineProperties from "./OutlineProperties";
 import OutlinePage from "./OutlinePage";
+import FlipControls from "./FlipControls";
 
-import { RotateCw, Square } from "lucide-react";
+
+import { RotateCw, Square, Trash2, Copy } from "lucide-react";
 
 type Props = {
   textValue: string;
@@ -20,6 +22,7 @@ type Props = {
   rotation: number;
   borderWidth: number;
   borderColor: string;
+  flip: "none" | "horizontal" | "vertical";
 
   onTextChange: (v: string) => void;
   onFontChange: (v: string) => void;
@@ -28,6 +31,9 @@ type Props = {
   onRotationChange: (v: number) => void;
   onBorderWidthChange: (v: number) => void;
   onBorderColorChange: (v: string) => void;
+  onFlipChange: (v: "none" | "horizontal" | "vertical") => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
 
   restrictedBox: { width: number; height: number };
 };
@@ -36,15 +42,12 @@ export default function TextProperties(props: Props) {
   const [panel, setPanel] = useState<"main" | "fonts" | "outline">("main");
   const measureRef = useRef<HTMLSpanElement>(null);
   const [maxFontSize, setMaxFontSize] = useState(150);
+  
 
-  /* ------------------------------------------------------------
-   * ✅ Hooks MUST be before any conditional return
-   * ------------------------------------------------------------ */
   useLayoutEffect(() => {
     if (!measureRef.current || !props.restrictedBox) return;
 
     const span = measureRef.current;
-
     span.style.fontSize = "1px";
 
     const rect = span.getBoundingClientRect();
@@ -57,7 +60,6 @@ export default function TextProperties(props: Props) {
     const heightLimit = props.restrictedBox.height / textHeight;
 
     const newMax = Math.floor(Math.min(widthLimit, heightLimit, 150));
-
     setMaxFontSize(newMax);
 
     if (props.fontSize > newMax) {
@@ -68,15 +70,13 @@ export default function TextProperties(props: Props) {
     props.fontFamily,
     props.borderWidth,
     props.restrictedBox,
-    props.fontSize
+    props.fontSize,
+    
   ]);
 
-  /* ------------------------------------------------------------
-   * Panels (safe now)
-   * ------------------------------------------------------------ */
   if (panel === "fonts") {
     return (
-      <div className="p-6">
+      <div className="px-6 py-4 overflow-hidden w-full h-full">
         <FontPage
           fontFamily={props.fontFamily}
           textValue={props.textValue}
@@ -89,7 +89,7 @@ export default function TextProperties(props: Props) {
 
   if (panel === "outline") {
     return (
-      <div className="p-6">
+      <div className="px-6 py-4 overflow-hidden w-full h-full">
         <OutlinePage
           borderColor={props.borderColor}
           onBorderColorChange={props.onBorderColorChange}
@@ -101,26 +101,27 @@ export default function TextProperties(props: Props) {
     );
   }
 
-  /* ------------------------------------------------------------
-   * Main panel
-   * ------------------------------------------------------------ */
   return (
-    <div className="space-y-10 p-6">
+    <div className="overflow-hidden w-full h-full flex flex-col gap-4 px-6 pb-6 pt-0">
+      {/* Text Box at top */}
       <TextArea
         textValue={props.textValue}
         onTextChange={props.onTextChange}
       />
 
+      {/* Font Selector */}
       <FontSelector
         fontFamily={props.fontFamily}
         onOpenFonts={() => setPanel("fonts")}
       />
 
+      {/* Color Picker */}
       <ColorPicker
         color={props.color}
         onColorChange={props.onColorChange}
       />
 
+      {/* Rotation Slider */}
       <RangeSlider
         label="Rotation"
         min={-180}
@@ -130,6 +131,7 @@ export default function TextProperties(props: Props) {
         icon={<RotateCw size={20} />}
       />
 
+      {/* Text Size Slider */}
       <RangeSlider
         label="Text Size"
         min={8}
@@ -141,29 +143,52 @@ export default function TextProperties(props: Props) {
         icon={<Square size={20} />}
       />
 
-      {/* Hidden measurement span */}
-        <span
-          ref={measureRef}
-          style={{
-            fontFamily: props.fontFamily,
-            borderWidth: props.borderWidth,
-            visibility: "hidden",
-            position: "absolute",
-            whiteSpace: "pre",
-
-            // ✅ VERY IMPORTANT
-            transform: "none",
-            rotate: "0deg",
-          }}
-        >
+      {/* Hidden span for measuring text */}
+      <span
+        ref={measureRef}
+        style={{
+          fontFamily: props.fontFamily,
+          borderWidth: props.borderWidth,
+          visibility: "hidden",
+          position: "absolute",
+          whiteSpace: "pre-wrap",
+          transform: "none",
+          rotate: "0deg",
+        }}
+      >
         {props.textValue || "Text"}
       </span>
 
+      {/* Outline Properties */}
       <OutlineProperties
         onOpenOutline={() => setPanel("outline")}
         borderWidth={props.borderWidth}
         borderColor={props.borderColor}
       />
+
+      {/* Bottom Controls: Flip + Duplicate + Delete */}
+      <div className="flex flex-col gap-3">
+        <FlipControls
+          value={props.flip}
+          onFlip={props.onFlipChange}
+        />
+
+        <button
+          onClick={props.onDuplicate}
+          className="w-full max-w-full py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold flex items-center justify-center gap-2 transition"
+        >
+          <Copy size={18} />
+          Duplicate Text
+        </button>
+
+        <button
+          onClick={props.onDelete}
+          className="w-full max-w-full py-3 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 font-semibold flex items-center justify-center gap-2 transition"
+        >
+          <Trash2 size={18} />
+          Delete Text
+        </button>
+      </div>
     </div>
   );
 }

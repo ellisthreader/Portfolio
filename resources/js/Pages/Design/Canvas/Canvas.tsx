@@ -179,6 +179,12 @@ const { positions, setPositions } = useImagePositions(
     props.onDelete(uids);
   };
 
+    const handleDuplicateFromTextProperties = () => {
+    if (drag.selected.length === 0) return;
+    duplicateImages([drag.selected[0]]);
+  };
+
+
 
 // --------------------- Canvas pointer down ---------------------
 // --------------------- Canvas pointer down ---------------------
@@ -223,10 +229,13 @@ const { positions, setPositions } = useImagePositions(
     }
 
     // 👉 NORMAL IMAGE (upload)
-    if (layer.type === "image") {
+    if (layer.type === "image" && !layer.isClipart) {
       onSelectText?.(null);
       onSelectImage?.(uid);
+
+      // 🔥 stay on "upload"
       onSwitchTab?.("upload");
+
       drag.setSelected([uid]);
       drag.onPointerDown(e, uid);
       return;
@@ -269,6 +278,7 @@ const { positions, setPositions } = useImagePositions(
 
       return (
         <DraggableText
+        
           key={uid}
           uid={uid}
           text={layer.text ?? ""}
@@ -284,6 +294,7 @@ const { positions, setPositions } = useImagePositions(
           selected={drag.selected}
           onPointerDown={drag.onPointerDown}
           fontSize={fontSize}   // ✅ single source of truth
+          onDuplicate={handleDuplicateFromTextProperties}
           onMeasure={(uid, w, h) => {
             setSizes(prev => {
               const existing = prev[uid];
@@ -294,25 +305,27 @@ const { positions, setPositions } = useImagePositions(
                     next: { w, h },
                   });
 
-              // Round to 0.1px to avoid tiny floating-point jitter
-              const roundedW = Math.round(w * 10) / 10;
-              const roundedH = Math.round(h * 10) / 10;
+
+              // Helper: round to nearest 0.1px
+              const roundToTenths = (n: number) => Math.round(n * 10) / 10;
+
+              const roundedW = roundToTenths(w);
+              const roundedH = roundToTenths(h);
 
               const firstMeasure = !existing;
+
+              // Check if change is significant (>=0.1px)
               const changed =
                 firstMeasure ||
-                Math.abs(existing?.w - roundedW) >= 0.5 ||
-                Math.abs(existing?.h - roundedH) >= 0.5;
+                Math.abs((existing?.w ?? 0) - roundedW) >= 0.1 ||
+                Math.abs((existing?.h ?? 0) - roundedH) >= 0.1;
 
               if (!changed) {
                 // no significant change → skip re-render
                 return prev;
               }
 
-              // ✅ Log for debugging
-              console.log("🔺 setSizes updating:", uid, existing, "->", { w: roundedW, h: roundedH });
-
-              // ✅ Update sizes
+              // ✅ Update sizes with consistent rounding
               return {
                 ...prev,
                 [uid]: { w: roundedW, h: roundedH },
