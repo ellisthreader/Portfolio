@@ -24,44 +24,53 @@ export default function BlankSidebar({
   onOpenClipart,
 }: Props) {
   return (
-    <div className="h-full flex flex-col justify-between px-6 py-8">
+    <div
+      className="
+        h-full flex flex-col justify-between
+        px-8 py-10
+        rounded-2xl
+        bg-gradient-to-b from-white to-gray-50
+        dark:from-gray-900 dark:to-gray-800
+      "
+    >
       {/* ---------------- HEADER ---------------- */}
-      <div className="space-y-2">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-          Get started
+      <div className="text-center space-y-4">
+        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+          Let’s get started
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Choose a tool below to begin customizing your product.
+        <p className="text-base text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
+          Choose a tool below to start designing your product exactly how you
+          want it.
         </p>
       </div>
 
       {/* ---------------- PRIMARY ACTIONS ---------------- */}
-      <div className="grid grid-cols-2 gap-4 mt-8">
+      <div className="grid grid-cols-2 gap-5 mt-12">
         <ActionButton
-          icon={<Shirt size={20} />}
+          icon={<Shirt size={24} />}
           label="Product"
           onClick={onOpenProduct}
         />
         <ActionButton
-          icon={<Upload size={20} />}
+          icon={<Upload size={24} />}
           label="Upload"
           onClick={onOpenUpload}
         />
         <ActionButton
-          icon={<Type size={20} />}
+          icon={<Type size={24} />}
           label="Text"
           onClick={onOpenText}
         />
         <ActionButton
-          icon={<ClipartIcon size={20} />}
+          icon={<ClipartIcon size={24} />}
           label="Clipart"
           onClick={onOpenClipart}
         />
       </div>
 
       {/* ---------------- HELP / TIPS ---------------- */}
-      <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <div className="mt-14 pt-6 border-t border-gray-200/70 dark:border-gray-700/70 space-y-4">
+        <h3 className="text-xs uppercase tracking-wider font-semibold text-gray-600 dark:text-gray-300 text-center">
           Helpful tips
         </h3>
 
@@ -96,30 +105,33 @@ function ActionButton({
     <button
       onClick={onClick}
       className="
-        group
-        flex
-        flex-col
-        items-center
-        justify-center
-        gap-2
-        h-24
-        rounded-xl
-        border
-        border-gray-200
-        dark:border-gray-700
-        bg-gray-50
-        dark:bg-gray-800
-        hover:bg-white
-        dark:hover:bg-gray-700
+        group relative
+        flex flex-col items-center justify-center gap-3
+        h-32 rounded-2xl
+        border border-gray-200/70 dark:border-gray-700/70
+        bg-white/90 dark:bg-gray-800/90
+        backdrop-blur
         shadow-sm
-        hover:shadow-md
-        transition
+        hover:shadow-xl
+        hover:-translate-y-1
+        transition-all duration-300
       "
     >
-      <div className="text-gray-700 dark:text-gray-200 group-hover:scale-105 transition-transform">
+      {/* Icon bubble */}
+      <div
+        className="
+          flex items-center justify-center
+          w-12 h-12 rounded-full
+          bg-gradient-to-br from-gray-100 to-gray-200
+          dark:from-gray-700 dark:to-gray-600
+          text-gray-800 dark:text-white
+          group-hover:scale-110 transition-transform
+        "
+      >
         {icon}
       </div>
-      <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+
+      <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
         {label}
       </span>
     </button>
@@ -134,9 +146,19 @@ function Tip({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3 text-sm text-gray-500 dark:text-gray-400">
-      <div className="mt-[2px] text-gray-400">{icon}</div>
-      <span>{children}</span>
+    <div className="flex items-start gap-4 text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+      <div
+        className="
+          mt-[2px]
+          flex items-center justify-center
+          w-8 h-8 rounded-full
+          bg-gray-100 dark:bg-gray-700
+          text-gray-500 dark:text-gray-300
+        "
+      >
+        {icon}
+      </div>
+      <span className="leading-relaxed">{children}</span>
     </div>
   );
 }
