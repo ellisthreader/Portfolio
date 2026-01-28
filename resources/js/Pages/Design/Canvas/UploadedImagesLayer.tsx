@@ -1,3 +1,4 @@
+import React from "react";
 import DraggableImage from "./DraggableImage";
 
 type Props = {
@@ -7,7 +8,7 @@ type Props = {
   imageState: Record<string, any>;
   selected: string[];
   hovered: Record<string, boolean>;
-  onPointerDown: (e: React.MouseEvent, uid: string) => void;
+  onPointerDown: (e: React.PointerEvent<Element>, uid: string) => void;
 };
 
 export default function UploadedImagesLayer({
@@ -31,7 +32,7 @@ export default function UploadedImagesLayer({
 
           return (
             <DraggableImage
-              key={imageState[uid]?.renderKey ?? uid}
+              key={`${uid}-${imageState[uid]?.flip ?? "none"}`} 
               uid={uid}
               url={imageState[uid]?.src ?? imageState[uid]?.url ?? ""}
               pos={p}
@@ -39,8 +40,8 @@ export default function UploadedImagesLayer({
               rotation={imageState[uid]?.rotation ?? 0}
               flip={imageState[uid]?.flip ?? "none"}
               highlighted={selected.includes(uid) || hovered[uid]}
-              onPointerDown={onPointerDown}
-              color={imageState[uid]?.color ?? "#000000"} // ✅ Ensure color is always passed
+              onPointerDown={onPointerDown} // ✅ pointer event stays intact
+              color={imageState[uid]?.color ?? "#000000"}
             />
           );
         })}

@@ -1,23 +1,15 @@
-"use client";
-
 import React from "react";
-import InlineSvg from "../Components/InlineSvg";
 
 type Props = {
   uid: string;
   url: string;
   pos: { x: number; y: number };
   size: { w: number; h: number };
-  rotation?: number;
-  flip?: "none" | "horizontal" | "vertical";
+  rotation: number;
+  flip: "none" | "horizontal" | "vertical";
   highlighted: boolean;
-  selected?: string[];
-  color?: string;
-  onPointerDown: (
-    e: React.MouseEvent,
-    uid: string,
-    multi: boolean
-  ) => void;
+  onPointerDown: (e: React.PointerEvent, uid: string) => void;
+  color?: string; // optional tint/color
 };
 
 export default function DraggableImage({
@@ -25,55 +17,37 @@ export default function DraggableImage({
   url,
   pos,
   size,
-  rotation = 0,
-  flip = "none",
+  rotation,
+  flip,
   highlighted,
-  selected = [],
-  color,
   onPointerDown,
+  color = "#fff",
 }: Props) {
+  // Flip around center without changing position
   const scaleX = flip === "horizontal" ? -1 : 1;
   const scaleY = flip === "vertical" ? -1 : 1;
 
-  const isMultiSelected = selected.includes(uid);
-  const isSvg = url.split("?")[0].toLowerCase().endsWith(".svg");
+  const transform = `translate(${pos.x}px, ${pos.y}px) rotate(${rotation}deg) scaleX(${scaleX}) scaleY(${scaleY})`;
 
   return (
-    <div
+    <img
       data-uid={uid}
-      data-type="img"
-      onMouseDown={(e) => onPointerDown(e, uid, isMultiSelected)}
-      className={`
-        absolute
-        cursor-move
-        select-none
-        transition-shadow
-        ${highlighted ? "ring-2 ring-blue-500" : ""}
-      `}
+      src={url}
+      onPointerDown={(e) => onPointerDown(e, uid)}
       style={{
-        left: pos.x,
-        top: pos.y,
+        position: "absolute",
         width: size.w,
         height: size.h,
-        zIndex: highlighted ? 200 : 50,
-        boxShadow: highlighted
-          ? "0 8px 20px rgba(0,0,0,0.25)"
-          : "none",
-        transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})`,
+        transform,
         transformOrigin: "center center",
+        cursor: "grab",
+        zIndex: highlighted ? 1000 : 1,
+        userSelect: "none",
         pointerEvents: "auto",
+        objectFit: "contain",
+        filter: color !== "#fff" ? `drop-shadow(0 0 0 ${color})` : undefined,
       }}
-    >
-      {isSvg ? (
-        <InlineSvg src={url} color={color} />
-      ) : (
-        <img
-          src={url}
-          draggable={false}
-          className="w-full h-full object-contain pointer-events-none"
-          alt=""
-        />
-      )}
-    </div>
+      alt=""
+    />
   );
 }

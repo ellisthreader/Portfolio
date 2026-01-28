@@ -7,13 +7,20 @@ import ImagePreviewModal from "../../Components/ImagePreviewModal";
 
 type StencilizeUIProps = {
   onUpload: (url: string) => void;
+
+  /** UIDs, NOT URLs */
   recentImages?: string[];
-  onSelectImage?: (url: string) => void;
+
+  /** Full image state so we can resolve URLs */
+  imageState: Record<string, any>;
+
+  onSelectImage?: (uid: string) => void;
 };
 
 export default function StencilizeUI({
   onUpload,
   recentImages = [],
+  imageState,
   onSelectImage,
 }: StencilizeUIProps) {
   const [loading, setLoading] = useState(false);
@@ -79,7 +86,9 @@ export default function StencilizeUI({
         {/* Browse Button */}
         <label className="w-full flex items-center gap-3 cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-lg border border-gray-300 transition">
           <UploadCloud size={22} />
-          <span className="font-medium">{loading ? "Processing…" : "Browse your computer"}</span>
+          <span className="font-medium">
+            {loading ? "Processing…" : "Browse your computer"}
+          </span>
           <input
             ref={fileInputRef}
             type="file"
@@ -116,22 +125,29 @@ export default function StencilizeUI({
         {/* Recent Uploads */}
         {recentImages.length > 0 && (
           <div className="pb-4">
-            <p className="text-sm font-semibold mb-2 text-gray-800">Recent Uploads</p>
+            <p className="text-sm font-semibold mb-2 text-gray-800">
+              Recent Uploads
+            </p>
             <div className="grid grid-cols-2 gap-4 pr-1">
-              {recentImages.map((url, i) => (
-                <div
-                  key={url + i}
-                  onClick={() => onSelectImage?.(url)}
-                  className="w-full h-32 rounded-lg overflow-hidden border cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
-                >
-                  <img
-                    src={url}
-                    alt={`recent-${i}`}
-                    className="w-full h-full object-contain bg-gray-100"
-                    draggable={false}
-                  />
-                </div>
-              ))}
+              {recentImages.map((uid) => {
+                const layer = imageState[uid];
+                if (!layer) return null;
+
+                return (
+                  <div
+                    key={uid}
+                    onClick={() => onSelectImage?.(uid)}
+                    className="w-full h-32 rounded-lg overflow-hidden border cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
+                  >
+                    <img
+                      src={layer.url}
+                      alt="recent upload"
+                      className="w-full h-full object-contain bg-gray-100"
+                      draggable={false}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

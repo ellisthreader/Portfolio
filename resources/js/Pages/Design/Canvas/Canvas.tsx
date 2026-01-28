@@ -1,383 +1,344 @@
-  "use client";
+"use client";
 
-  import React, { useEffect } from "react";
-  import UploadedImagesLayer from "./UploadedImagesLayer";
-  import MainProductImage from "./MainProductImage";
-  import RestrictedArea from "./RestrictedArea";
-  import Marquee from "./Marquee";
-  import SelectionBox from "../SelectionBox";
-  import TextSelectionBox from "../SelectionBox/TextSelectionBox/TextSelectionBox";
+import React, { useEffect, useRef } from "react";
+import UploadedImagesLayer from "./UploadedImagesLayer";
+import MainProductImage from "./MainProductImage";
+import RestrictedArea from "./RestrictedArea";
+import Marquee from "./Marquee";
+import SelectionBox from "../SelectionBox";
+import TextSelectionBox from "../SelectionBox/TextSelectionBox/TextSelectionBox";
 
-  import { useDragSelection } from "./Hooks/useDragSelection";
-  import { useMarqueeSelection } from "./Hooks/useMarqueeSelection";
-  import { useImageSizes } from "./Hooks/useImageSizes";
-  import { useImagePositions } from "./Hooks/useImagePositions";
-  import { useGroupResize } from "./Hooks/useGroupResize";
-  import { useDuplicateImages } from "./Hooks/useDuplicateImages";
-  import DraggableText from "./DraggableText";
-  import SelectionWatcher from "../Components/SelectionWatcher";
-  import { useTextAutoShrink } from "./Hooks/TextAutoShrink";
+import { useDragSelection } from "./Hooks/useDragSelection";
+import { useMarqueeSelection } from "./Hooks/useMarqueeSelection";
+import { useImageSizes } from "./Hooks/useImageSizes";
+import { useImagePositions } from "./Hooks/useImagePositions";
+import { useGroupResize } from "./Hooks/useGroupResize";
+import { useDuplicateImages } from "./Hooks/useDuplicateImages";
+import DraggableText from "./DraggableText";
+import SelectionWatcher from "../Components/SelectionWatcher";
+import { useTextAutoShrink } from "./Hooks/TextAutoShrink";
 
+export type CanvasProps = {
+  canvasRef: React.RefObject<HTMLDivElement>;
+  mainImage: string;
+  restrictedBox: { left: number; top: number; width: number; height: number };
 
-  function fitsInRestrictedBox(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    box: { left: number; top: number; width: number; height: number }
-  ) {
-    return (
-      x >= box.left &&
-      y >= box.top &&
-      x + w <= box.left + box.width &&
-      y + h <= box.top + box.height
-    );
-  }
+  uploadedImages: string[];
+  setUploadedImages: React.Dispatch<React.SetStateAction<string[]>>;
 
+  imageState: Record<string, any>;
+  setImageState: React.Dispatch<any>;
 
+  onDelete?: (uids: string[]) => void;
+  onDuplicate?: (uids: string[]) => void;
+  onResize?: (uid: string, w: number, h: number) => void;
+  onResizeTextCommit: (uid: string, newFontSize: number) => void;
+  onReset?: (uids: string[]) => void;
 
-  // 🔧 Helper: checksf if text touches the restricted box
-  function rectsIntersect(
-    a: { x: number; y: number; w: number; h: number },
-    b: { left: number; top: number; width: number; height: number }
-  ) {
-    return !(
-      a.x + a.w < b.left ||
-      a.x > b.left + b.width ||
-      a.y + a.h < b.top ||
-      a.y > b.top + b.height
-    );
-  }
+  onSelectImage?: (uid: string | null) => void;
+  onSelectText?: (uid: string | null) => void;
+  onSwitchTab?: (tab: string) => void;
+  onSelectionChange?: (uids: string[]) => void;
+};
 
-
-
-  export type CanvasProps = {
-    canvasRef: React.RefObject<HTMLDivElement>;
-    mainImage: string;
-    restrictedBox: { left: number; top: number; width: number; height: number };
-
-    uploadedImages: string[];
-    setUploadedImages: React.Dispatch<React.SetStateAction<string[]>>;
-
-    imageState: Record<string, any>;
-    setImageState: React.Dispatch<any>;
-
-    onDelete?: (uids: string[]) => void;
-    onDuplicate?: (uids: string[]) => void;
-    onResize?: (uid: string, w: number, h: number) => void;
-    onResizeTextCommit: (uid: string, newFontSize: number) => void;
-    onReset?: (uids: string[]) => void;
-
-    onSelectImage?: (uid: string | null) => void;
-    onSelectText?: (uid: string | null) => void;
-    onSwitchTab?: (tab: string) => void;
-  };
-
-  export default function Canvas(props: CanvasProps) {
-    const {
-      canvasRef,
-      restrictedBox,
-      mainImage,
-      uploadedImages,
-      imageState,
-      onSelectImage,
-      onSelectText,
-      onSwitchTab,
-      onResizeTextCommit,
-    } = props;
-
-
-    // --------------------- Image sizes ---------------------
-    const visualUids = Object.keys(imageState).filter(
-    uid => imageState[uid]?.type === "image" || imageState[uid]?.type === "clipart"
+// --------------------- Helper functions ---------------------
+function fitsInRestrictedBox(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  box: { left: number; top: number; width: number; height: number }
+) {
+  return (
+    x >= box.left &&
+    y >= box.top &&
+    x + w <= box.left + box.width &&
+    y + h <= box.top + box.height
   );
+}
 
+function rectsIntersect(
+  a: { x: number; y: number; w: number; h: number },
+  b: { left: number; top: number; width: number; height: number }
+) {
+  return !(
+    a.x + a.w < b.left ||
+    a.x > b.left + b.width ||
+    a.y + a.h < b.top ||
+    a.y > b.top + b.height
+  );
+}
+
+export default function Canvas(props: CanvasProps) {
+  const {
+    canvasRef,
+    restrictedBox,
+    mainImage,
+    uploadedImages,
+    imageState,
+    onSelectImage,
+    onSelectText,
+    onSwitchTab,
+    onResizeTextCommit,
+  } = props;
+
+  // --------------------- Latest uploaded image ref ---------------------
+  const latestUploadedImageRef = useRef<string | null>(null);
+
+  // --------------------- Image sizes ---------------------
+  const visualUids = Object.keys(imageState).filter(
+    (uid) => imageState[uid]?.type === "image" || imageState[uid]?.type === "clipart"
+  );
   const { sizes, setSizes } = useImageSizes(visualUids, imageState);
 
-
-
-    // --------------------- Image positions ---------------------
-  // include EVERYTHING that exists in imageState
+  // --------------------- Image positions ---------------------
   const allUids = Object.keys(imageState);
+  const { positions, setPositions } = useImagePositions(allUids, sizes, restrictedBox);
 
-  const { positions, setPositions } = useImagePositions(
-    allUids,
+  // --------------------- Text auto shrink ---------------------
+  useTextAutoShrink({
+    imageState,
+    positions,
     sizes,
-    restrictedBox
-  );
-    // --------------------- Text shrink auto ---------------------
+    restrictedBox,
+    onResizeText: onResizeTextCommit,
+  });
 
-    useTextAutoShrink({
-      imageState,
-      positions,
-      sizes,
-      restrictedBox,
-      onResizeText: onResizeTextCommit,
-    });
+  // --------------------- Drag selection ---------------------
+  const drag = useDragSelection({
+    uids: uploadedImages,
+    sizes,
+    positions,
+    setPositions,
+    canvasRef,
+    restrictedBox,
+    onDelete: props.onDelete,
+    onDuplicate: props.onDuplicate,
+    onResize: props.onResize,
+    onReset: props.onReset,
+    multiDrag: true,
+  });
+// Filter only images or clipart
+const selectedImages = drag.selected.filter(
+  (uid) => imageState[uid]?.type === "image" || imageState[uid]?.type === "clipart"
+);
 
+// If you want just a single selected image for SizeControls
+const selectedImageId = selectedImages[0]; // pick the first selected image
 
-    // --------------------- Drag selection ---------------------
-    const drag = useDragSelection({
-      uids: uploadedImages,
-      sizes,
-      positions,
-      setPositions,
-      canvasRef,
-      restrictedBox,
-      onDelete: props.onDelete,
-      onDuplicate: props.onDuplicate,
-      onResize: props.onResize,
-      onReset: props.onReset,
-      multiDrag: true,
-    });
-
-    // --------------------- Split selection ---------------------
-    const selectedImages = drag.selected.filter(
-      (uid) =>
-        imageState[uid]?.type === "image" ||
-        imageState[uid]?.type === "clipart"
-    );
-
-    const selectedText = drag.selected.filter(
-      (uid) => imageState[uid]?.type === "text"
-    );
-
-    // --------------------- Group resize ---------------------
-    const groupResize = useGroupResize({
-      selected: drag.selected,
-      sizes,
-      positions,
-      setSizes,
-      setPositions,
-      restrictedBox,
-      setImageState: props.setImageState,
-    });
-
-    // --------------------- Marquee selection ---------------------
-    const marquee = useMarqueeSelection({
-      canvasRef,
-      uids: allUids,
-      onSelect: drag.setSelected,
-    });
+// Get the actual image object
+const st = selectedImageId ? imageState[selectedImageId] : undefined;
 
 
-    // --------------------- Duplicate hook ---------------------
-    const duplicateImages = useDuplicateImages({
-      setPositions,
-      setSizes,
-      setImageState: props.setImageState,
-      setUploadedImages: props.setUploadedImages,
-    });
+  const selectedText = drag.selected.filter((uid) => imageState[uid]?.type === "text");
 
-    const handleDuplicateFromSelectionBox = () => {
-      if (drag.selected.length === 0) return;
-      duplicateImages(drag.selected);
-    };
+  // --------------------- Group resize ---------------------
+  const groupResize = useGroupResize({
+    selected: drag.selected,
+    sizes,
+    positions,
+    setSizes,
+    setPositions,
+    restrictedBox,
+    setImageState: props.setImageState,
+  });
 
-    const handleDeleteFromSelectionBox = (uids: string[]) => {
-      if (!props.onDelete) return;
-      props.onDelete(uids);
-    };
+  // --------------------- Marquee selection ---------------------
+  const marquee = useMarqueeSelection({
+    canvasRef,
+    uids: allUids,
+    onSelect: drag.setSelected,
+  });
 
-      const handleDuplicateFromTextProperties = () => {
-      if (drag.selected.length === 0) return;
-      duplicateImages([drag.selected[0]]);
-    };
+  // --------------------- Duplicate hook ---------------------
+  const duplicateImages = useDuplicateImages({
+    setPositions,
+    setSizes,
+    setImageState: props.setImageState,
+    setUploadedImages: props.setUploadedImages,
+  });
 
+  const handleDuplicateFromSelectionBox = () => {
+    if (drag.selected.length === 0) return;
+    duplicateImages(drag.selected);
+  };
 
+  const handleDeleteFromSelectionBox = (uids: string[]) => {
+    if (!props.onDelete) return;
+    props.onDelete(uids);
+  };
+
+  const handleDuplicateFromTextProperties = () => {
+    if (drag.selected.length === 0) return;
+    duplicateImages([drag.selected[0]]);
+  };
 
   // --------------------- Canvas pointer down ---------------------
-  // --------------------- Canvas pointer down ---------------------
-    const handleCanvasPointerDown = (e: React.PointerEvent) => {
-      const target = e.target as HTMLElement;
+  const handleCanvasPointerDown = (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement;
 
-      if (target.closest(".selection-button")) return;
+    if (target.closest(".selection-button")) return;
 
-      const uid = (target.closest("[data-uid]") as HTMLElement)?.dataset.uid;
+    const uid = (target.closest("[data-uid]") as HTMLElement)?.dataset.uid;
 
-      // 👉 EMPTY SPACE → marquee
-      if (!uid) {
-        drag.setSelected([]);
-        onSelectImage?.(null);
-        onSelectText?.(null);
-        onSwitchTab?.(null);
-        marquee.onPointerDown(e);
-        return;
-      }
+    // Clicked empty space → start marquee selection
+    if (!uid) {
+      drag.setSelected([]);
+      onSelectImage?.(null);
+      onSelectText?.(null);
+      onSwitchTab?.(null);
+      marquee.onPointerDown(e);
+      return;
+    }
 
-      const layer = imageState[uid];
-      if (!layer) return;
+    // Get layer, fallback to latest uploaded image if needed
+    const layer =
+      imageState[uid] ||
+      (uid === latestUploadedImageRef.current ? { type: "image" } : null);
 
-      // 👉 TEXT
-      if (layer.type === "text") {
-        onSelectImage?.(null);
-        onSelectText?.(uid);
-        onSwitchTab?.("text");
-        drag.setSelected([uid]);
-        drag.onPointerDown(e, uid);
-        return;
-      }
+    if (!layer) {
+      console.warn("⚠️ No layer found for UID:", uid);
+      return;
+    }
 
-      // 👉 CLIPART (⚠️ BEFORE normal image)
-      if (layer.type === "image" && layer.isClipart) {
-        onSelectText?.(null);
-        onSelectImage?.(uid);
-        onSwitchTab?.("clipart"); // ✅ auto-open clipart sidebar
-        drag.setSelected([uid]);
-        drag.onPointerDown(e, uid);
-        return;
-      }
+    // ---------------- TEXT ----------------
+    if (layer.type === "text") {
+      onSelectImage?.(null);
+      onSelectText?.(uid);
+      onSwitchTab?.("text");
+      drag.setSelected([uid]);
+      drag.onPointerDown(e, uid);
+      return;
+    }
 
-      // 👉 NORMAL IMAGE (upload)
-      if (layer.type === "image" && !layer.isClipart) {
-        onSelectText?.(null);
-        onSelectImage?.(uid);
+    // ---------------- UPLOADED IMAGE ----------------
+    if (layer.type === "image" && !layer.isClipart) {
+      onSelectText?.(null);
+      onSelectImage?.(uid);
+      onSwitchTab?.("image-properties");
+      drag.setSelected([uid]);
+      drag.onPointerDown(e, uid);
 
-        // 🔥 stay on "upload"
-        onSwitchTab?.("upload");
+      if (latestUploadedImageRef.current === uid) latestUploadedImageRef.current = null;
+      return;
+    }
 
-        drag.setSelected([uid]);
-        drag.onPointerDown(e, uid);
-        return;
-      }
-    };
+    // ---------------- CLIPART ----------------
+    if (layer.type === "image" && layer.isClipart) {
+      onSelectText?.(null);
+      onSelectImage?.(uid);
+      onSwitchTab?.("clipart");
+      drag.setSelected([uid]);
+      drag.onPointerDown(e, uid);
+      return;
+    }
+  };
 
+  // --------------------- Render ---------------------
+  return (
+    <div
+      ref={canvasRef}
+      className="flex-1 relative bg-gray-200 dark:bg-gray-800"
+      onPointerDown={handleCanvasPointerDown}
+      onPointerMove={marquee.onPointerMove}
+    >
+      <MainProductImage src={mainImage} />
+      <RestrictedArea box={restrictedBox} />
 
+      {/* IMAGES */}
+      <UploadedImagesLayer
+        uids={visualUids}
+        positions={positions}
+        sizes={sizes}
+        imageState={imageState}
+        selected={drag.selected}
+        hovered={marquee.hovered}
+        onPointerDown={drag.onPointerDown}
+      />
 
-    return (
-      <div
-        ref={canvasRef}
-        className="flex-1 relative bg-gray-200 dark:bg-gray-800"
-        onPointerDown={handleCanvasPointerDown}
-        onPointerMove={marquee.onPointerMove}
-      >
-        <MainProductImage src={mainImage} />
-        <RestrictedArea box={restrictedBox} />
+      {/* TEXT */}
+      {Object.entries(imageState)
+        .filter(([_, layer]) => layer.type === "text")
+        .map(([uid, layer]: any) => {
+          const p = positions[uid] ?? { x: 200, y: 200 };
+          const fontSize = layer.fontSize ?? 24;
+          const size = sizes[uid] ?? { w: 200, h: fontSize };
 
-        {/* IMAGES */}
-        <UploadedImagesLayer
-          uids={Object.keys(imageState).filter(
-            uid => imageState[uid]?.type === "image" || imageState[uid]?.type === "clipart"
-          )}
+          return (
+            <DraggableText
+              key={uid}
+              uid={uid}
+              text={layer.text ?? ""}
+              pos={p}
+              size={size}
+              rotation={layer.rotation ?? 0}
+              flip={layer.flip ?? "none"}
+              fontFamily={layer.fontFamily ?? "Arial"}
+              color={layer.color ?? "#000"}
+              borderColor={layer.borderColor}
+              borderWidth={layer.borderWidth}
+              highlighted={drag.selected.includes(uid)}
+              selected={drag.selected}
+              onPointerDown={drag.onPointerDown}
+              fontSize={fontSize}
+              onDuplicate={handleDuplicateFromTextProperties}
+              onMeasure={(uid, w, h) => {
+                setSizes((prev) => {
+                  const existing = prev[uid];
+                  const roundToTenths = (n: number) => Math.round(n * 10) / 10;
+                  const roundedW = roundToTenths(w);
+                  const roundedH = roundToTenths(h);
+                  const changed =
+                    !existing ||
+                    Math.abs((existing?.w ?? 0) - roundedW) >= 0.1 ||
+                    Math.abs((existing?.h ?? 0) - roundedH) >= 0.1;
+                  if (!changed) return prev;
+                  return { ...prev, [uid]: { w: roundedW, h: roundedH } };
+                });
+              }}
+            />
+          );
+        })}
+
+      {/* IMAGE SELECTION BOX */}
+      {selectedImages.length > 0 && (
+        <SelectionBox
+          selectedImages={selectedImages}
+          canvasRef={drag.selectionBoxProps.canvasRef}
+          onDuplicate={handleDuplicateFromSelectionBox}
+          onStartGroupResize={groupResize.startResize}
+          onDelete={handleDeleteFromSelectionBox}
+          onResize={drag.selectionBoxProps.onResize}
+          onDeselectAll={drag.selectionBoxProps.onDeselectAll}
+        />
+      )}
+
+      {/* TEXT SELECTION BOX */}
+      {selectedText.length > 0 && (
+        <TextSelectionBox
+          selectedText={selectedText}
+          canvasRef={drag.selectionBoxProps.canvasRef}
+          onDuplicate={handleDuplicateFromSelectionBox}
+          onDelete={handleDeleteFromSelectionBox}
+          onDeselectAll={drag.selectionBoxProps.onDeselectAll}
+          onResizeText={onResizeTextCommit}
+          restrictedBox={restrictedBox}
           positions={positions}
-          sizes={sizes}
           imageState={imageState}
-          selected={drag.selected}
-          hovered={marquee.hovered}
-          onPointerDown={drag.onPointerDown}
+          sizes={sizes}
         />
-        
-    {/* TEXT */}
-    {Object.entries(imageState)
-      .filter(([_, layer]) => layer.type === "text")
-      .map(([uid, layer]: any) => {
-        const p = positions[uid] ?? { x: 200, y: 200 };
+      )}
 
-        const fontSize = layer.fontSize ?? 24; // ✅ hard default
-        const size = sizes[uid] ?? { w: 200, h: fontSize };
+      <SelectionWatcher
+        selected={drag.selected}
+        imageState={imageState}
+        onSelectImage={onSelectImage}
+        onSelectText={onSelectText}
+        onSwitchTab={onSwitchTab}
+        onSelectionChange={props.onSelectionChange}
+      />
 
-        return (
-          <DraggableText
-          
-            key={uid}
-            uid={uid}
-            text={layer.text ?? ""}
-            pos={p}
-            size={size}
-            rotation={layer.rotation ?? 0}
-            flip={layer.flip ?? "none"}
-            fontFamily={layer.fontFamily ?? "Arial"}
-            color={layer.color ?? "#000"}
-            borderColor={layer.borderColor}
-            borderWidth={layer.borderWidth}
-            highlighted={drag.selected.includes(uid)}
-            selected={drag.selected}
-            onPointerDown={drag.onPointerDown}
-            fontSize={fontSize}   // ✅ single source of truth
-            onDuplicate={handleDuplicateFromTextProperties}
-            onMeasure={(uid, w, h) => {
-              setSizes(prev => {
-                const existing = prev[uid];
-                
-                  console.log("🧠 SIZE STATE UPDATE", {
-                      uid,
-                      previous: existing,
-                      next: { w, h },
-                    });
-
-
-                // Helper: round to nearest 0.1px
-                const roundToTenths = (n: number) => Math.round(n * 10) / 10;
-
-                const roundedW = roundToTenths(w);
-                const roundedH = roundToTenths(h);
-
-                const firstMeasure = !existing;
-
-                // Check if change is significant (>=0.1px)
-                const changed =
-                  firstMeasure ||
-                  Math.abs((existing?.w ?? 0) - roundedW) >= 0.1 ||
-                  Math.abs((existing?.h ?? 0) - roundedH) >= 0.1;
-
-                if (!changed) {
-                  // no significant change → skip re-render
-                  return prev;
-                }
-
-                // ✅ Update sizes with consistent rounding
-                return {
-                  ...prev,
-                  [uid]: { w: roundedW, h: roundedH },
-                };
-              });
-            }}
-          />
-        );
-      })}
-
-
-
-        {/* IMAGE SELECTION BOX */}
-        {selectedImages.length > 0 && (
-          <SelectionBox
-            selectedImages={selectedImages}
-            canvasRef={drag.selectionBoxProps.canvasRef}
-            onDuplicate={handleDuplicateFromSelectionBox}
-            onStartGroupResize={groupResize.startResize}
-            onDelete={handleDeleteFromSelectionBox}
-            onResize={drag.selectionBoxProps.onResize}
-            onDeselectAll={drag.selectionBoxProps.onDeselectAll}
-          />
-        )}
-
-        {/* TEXT SELECTION BOX */}
-        {selectedText.length > 0 && (
-          
-          <TextSelectionBox
-            selectedText={selectedText}
-            canvasRef={drag.selectionBoxProps.canvasRef}
-            onDuplicate={handleDuplicateFromSelectionBox}
-            onDelete={handleDeleteFromSelectionBox}
-            onDeselectAll={drag.selectionBoxProps.onDeselectAll}
-            onResizeText={onResizeTextCommit}
-            restrictedBox={restrictedBox}
-            positions={positions}
-            imageState={imageState}
-            sizes={sizes}   
-          />
-        )}
-
-        <SelectionWatcher
-          selected={drag.selected}          // the currently selected UIDs
-          imageState={imageState}           // full image/text state
-          onSelectImage={onSelectImage}     // callback for single image selection
-          onSelectText={onSelectText}       // callback for single text selection
-          onSwitchTab={onSwitchTab}         // callback to switch sidebar tab
-          onSelectionChange={props.onSelectionChange} // NEW: reports full selection array
-        />
-
-        <Marquee marquee={marquee.marquee} />
-      </div>
-    );
-  }
+      <Marquee marquee={marquee.marquee} />
+    </div>
+  );
+}
