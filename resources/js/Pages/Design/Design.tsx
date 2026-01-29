@@ -57,7 +57,6 @@ type SidebarView =
   | "blank"
   | "product"
   | "upload"
-  | "image-properties"
   | "text"
   | "clipart"
   | "clipart-sections"
@@ -97,7 +96,16 @@ export default function Design() {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [selectedObjects, setSelectedObjects] = useState<string[]>([]);
   const [replaceClipartId, setReplaceClipartId] = useState<string | null>(null);
-  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [positions, setPositions] = useState<Record<string, {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    scale: number;
+}>>({});
+
+  const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
+
 
   // ---------------- UTILS ----------------
   const setSelectedUploadedImageWithLog = (uid: string | null) => {
@@ -178,6 +186,25 @@ export default function Design() {
     setMainImage(prev => (prev === (sorted[0] ?? "") ? prev : sorted[0] ?? ""));
   }, [selectedColour, selectedSize, variantsByColour]);
 
+
+  useEffect(() => {
+  // If an uploaded image is selected → show image properties
+  if (
+    selectedUploadedImage &&
+    imageState[selectedUploadedImage]?.type === "image" &&
+    !imageState[selectedUploadedImage]?.isClipart
+  ) {
+    setSidebarStack(["image-properties"]);
+    return;
+  }
+
+  // If nothing is selected → go back to upload
+  if (!selectedUploadedImage) {
+    setSidebarStack(["upload"]);
+  }
+}, [selectedUploadedImage, imageState]);
+
+
   // ---------------- HANDLERS ----------------
   const handleRotateImage = (uid: string, angle: number) => {
     setImageState(prev => prev[uid] ? { ...prev, [uid]: { ...prev[uid], rotation: angle } } : prev);
@@ -198,12 +225,22 @@ const handleFlipImage = (id: string, flip: "none" | "horizontal" | "vertical") =
 };
 
 
-  const handleUpdateImageSize = (uid: string, w: number, h: number) => {
-    setImageState(prev => ({
-      ...prev,
-      [uid]: { ...(prev[uid] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }), size: { w, h } },
-    }));
-  };
+const handleUpdateImageSize = (uid: string, w: number, h: number) => {
+  setImageState(prev => ({
+    ...prev,
+    [uid]: {
+      ...(prev[uid] ?? { rotation: 0, flip: "none", size: { w: 150, h: 150 } }),
+      size: { w, h },
+    },
+  }));
+
+  setSizes(prev => ({
+    ...prev,
+    [uid]: { w, h },
+  }));
+};
+
+
 
   const handleChangeImageColor = (uid: string, color: string) => {
     setImageState(prev => prev[uid] ? { ...prev, [uid]: { ...prev[uid], color } } : prev);
@@ -258,26 +295,47 @@ const handleFlipImage = (id: string, flip: "none" | "horizontal" | "vertical") =
     setSidebarStack(["clipart"]);
   };
 
-  const handleUpload = (url: string) => {
+const handleUpload = (url: string) => {
     const uid = crypto.randomUUID();
-    const size = { w: 150, h: 150 };
+    const defaultSize = { w: 150, h: 150 };
+
     setUploadedImages(prev => [...prev, uid]);
+
     setImageState(prev => ({
-      ...prev,
-      [uid]: {
-        url,
-        type: "image",
-        rotation: 0,
-        flip: "none",
-        size,
-        canvasPositions: { [uid]: { x: 100, y: 100, width: size.w, height: size.h, scale: 1 } },
-        restrictedBox: { x: 0, y: 0, w: size.w, h: size.h },
-        original: { url, rotation: 0, flip: "none", size: { ...size } },
-      },
+        ...prev,
+        [uid]: {
+            url,
+            type: "image",
+            rotation: 0,
+            flip: "none",
+            size: defaultSize,
+            canvasPositions: {
+                [uid]: { x: 100, y: 100, width: defaultSize.w, height: defaultSize.h, scale: 1 },
+            },
+            restrictedBox: { x: 0, y: 0, w: 600, h: 600 },
+            original: { url, rotation: 0, flip: "none", size: { ...defaultSize } },
+            isClipart: false,
+            isSvg: false,
+            text: undefined,
+            fontFamily: undefined,
+            color: undefined,
+            borderColor: undefined,
+            borderWidth: undefined,
+            fontSize: undefined,
+            width: undefined,
+            renderKey: undefined,
+        },
     }));
+
+    setSizes(prev => ({
+        ...prev,
+        [uid]: { ...defaultSize },
+    }));
+
     setSelectedUploadedImageWithLog(uid);
     setSidebarStack(["image-properties"]);
-  };
+};
+
 
   const handleDuplicateUploadedImage = (uid: string) => {
     const source = imageState[uid];
@@ -332,14 +390,25 @@ const handleFlipImage = (id: string, flip: "none" | "horizontal" | "vertical") =
   };
 
   // ---------------- SIDEBAR TITLES ----------------
-  const SIDEBAR_TITLES: Record<string, string | ((props: any) => string)> = {
-    product: "Product",
-    text: ({ selectedText }: any) => (selectedText ? "Text Properties" : "Text"),
-    clipart: ({ selectedUploadedImage, imageState }: any) =>
-      selectedUploadedImage && imageState[selectedUploadedImage]?.isClipart ? "Clipart Properties" : "Clipart",
-    upload: ({ selectedUploadedImage, imageState }: any) =>
-      selectedUploadedImage && !imageState[selectedUploadedImage]?.isClipart ? "Image Properties" : "Upload",
-  };
+const SIDEBAR_TITLES: Record<string, string | ((props: any) => string)> = {
+  product: "Product",
+
+  text: ({ selectedText }: any) =>
+    selectedText ? "Text Properties" : "Text",
+
+  clipart: ({ selectedUploadedImage, imageState }: any) =>
+    selectedUploadedImage && imageState[selectedUploadedImage]?.isClipart
+      ? "Clipart Properties"
+      : "Clipart",
+
+  upload: ({ selectedUploadedImage, imageState }: any) =>
+    selectedUploadedImage && !imageState[selectedUploadedImage]?.isClipart
+      ? "Image Properties"
+      : "Upload",
+
+  "image-properties": "Image Properties", // ✅ ADD THIS
+};
+
 
   const renderActiveTab = () => {
     if (selectedObjects.length > 1) return <MultiSelectPanel selectedObjects={selectedObjects} imageState={imageState} />;
@@ -351,23 +420,26 @@ const handleFlipImage = (id: string, flip: "none" | "horizontal" | "vertical") =
 
       case "upload":
       case "image-properties":
-        if (!selectedUploadedImage && activeSidebar === "image-properties") return null;
-        return <UploadSidebar
-          onUpload={handleUpload}
-          recentImages={uploadedImages}
-          selectedImage={selectedUploadedImage}
-          onSelectImage={setSelectedUploadedImageWithLog}
-          imageState={imageState}
-          setImageState={setImageState}
-          onRotateImage={handleRotateImage}
-          onFlipImage={handleFlipImage}
-          onUpdateImageSize={handleUpdateImageSize}
-          onRemoveUploadedImage={handleRemoveUploadedImage}
-          onDuplicateUploadedImage={handleDuplicateUploadedImage}
-          restrictedBox={restrictedBox}
-          canvasPositions={positions}
-          onResetImage={handleResetImage}
-        />;
+        return (
+          <UploadSidebar
+            onUpload={handleUpload}
+            recentImages={uploadedImages}
+            selectedImage={selectedUploadedImage}
+            onSelectImage={setSelectedUploadedImageWithLog}
+            imageState={imageState}
+            uploadedImages={imageState} // pass your state here
+            setImageState={setImageState}
+            onRotateImage={handleRotateImage}
+            onFlipImage={handleFlipImage}
+            onUpdateImageSize={handleUpdateImageSize}
+            onRemoveUploadedImage={handleRemoveUploadedImage}
+            onDuplicateUploadedImage={handleDuplicateUploadedImage}
+            restrictedBox={restrictedBox}
+            canvasPositions={positions}
+            onResetImage={handleResetImage}
+          />
+        );
+
 
       case "text":
         if (!selectedText || !imageState[selectedText]) return <AddText onAddText={layer => { setImageState(prev => ({ ...prev, [layer.id]: { url: "", type: "text", text: layer.text, rotation: 0, flip: "none", size: { w: 200, h: layer.fontSize }, fontFamily: layer.font, color: layer.color, borderColor: layer.borderColor, borderWidth: layer.borderWidth, fontSize: layer.fontSize, width: layer.width, original: { url: "", rotation: 0, flip: "none", size: { w: 200, h: layer.fontSize } } } })); setSelectedText(layer.id); setSidebarStack(["text"]); }} />;
@@ -470,6 +542,9 @@ const handleFlipImage = (id: string, flip: "none" | "horizontal" | "vertical") =
 
           {/* MAIN CANVAS */}
           <Canvas
+            sizes={sizes}
+            setSizes={setSizes}
+            canvasPositions={positions}
             mainImage={mainImage}
             restrictedBox={restrictedBox}
             canvasRef={canvasRef}
@@ -483,7 +558,10 @@ const handleFlipImage = (id: string, flip: "none" | "horizontal" | "vertical") =
               if (!tab) return;
               if (tab !== "clipart" && tab !== "image-properties") setSelectedUploadedImageWithLog(null);
               if (tab !== "text") setSelectedText(null);
-              setSidebarStack([tab as SidebarView]);
+              setSidebarStack((prev) =>
+                prev[prev.length - 1] === tab ? prev : [...prev.slice(0, 1), tab as SidebarView]
+              );
+
             }}
             onDelete={uids => uids.forEach(uid => handleRemoveUploadedImage(uid))}
             onResizeTextCommit={handleResizeText}

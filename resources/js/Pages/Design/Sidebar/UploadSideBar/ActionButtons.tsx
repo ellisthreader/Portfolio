@@ -15,13 +15,13 @@ export default function ActionButtons({
   onResetImage,
   onCrop,
 }: ActionButtonsProps) {
-  // Defensive: do nothing if no image is selected
   if (!selectedImage) return null;
 
   return (
     <div className="space-y-3">
       {/* Duplicate */}
       <button
+        type="button"
         className="w-full py-3 bg-gray-200 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-300"
         onClick={() => onDuplicateUploadedImage?.(selectedImage)}
       >
@@ -31,8 +31,12 @@ export default function ActionButtons({
 
       {/* Crop */}
       <button
+        type="button"
         className="w-full py-3 bg-gray-200 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-300"
-        onClick={() => onCrop?.(selectedImage)}
+        onClick={() => {
+          console.log("✂️ Crop clicked:", selectedImage);
+          onCrop?.(selectedImage);
+        }}
       >
         <RotateCw size={18} />
         Crop
@@ -40,6 +44,7 @@ export default function ActionButtons({
 
       {/* Reset */}
       <button
+        type="button"
         className="w-full py-3 bg-red-100 text-red-700 rounded-xl flex items-center justify-center gap-2 hover:bg-red-200"
         onClick={() => onResetImage?.(selectedImage)}
       >
@@ -49,6 +54,7 @@ export default function ActionButtons({
 
       {/* Delete */}
       <button
+        type="button"
         className="w-full py-3 bg-red-200 text-red-700 rounded-xl flex items-center justify-center gap-2 hover:bg-red-300"
         onClick={() => onRemoveUploadedImage?.(selectedImage)}
       >

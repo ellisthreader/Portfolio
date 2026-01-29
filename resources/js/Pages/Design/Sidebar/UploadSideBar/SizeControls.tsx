@@ -1,7 +1,19 @@
+"use client";
+
 import { useEffect, useState } from "react";
 
 const DPI = 96;
 const MIN_INCHES = 0.1;
+
+type SizeControlsProps = {
+  selectedImage: string;
+  image: any; // could be typed as ImageState
+  restrictedBox?: { x: number; y: number; w: number; h: number };
+  canvasPositions?: Record<string, { x: number; y: number }>;
+  onUpdateImageSize?: (id: string, w: number, h: number) => void;
+  setImageState?: React.Dispatch<any>;
+  setSizes?: React.Dispatch<any>;
+};
 
 export default function SizeControls({
   selectedImage,
@@ -10,11 +22,12 @@ export default function SizeControls({
   canvasPositions,
   onUpdateImageSize,
   setImageState,
-}: any) {
+  setSizes,
+}: SizeControlsProps) {
   const [sizeInches, setSizeInches] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
-    if (!image) return;
+    if (!image?.size) return;
 
     setSizeInches({
       width: Number((image.size.w / DPI).toFixed(2)),
@@ -22,59 +35,68 @@ export default function SizeControls({
     });
   }, [image?.size?.w, image?.size?.h]);
 
-
   const clamp = (v: number) => Math.max(MIN_INCHES, v);
 
-  const updateSize = (wIn: number, hIn: number) => {
-    const pos = canvasPositions[selectedImage] ?? { x: 0, y: 0 };
+const updateSize = (wIn: number, hIn: number) => {
+  if (!selectedImage || !image) return;
 
-    const pxW = wIn * DPI;
-    const pxH = hIn * DPI;
+  const pos = canvasPositions?.[selectedImage] ?? { x: 0, y: 0 };
 
-    // Max size before crossing restricted border
-    // Restricted edges
-    const boxLeft = restrictedBox.left;
-    const boxTop = restrictedBox.top;
-    const boxRight = restrictedBox.left + restrictedBox.width;
-    const boxBottom = restrictedBox.top + restrictedBox.height;
+  let pxW = wIn * DPI;
+  let pxH = hIn * DPI;
 
-    // Where the image is allowed to start (can't be left of box)
-    const clampedX = Math.max(pos.x, boxLeft);
-    const clampedY = Math.max(pos.y, boxTop);
+  if (restrictedBox) {
+    const boxLeft = restrictedBox.x ?? 0;
+    const boxTop = restrictedBox.y ?? 0;
+    const boxRight = boxLeft + (restrictedBox.w ?? 0);
+    const boxBottom = boxTop + (restrictedBox.h ?? 0);
 
-    // Max size while staying inside the box
-    const maxW = Math.max(1, boxRight - clampedX);
-    const maxH = Math.max(1, boxBottom - clampedY);
+    // Ensure width & height do not push the image outside the box
+    // If the image is partially outside left/top, move it in first
+    let newX = pos.x;
+    let newY = pos.y;
 
+    if (pos.x < boxLeft) newX = boxLeft;
+    if (pos.y < boxTop) newY = boxTop;
 
-    // Freeze at the boundary
-    const finalW = Math.min(pxW, maxW);
-    const finalH = Math.min(pxH, maxH);
+    // Now clamp size so right/bottom edges stay inside
+    pxW = Math.min(pxW, boxRight - newX);
+    pxH = Math.min(pxH, boxBottom - newY);
 
-    // Sync the inputs so they "freeze" visually too
-    setSizeInches({
-      width: Number((finalW / DPI).toFixed(2)),
-      height: Number((finalH / DPI).toFixed(2)),
-    });
+    // Also ensure size is at least MIN_INCHES
+    pxW = Math.max(pxW, MIN_INCHES * DPI);
+    pxH = Math.max(pxH, MIN_INCHES * DPI);
 
-    onUpdateImageSize?.(
-      selectedImage,
-      Math.round(finalW),
-      Math.round(finalH)
-    );
+    // Optional: update the position if it was corrected
+    canvasPositions![selectedImage] = { ...pos, x: newX, y: newY };
+  }
 
-    setImageState?.((prev: any) => ({
-      ...prev,
-      [selectedImage]: {
-        ...prev[selectedImage],
-        size: { w: Math.round(finalW), h: Math.round(finalH) },
-      },
-    }));
-  };
+  // Update local state
+  setSizeInches({
+    width: +(pxW / DPI).toFixed(2),
+    height: +(pxH / DPI).toFixed(2),
+  });
 
+  // Update global state
+  onUpdateImageSize?.(selectedImage, Math.round(pxW), Math.round(pxH));
+
+  setImageState?.((prev: any) => ({
+    ...prev,
+    [selectedImage]: {
+      ...prev[selectedImage],
+      size: { w: Math.round(pxW), h: Math.round(pxH) },
+    },
+  }));
+
+  setSizes?.((prev: any) => ({
+    ...prev,
+    [selectedImage]: { w: Math.round(pxW), h: Math.round(pxH) },
+  }));
+};
+  
   return (
-    <div>
-      <p className="font-semibold text-lg mb-2">Upload Size</p>
+    <div className="space-y-2">
+      <p className="font-semibold text-lg">Upload Size</p>
 
       <div className="grid grid-cols-2 gap-3">
         {/* Width */}

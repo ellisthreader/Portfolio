@@ -39,6 +39,9 @@ export type CanvasProps = {
   onSelectText?: (uid: string | null) => void;
   onSwitchTab?: (tab: string) => void;
   onSelectionChange?: (uids: string[]) => void;
+   sizes?: Record<string, { w: number; h: number }>;
+  setSizes?: React.Dispatch<React.SetStateAction<Record<string, { w: number; h: number }>>>;
+  canvasPositions?: Record<string, { x: number; y: number; width: number; height: number; scale: number }>;
 };
 
 // --------------------- Helper functions ---------------------
@@ -186,10 +189,10 @@ const st = selectedImageId ? imageState[selectedImageId] : undefined;
       drag.setSelected([]);
       onSelectImage?.(null);
       onSelectText?.(null);
-      onSwitchTab?.(null);
       marquee.onPointerDown(e);
       return;
     }
+
 
     // Get layer, fallback to latest uploaded image if needed
     const layer =
@@ -215,7 +218,6 @@ const st = selectedImageId ? imageState[selectedImageId] : undefined;
     if (layer.type === "image" && !layer.isClipart) {
       onSelectText?.(null);
       onSelectImage?.(uid);
-      onSwitchTab?.("image-properties");
       drag.setSelected([uid]);
       drag.onPointerDown(e, uid);
 
@@ -249,7 +251,7 @@ const st = selectedImageId ? imageState[selectedImageId] : undefined;
       <UploadedImagesLayer
         uids={visualUids}
         positions={positions}
-        sizes={sizes}
+        sizes={sizes} // <- this drives the render size
         imageState={imageState}
         selected={drag.selected}
         hovered={marquee.hovered}

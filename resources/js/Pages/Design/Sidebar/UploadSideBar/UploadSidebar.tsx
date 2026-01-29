@@ -7,19 +7,22 @@ import Crop from "./Crop";
 
 // -------------------- TYPES --------------------
 export type ImageState = {
-  url: string;
+  url: string; // current (possibly cropped) image
   type?: "image" | "text";
   isClipart?: boolean;
   size: { w: number; h: number };
   rotation?: number;
   flip?: "none" | "horizontal" | "vertical";
   crop?: any;
+
+  // ✅ original image is preserved forever
   original?: {
     url: string;
     size: { w: number; h: number };
     rotation?: number;
     flip?: "none" | "horizontal" | "vertical";
   };
+
   canvasPositions?: Record<string, any>;
   restrictedBox?: { x: number; y: number; w: number; h: number };
 };
@@ -27,12 +30,14 @@ export type ImageState = {
 type UploadSidebarProps = {
   selectedImage?: string | null;
   imageState: Record<string, ImageState>;
-  setImageState: React.Dispatch<React.SetStateAction<Record<string, ImageState>>>;
+  setImageState: React.Dispatch<
+    React.SetStateAction<Record<string, ImageState>>
+  >;
   onUpload: (url: string) => void;
   recentImages?: string[];
   onSelectImage?: (url: string | null) => void;
 
-  // ---------------- Handlers for Action Buttons ----------------
+  uploadedImages: Record<string, any>;
   onDuplicateUploadedImage?: (id: string) => void;
   onRemoveUploadedImage?: (id: string) => void;
   onResetImage?: (id: string) => void;
@@ -44,6 +49,7 @@ type UploadSidebarProps = {
 export default function UploadSidebar({
   selectedImage,
   imageState,
+  uploadedImages,
   setImageState,
   onUpload,
   recentImages = [],
@@ -55,16 +61,28 @@ export default function UploadSidebar({
   onFlipImage,
 }: UploadSidebarProps) {
   const [cropMode, setCropMode] = useState(false);
-
-  // ------------------- Debug -------------------
-  useEffect(() => {
-    const layer = selectedImage ? imageState[selectedImage] : null;
-    console.log("📌 UploadSidebar render", { selectedImage, layer });
-  }, [selectedImage, imageState]);
+  const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
 
   // ------------------- Derived layer -------------------
   const layer = selectedImage ? imageState[selectedImage] : null;
-  const layerExists = !!layer;
+  const layerExists = Boolean(layer);
+
+  const imagePropertiesOpen = Boolean(
+    selectedImage &&
+      layerExists &&
+      layer?.type === "image" &&
+      !layer?.isClipart
+  );
+
+  // ------------------- Debug -------------------
+  useEffect(() => {
+    console.log("📌 UploadSidebar render", {
+      selectedImage,
+      layer,
+      cropMode,
+      imagePropertiesOpen,
+    });
+  }, [selectedImage, layer, cropMode, imagePropertiesOpen]);
 
   // ------------------- Filter recent images -------------------
   const uploadOnlyImages = useMemo(
@@ -72,45 +90,46 @@ export default function UploadSidebar({
     [recentImages, imageState]
   );
 
-  // ------------------- Handle image resizing -------------------
-  const handleUpdateImageSize = (id: string, size: { w: number; h: number }) => {
-    setImageState((prev) => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        size,
-      },
-    }));
+  // ------------------- IMAGE SELECTION -------------------
+  const handleSelectImage = (id: string | null) => {
+    setCropMode(false);
+    onSelectImage?.(id);
   };
 
   // ------------------- CROPPING MODE -------------------
-  if (cropMode && layerExists) {
+  if (cropMode && layerExists && selectedImage) {
+    const current = imageState[selectedImage];
+    if (!current) return null;
+
+    const originalImageUrl = current.original?.url ?? current.url;
+
     return (
       <Crop
-        selectedImage={layer?.url ?? selectedImage}
-        originalImage={layer?.original?.url}
-        initialCrop={layer?.crop}
-        onReplaceCanvasImage={(newURL, crop) => {
+        originalImageUrl={originalImageUrl}
+        initialCrop={current.crop ?? undefined}
+        onReplaceCanvasImage={(newUrl, crop) => {
           setImageState((prev) => {
-            const current = prev[selectedImage!];
-            if (!current) return prev;
+            const existing = prev[selectedImage];
+            if (!existing) return prev;
 
             return {
               ...prev,
-              [selectedImage!]: {
-                ...current,
-                url: newURL,
+              [selectedImage]: {
+                ...existing,
+                url: newUrl,
                 crop,
                 original:
-                  current.original ?? {
-                    url: current.url,
-                    size: current.size,
-                    rotation: current.rotation,
-                    flip: current.flip,
+                  existing.original ??
+                  {
+                    url: existing.url,
+                    size: existing.size,
+                    rotation: existing.rotation,
+                    flip: existing.flip,
                   },
               },
             };
           });
+
           setCropMode(false);
         }}
         onClose={() => setCropMode(false)}
@@ -119,23 +138,40 @@ export default function UploadSidebar({
   }
 
   // ------------------- IMAGE EDITOR -------------------
-  if (layerExists && selectedImage) {
+  if (imagePropertiesOpen && layerExists && selectedImage) {
+    // ✅ These were missing in your code
+    const restrictedBox = layer?.restrictedBox;
+    const positions = layer?.canvasPositions ?? {};
+
+    const handleUpdateImageSize = (id: string, w: number, h: number) => {
+      setImageState((prev) => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          size: { w, h },
+        },
+      }));
+    };
+
     return (
       <ImageEditor
         selectedImage={selectedImage}
-        imageState={imageState}
-        setImageState={setImageState}
-        onUpdateImageSize={handleUpdateImageSize}
-        onCrop={() => setCropMode(true)}
-        canvasPositions={layer?.canvasPositions}
-        restrictedBox={layer?.restrictedBox}
+        layer={layer}
 
-        // ---------------- Action Buttons ----------------
+        // new props for SizeControls
+        restrictedBox={restrictedBox}
+        positions={positions}
+        handleUpdateImageSize={handleUpdateImageSize}
+        setImageState={setImageState}
+        setSizes={setSizes}
+
+        onSelectImage={onSelectImage}
+        onRotateImage={onRotateImage}
+        onFlipImage={onFlipImage}
         onDuplicateUploadedImage={onDuplicateUploadedImage}
         onRemoveUploadedImage={onRemoveUploadedImage}
         onResetImage={onResetImage}
-        onRotateImage={onRotateImage}
-        onFlipImage={onFlipImage}
+        onCrop={() => setCropMode(true)}
       />
     );
   }
@@ -146,8 +182,7 @@ export default function UploadSidebar({
       onUpload={onUpload}
       recentImages={uploadOnlyImages}
       imageState={imageState}
-      onSelectImage={onSelectImage}
+      onSelectImage={handleSelectImage}
     />
   );
 }
-  
