@@ -14,6 +14,7 @@ export type ImageState = {
   rotation?: number;
   flip?: "none" | "horizontal" | "vertical";
   crop?: any;
+  
 
   // ✅ original image is preserved forever
   original?: {
@@ -43,10 +44,12 @@ type UploadSidebarProps = {
   onResetImage?: (id: string) => void;
   onRotateImage?: (id: string, rotation: number) => void;
   onFlipImage?: (id: string, flip: "none" | "horizontal" | "vertical") => void;
+  canvasRef: React.RefObject<HTMLDivElement>; // ✅ ADD THIS
 };
 
 // -------------------- COMPONENT --------------------
 export default function UploadSidebar({
+  canvasRef,
   selectedImage,
   imageState,
   uploadedImages,
@@ -137,44 +140,47 @@ export default function UploadSidebar({
     );
   }
 
-  // ------------------- IMAGE EDITOR -------------------
-  if (imagePropertiesOpen && layerExists && selectedImage) {
-    // ✅ These were missing in your code
-    const restrictedBox = layer?.restrictedBox;
-    const positions = layer?.canvasPositions ?? {};
+// ------------------- IMAGE EDITOR -------------------
+if (imagePropertiesOpen && layerExists && selectedImage) {
+  const restrictedBox = layer?.restrictedBox;
+  const positions = layer?.canvasPositions ?? {};
 
-    const handleUpdateImageSize = (id: string, w: number, h: number) => {
-      setImageState((prev) => ({
+  // ✅ Define updateImageSize function
+  const updateImageSize = (id: string, w: number, h: number) => {
+    setImageState((prev) => {
+      const current = prev[id];
+      if (!current) return prev;
+
+      return {
         ...prev,
         [id]: {
-          ...prev[id],
-          size: { w, h },
+          ...current,
+          size: { w, h }, // update the width/height
         },
-      }));
-    };
+      };
+    });
+  };
 
-    return (
-      <ImageEditor
-        selectedImage={selectedImage}
-        layer={layer}
+  return (
+    <ImageEditor
+      selectedImage={selectedImage}
+      layer={layer}
+      canvasRef={canvasRef}
+      // new props for SizeControls
+      restrictedBox={restrictedBox}
+      positions={positions}
+      onResize={(w, h) => updateImageSize(selectedImage, w, h)} // ✅ now exists
 
-        // new props for SizeControls
-        restrictedBox={restrictedBox}
-        positions={positions}
-        handleUpdateImageSize={handleUpdateImageSize}
-        setImageState={setImageState}
-        setSizes={setSizes}
+      onRotateImage={onRotateImage}
+      onFlipImage={onFlipImage} 
+      onDuplicateUploadedImage={onDuplicateUploadedImage}
+      onRemoveUploadedImage={onRemoveUploadedImage}
+      onResetImage={onResetImage}
+      onCrop={() => setCropMode(true)}
+    />
+  );
+}
 
-        onSelectImage={onSelectImage}
-        onRotateImage={onRotateImage}
-        onFlipImage={onFlipImage}
-        onDuplicateUploadedImage={onDuplicateUploadedImage}
-        onRemoveUploadedImage={onRemoveUploadedImage}
-        onResetImage={onResetImage}
-        onCrop={() => setCropMode(true)}
-      />
-    );
-  }
 
   // ------------------- UPLOAD PANEL -------------------
   return (

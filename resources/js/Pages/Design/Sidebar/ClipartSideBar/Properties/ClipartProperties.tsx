@@ -54,24 +54,86 @@ export default function ClipartProperties({
     layer.url?.endsWith(".svg") ||
     layer.src?.endsWith(".svg");
 
-  const handleResize = (requestedWidth: number) => {
-    // ✅ Prevent user from typing < 1
-    const clampedWidth = Math.max(requestedWidth, 1);
+  
 
-    const pos = canvasPosition ?? { x: 0, y: 0 };
 
-    const result = getClampedSize({
-      requestedWidth: clampedWidth,
-      currentWidth: layer.size.w,
-      currentHeight: layer.size.h,
-      position: pos,
-      restrictedBox,
-    });
 
-    if (!result) return;
 
-    onResize(result.width, result.height);
+
+
+
+
+
+const handleResize = (requestedWidth: number) => {
+  console.group("[CLIPART] handleResize");
+  console.log("Slider input:", requestedWidth);
+
+  // ✅ Prevent invalid values
+  const clampedWidth = Math.max(requestedWidth, 1);
+  console.log("Clamped width (min 1):", clampedWidth);
+
+  // Current position
+  const pos = canvasPosition ?? { x: 0, y: 0 };
+  console.log("Canvas position:", pos);
+
+  // Current layer size
+  const currentSize = layer.size;
+  console.log("Current layer size:", currentSize);
+
+  // Normalized restricted box
+  const normalizedRestrictedBox = {
+    x: restrictedBox.x ?? 0,
+    y: restrictedBox.y ?? 0,
+    width: restrictedBox.width ?? 600,
+    height: restrictedBox.height ?? 600,
   };
+  console.log("Restricted box:", normalizedRestrictedBox);
+
+  // Call clamp utility
+  const result = getClampedSize({
+    requestedWidth: clampedWidth,
+    currentWidth: currentSize.w,
+    currentHeight: currentSize.h,
+    position: pos,
+    restrictedBox: normalizedRestrictedBox,
+  });
+
+  console.log("Clamp result:", result);
+
+  if (!result) {
+    console.warn("[CLIPART] getClampedSize returned null — cannot resize without breaking constraints");
+    console.groupEnd();
+    return;
+  }
+
+  // Check if resized clipart touches the restricted box edges
+  const touchesLeft = pos.x < normalizedRestrictedBox.x;
+  const touchesTop = pos.y < normalizedRestrictedBox.y;
+  const touchesRight =
+    pos.x + result.width > normalizedRestrictedBox.x + normalizedRestrictedBox.width;
+  const touchesBottom =
+    pos.y + result.height > normalizedRestrictedBox.y + normalizedRestrictedBox.height;
+
+  if (touchesLeft || touchesTop || touchesRight || touchesBottom) {
+    console.warn(
+      "[CLIPART] Layer touches/exceeds restricted box edges:",
+      { touchesLeft, touchesTop, touchesRight, touchesBottom }
+    );
+  }
+
+  // Update the size
+  console.log("Updating clipart size to:", result.width, result.height);
+  onResize(result.width, result.height);
+
+  console.groupEnd();
+};
+
+
+
+
+
+
+
 
   return (
     <div className="p-6 space-y-5 h-full overflow-y-auto relative">

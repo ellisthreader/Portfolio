@@ -422,6 +422,7 @@ const SIDEBAR_TITLES: Record<string, string | ((props: any) => string)> = {
       case "image-properties":
         return (
           <UploadSidebar
+            canvasRef={canvasRef}  
             onUpload={handleUpload}
             recentImages={uploadedImages}
             selectedImage={selectedUploadedImage}
