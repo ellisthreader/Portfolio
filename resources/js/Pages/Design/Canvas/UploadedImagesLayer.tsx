@@ -25,23 +25,25 @@ export default function UploadedImagesLayer({
       {uids
         .filter((uid) => imageState[uid]?.type === "image")
         .map((uid) => {
-          const s = sizes[uid];
-          const p = positions[uid];
+          const size = sizes[uid];
+          const pos = positions[uid];
 
-          if (!s || !p) return null;
+          if (!size || !pos) return null;
+
+          const layer = imageState[uid];
 
           return (
             <DraggableImage
-              key={`${uid}-${imageState[uid]?.flip ?? "none"}`} 
+              key={uid} // ✅ MUST be stable — never depend on mutable state
               uid={uid}
-              url={imageState[uid]?.src ?? imageState[uid]?.url ?? ""}
-              pos={p}
-              size={s}
-              rotation={imageState[uid]?.rotation ?? 0}
-              flip={imageState[uid]?.flip ?? "none"}
+              url={layer?.url ?? ""}
+              pos={pos}
+              size={size}
+              rotation={layer?.rotation ?? 0}
+              flip={layer?.flip ?? "none"}
               highlighted={selected.includes(uid) || hovered[uid]}
-              onPointerDown={onPointerDown} // ✅ pointer event stays intact
-              color={imageState[uid]?.color ?? "#000000"}
+              onPointerDown={onPointerDown}
+              color={layer?.color ?? "#000000"}
             />
           );
         })}

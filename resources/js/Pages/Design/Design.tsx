@@ -188,21 +188,16 @@ export default function Design() {
 
 
   useEffect(() => {
-  // If an uploaded image is selected → show image properties
+  // Only auto-switch when an uploaded IMAGE is selected
   if (
     selectedUploadedImage &&
     imageState[selectedUploadedImage]?.type === "image" &&
     !imageState[selectedUploadedImage]?.isClipart
   ) {
     setSidebarStack(["image-properties"]);
-    return;
-  }
-
-  // If nothing is selected → go back to upload
-  if (!selectedUploadedImage) {
-    setSidebarStack(["upload"]);
   }
 }, [selectedUploadedImage, imageState]);
+
 
 
   // ---------------- HANDLERS ----------------
