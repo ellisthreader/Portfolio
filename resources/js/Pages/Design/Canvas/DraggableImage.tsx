@@ -33,7 +33,13 @@ export default function DraggableImage({
     <img
       data-uid={uid}
       src={url}
-      onPointerDown={(e) => onPointerDown(e, uid)}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onPointerDown={(e) => {
+        e.preventDefault();      // ⛔ kill browser drag
+        e.stopPropagation();     // ⛔ stop bubbling
+        onPointerDown(e, uid);   // ✅ your logic
+      }}
       style={{
         position: "absolute",
         width: size.w,

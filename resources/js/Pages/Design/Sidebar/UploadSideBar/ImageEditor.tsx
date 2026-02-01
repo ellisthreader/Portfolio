@@ -28,16 +28,23 @@ type ImageEditorProps = {
 function getMaxWidthFromCanvas({
   canvasRect,
   center,
-  aspect,
+  layer,
 }: {
   canvasRect: DOMRect;
   center: { x: number; y: number };
-  aspect: number;
+  layer: ImageState;
 }) {
-  const maxHalfWidth = Math.min(center.x, canvasRect.width - center.x);
-  const maxHalfHeightAsWidth = Math.min(center.y, canvasRect.height - center.y) / aspect;
+  const aspect = layer.size.h / layer.size.w;
 
-  return Math.max(20, 2 * Math.min(maxHalfWidth, maxHalfHeightAsWidth));
+  const maxWidthLeft = center.x;
+  const maxWidthRight = canvasRect.width - center.x;
+  const maxWidth = 2 * Math.min(maxWidthLeft, maxWidthRight);
+
+  const maxHeightTop = center.y;
+  const maxHeightBottom = canvasRect.height - center.y;
+  const maxHeightAsWidth = 2 * Math.min(maxHeightTop, maxHeightBottom) / aspect;
+
+  return Math.max(20, Math.min(maxWidth, maxHeightAsWidth));
 }
 
 export default function ImageEditor({
@@ -57,7 +64,6 @@ export default function ImageEditor({
 
   const canvas = canvasRef.current;
   const center = positions[selectedImage];
-
   if (!center) return null;
 
   const canvasRect = canvas.getBoundingClientRect();
@@ -69,21 +75,29 @@ export default function ImageEditor({
   const handleResize = (requestedWidth: number) => {
     const requestedHeight = requestedWidth * aspect;
 
-    const maxWidth = Math.min(center.x * 2, (canvasRect.width - center.x) * 2);
-    const maxHeight = Math.min(center.y * 2, (canvasRect.height - center.y) * 2);
+    const maxWidthLeft = center.x;
+    const maxWidthRight = canvasRect.width - center.x;
+    const maxWidth = 2 * Math.min(maxWidthLeft, maxWidthRight);
 
-    const scale = Math.min(maxWidth / requestedWidth, maxHeight / requestedHeight, 1);
+    const maxHeightTop = center.y;
+    const maxHeightBottom = canvasRect.height - center.y;
+    const maxHeightAsWidth = 2 * Math.min(maxHeightTop, maxHeightBottom) / aspect;
+
+    const scale = Math.min(
+      maxWidth / requestedWidth,
+      maxHeightAsWidth / requestedWidth,
+      1
+    );
 
     if (scale <= 0 || Number.isNaN(scale)) return;
 
     onResize?.(requestedWidth * scale, requestedHeight * scale);
   };
 
-  // Slider max matches the clamp
   const sliderMax = getMaxWidthFromCanvas({
     canvasRect,
     center,
-    aspect,
+    layer,
   });
 
   return (
@@ -93,7 +107,7 @@ export default function ImageEditor({
         <ClipartSizeControls
           value={layer.size.w}
           min={20}
-          max={sliderMax}
+          max={200}
           onChange={handleResize}
         />
       </div>
@@ -107,7 +121,9 @@ export default function ImageEditor({
             min={-180}
             max={180}
             value={layer.rotation ?? 0}
-            onChange={(e) => onRotateImage?.(selectedImage, Number(e.target.value))}
+            onChange={(e) =>
+              onRotateImage?.(selectedImage, Number(e.target.value))
+            }
             className="flex-1"
           />
           <input
@@ -115,7 +131,9 @@ export default function ImageEditor({
             min={-180}
             max={180}
             value={layer.rotation ?? 0}
-            onChange={(e) => onRotateImage?.(selectedImage, Number(e.target.value))}
+            onChange={(e) =>
+              onRotateImage?.(selectedImage, Number(e.target.value))
+            }
             className="w-20 px-2 py-1 border rounded-lg font-mono text-right"
           />
         </div>
@@ -132,7 +150,10 @@ export default function ImageEditor({
                 : "bg-gray-100 hover:bg-gray-200"
             }`}
             onClick={() =>
-              onFlipImage?.(selectedImage, layer.flip === "horizontal" ? "none" : "horizontal")
+              onFlipImage?.(
+                selectedImage,
+                layer.flip === "horizontal" ? "none" : "horizontal"
+              )
             }
           >
             <FlipHorizontal size={18} />
@@ -146,7 +167,10 @@ export default function ImageEditor({
                 : "bg-gray-100 hover:bg-gray-200"
             }`}
             onClick={() =>
-              onFlipImage?.(selectedImage, layer.flip === "vertical" ? "none" : "vertical")
+              onFlipImage?.(
+                selectedImage,
+                layer.flip === "vertical" ? "none" : "vertical"
+              )
             }
           >
             <FlipVertical size={18} />

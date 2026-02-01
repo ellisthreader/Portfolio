@@ -108,10 +108,16 @@ export default function Design() {
 
 
   // ---------------- UTILS ----------------
-  const setSelectedUploadedImageWithLog = (uid: string | null) => {
-    console.log("🟢 setSelectedUploadedImage called:", uid);
-    setSelectedUploadedImage(uid);
-  };
+const setSelectedUploadedImageWithLog = (uid: string | null) => {
+  console.log("🟢 setSelectedUploadedImage called:", uid);
+  setSelectedUploadedImage(uid);
+
+  // If an uploaded image is selected, always switch sidebar to Upload
+  if (uid) {
+    setSidebarStack(["upload"]);
+  }
+};
+
 
   const goBackSidebar = () => {
     setSidebarStack(prev => (prev.length <= 1 ? prev : prev.slice(0, -1)));
@@ -188,15 +194,20 @@ export default function Design() {
 
 
   useEffect(() => {
-  // Only auto-switch when an uploaded IMAGE is selected
   if (
     selectedUploadedImage &&
     imageState[selectedUploadedImage]?.type === "image" &&
     !imageState[selectedUploadedImage]?.isClipart
   ) {
-    setSidebarStack(["image-properties"]);
+    setSidebarTitleOverride("Image Properties"); // override only when an image is selected
+  } else {
+    setSidebarTitleOverride(null); // revert to default title
   }
 }, [selectedUploadedImage, imageState]);
+
+
+
+
 
 
 
@@ -291,45 +302,52 @@ const handleUpdateImageSize = (uid: string, w: number, h: number) => {
   };
 
 const handleUpload = (url: string) => {
-    const uid = crypto.randomUUID();
-    const defaultSize = { w: 150, h: 150 };
+  const uid = crypto.randomUUID();
+  const defaultSize = { w: 150, h: 150 };
 
-    setUploadedImages(prev => [...prev, uid]);
+  // Add to uploaded images list
+  setUploadedImages(prev => [...prev, uid]);
 
-    setImageState(prev => ({
-        ...prev,
-        [uid]: {
-            url,
-            type: "image",
-            rotation: 0,
-            flip: "none",
-            size: defaultSize,
-            canvasPositions: {
-                [uid]: { x: 100, y: 100, width: defaultSize.w, height: defaultSize.h, scale: 1 },
-            },
-            restrictedBox: { x: 0, y: 0, w: 600, h: 600 },
-            original: { url, rotation: 0, flip: "none", size: { ...defaultSize } },
-            isClipart: false,
-            isSvg: false,
-            text: undefined,
-            fontFamily: undefined,
-            color: undefined,
-            borderColor: undefined,
-            borderWidth: undefined,
-            fontSize: undefined,
-            width: undefined,
-            renderKey: undefined,
-        },
-    }));
+  // Add new image to image state
+  setImageState(prev => ({
+    ...prev,
+    [uid]: {
+      url,
+      type: "image",
+      rotation: 0,
+      flip: "none",
+      size: defaultSize,
+      canvasPositions: {
+        [uid]: { x: 100, y: 100, width: defaultSize.w, height: defaultSize.h, scale: 1 },
+      },
+      restrictedBox: { x: 0, y: 0, w: 600, h: 600 },
+      original: { url, rotation: 0, flip: "none", size: { ...defaultSize } },
+      isClipart: false,
+      isSvg: false,
+      text: undefined,
+      fontFamily: undefined,
+      color: undefined,
+      borderColor: undefined,
+      borderWidth: undefined,
+      fontSize: undefined,
+      width: undefined,
+      renderKey: undefined,
+    },
+  }));
 
-    setSizes(prev => ({
-        ...prev,
-        [uid]: { ...defaultSize },
-    }));
+  // Add to sizes for layout
+  setSizes(prev => ({
+    ...prev,
+    [uid]: { ...defaultSize },
+  }));
 
-    setSelectedUploadedImageWithLog(uid);
-    setSidebarStack(["image-properties"]);
+  // Select the newly uploaded image
+  setSelectedUploadedImageWithLog(uid);
+
+  // Always show the Upload sidebar
+  setSidebarStack(["upload"]);
 };
+
 
 
   const handleDuplicateUploadedImage = (uid: string) => {
@@ -370,39 +388,47 @@ const handleUpload = (url: string) => {
     setImageState(prev => ({ ...prev, [newId]: { ...source, renderKey: crypto.randomUUID() } }));
     setSelectedText(newId);
     setSidebarStack(["text"]);
+
+    
   };
 
-  const handleCanvasSelectionChange = (objects: string[]) => {
-    setSelectedObjects(objects);
-    if (objects.length === 0) {
-      setSelectedText(null);
-      setSelectedUploadedImageWithLog(null);
-    }
-  };
+
+
+
+const handleCanvasSelectionChange = (objects: string[]) => {
+  setSelectedObjects(objects);
+
+  // Track uploaded image selection (non-clipart)
+  const uploadedLayer = objects.find(uid => imageState[uid]?.type === "image" && !imageState[uid]?.isClipart) ?? null;
+
+  if (uploadedLayer !== selectedUploadedImage) {
+    setSelectedUploadedImageWithLog(uploadedLayer);
+  }
+
+  // Track text selection
+  const textLayer = objects.find(uid => imageState[uid]?.type === "text") ?? null;
+  setSelectedText(textLayer);
+};
+
+
+
 
   const updateTextLayer = (uid: string, updates: Partial<ImageState>) => {
     setImageState(prev => ({ ...prev, [uid]: { ...prev[uid], ...updates } }));
   };
 
-  // ---------------- SIDEBAR TITLES ----------------
+// ---------------- SIDEBAR TITLES ----------------
 const SIDEBAR_TITLES: Record<string, string | ((props: any) => string)> = {
   product: "Product",
-
-  text: ({ selectedText }: any) =>
-    selectedText ? "Text Properties" : "Text",
-
+  text: ({ selectedText }: any) => (selectedText ? "Text Properties" : "Text"),
   clipart: ({ selectedUploadedImage, imageState }: any) =>
     selectedUploadedImage && imageState[selectedUploadedImage]?.isClipart
       ? "Clipart Properties"
       : "Clipart",
-
-  upload: ({ selectedUploadedImage, imageState }: any) =>
-    selectedUploadedImage && !imageState[selectedUploadedImage]?.isClipart
-      ? "Image Properties"
-      : "Upload",
-
-  "image-properties": "Image Properties", // ✅ ADD THIS
+  upload: "Upload", // always Upload
 };
+
+
 
 
   const renderActiveTab = () => {
@@ -413,28 +439,28 @@ const SIDEBAR_TITLES: Record<string, string | ((props: any) => string)> = {
       case "product":
         return <ProductEdit product={safeProduct} selectedColour={selectedColour} selectedSize={selectedSize} onColourChange={setSelectedColour} onSizeChange={setSelectedSize} onOpenChangeProductModal={() => setIsChangeProductModalOpen(true)} />;
 
-      case "upload":
-      case "image-properties":
-        return (
-          <UploadSidebar
-            canvasRef={canvasRef}  
-            onUpload={handleUpload}
-            recentImages={uploadedImages}
-            selectedImage={selectedUploadedImage}
-            onSelectImage={setSelectedUploadedImageWithLog}
-            imageState={imageState}
-            uploadedImages={imageState} // pass your state here
-            setImageState={setImageState}
-            onRotateImage={handleRotateImage}
-            onFlipImage={handleFlipImage}
-            onUpdateImageSize={handleUpdateImageSize}
-            onRemoveUploadedImage={handleRemoveUploadedImage}
-            onDuplicateUploadedImage={handleDuplicateUploadedImage}
-            restrictedBox={restrictedBox}
-            canvasPositions={positions}
-            onResetImage={handleResetImage}
-          />
-        );
+case "upload":
+  return (
+    <UploadSidebar
+      canvasRef={canvasRef}  
+      onUpload={handleUpload}
+      recentImages={uploadedImages}
+      selectedImage={selectedUploadedImage}
+      onSelectImage={setSelectedUploadedImageWithLog}
+      imageState={imageState}
+      uploadedImages={imageState} 
+      setImageState={setImageState}
+      onRotateImage={handleRotateImage}
+      onFlipImage={handleFlipImage}
+      onUpdateImageSize={handleUpdateImageSize}
+      onRemoveUploadedImage={handleRemoveUploadedImage}
+      onDuplicateUploadedImage={handleDuplicateUploadedImage}
+      restrictedBox={restrictedBox}
+      canvasPositions={positions}
+      onResetImage={handleResetImage}
+    />
+  );
+
 
 
       case "text":
@@ -491,7 +517,6 @@ const SIDEBAR_TITLES: Record<string, string | ((props: any) => string)> = {
             <button onClick={closeToBlank} className="p-2 rounded-full hover:bg-red-100"><X size={28} className="text-red-600" /></button>
           </div>
         </div>
-
         <div className="pt-[96px] flex min-h-screen">
 {/* LEFT SIDEBAR */}
 <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
@@ -523,18 +548,31 @@ const SIDEBAR_TITLES: Record<string, string | ((props: any) => string)> = {
   ))}
 </div>
 
-          {/* RIGHT SIDEBAR */}
-          <div className="w-[480px] ml-4 mt-4 mb-6 h-[calc(100vh-160px)]">
-            <div className="bg-white dark:bg-gray-800 shadow-xl border rounded-2xl overflow-y-auto h-full">
-              <SidebarHeader
-                title={sidebarTitleOverride ?? (typeof SIDEBAR_TITLES[activeSidebar] === "function" ? SIDEBAR_TITLES[activeSidebar]!({ selectedText, selectedUploadedImage, imageState }) : SIDEBAR_TITLES[activeSidebar] ?? "")}
-                canGoBack={canGoBack}
-                onBack={goBackSidebar}
-                onClose={() => setSidebarStack(["blank"])}
-              />
-              <div className="p-4">{renderActiveTab()}</div>
-            </div>
-          </div>
+{/* RIGHT SIDEBAR */}
+<div className="w-[480px] ml-4 mt-4 mb-6 h-[calc(100vh-160px)]">
+  <div className="bg-white dark:bg-gray-800 shadow-xl border rounded-2xl overflow-y-auto h-full">
+    {/* ONLY RENDER HEADER IF NOT BLANK */}
+    {activeSidebar !== "blank" && (
+      <SidebarHeader
+        title={
+          sidebarTitleOverride ??
+          (typeof SIDEBAR_TITLES[activeSidebar] === "function"
+            ? SIDEBAR_TITLES[activeSidebar]!({
+                selectedText,
+                selectedUploadedImage,
+                imageState,
+              })
+            : SIDEBAR_TITLES[activeSidebar] ?? "")
+        }
+        canGoBack={canGoBack}
+        onBack={goBackSidebar}
+        onClose={() => setSidebarStack(["blank"])}
+      />
+    )}
+    <div className="p-4">{renderActiveTab()}</div>
+  </div>
+</div>
+
 
           {/* MAIN CANVAS */}
           <Canvas
@@ -552,13 +590,19 @@ const SIDEBAR_TITLES: Record<string, string | ((props: any) => string)> = {
             onSelectText={setSelectedText}
             onSwitchTab={(tab) => {
               if (!tab) return;
-              if (tab !== "clipart" && tab !== "image-properties") setSelectedUploadedImageWithLog(null);
+
+              // Keep uploaded image selected for 'upload' tab
+              if (tab !== "clipart" && tab !== "upload") setSelectedUploadedImageWithLog(null);
+
               if (tab !== "text") setSelectedText(null);
+
               setSidebarStack((prev) =>
                 prev[prev.length - 1] === tab ? prev : [...prev.slice(0, 1), tab as SidebarView]
               );
-
             }}
+
+
+
             onDelete={uids => uids.forEach(uid => handleRemoveUploadedImage(uid))}
             onResizeTextCommit={handleResizeText}
             onSelectionChange={handleCanvasSelectionChange}

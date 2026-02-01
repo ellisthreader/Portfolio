@@ -25,25 +25,13 @@ export function resizeImageWithClamp({
   if (!layer || !selectedImage) return;
 
   const aspect = layer.size.h / layer.size.w;
-  const requestedHeight = requestedWidth * aspect;
 
-  // Max size allowed from current top-left position
-  const maxWidth =
-    restrictedBox.x + restrictedBox.width - position.x;
+  // Max width that fits in restricted box from top-left
+  const maxWidth = restrictedBox.x + restrictedBox.width - position.x;
 
-  const maxHeight =
-    restrictedBox.y + restrictedBox.height - position.y;
-
-  const scale = Math.min(
-    maxWidth / requestedWidth,
-    maxHeight / requestedHeight,
-    1
-  );
-
-  if (scale <= 0 || Number.isNaN(scale)) return;
-
-  const finalWidth = requestedWidth * scale;
-  const finalHeight = requestedHeight * scale;
+  // Clamp width, preserve aspect ratio
+  const finalWidth = Math.min(requestedWidth, maxWidth);
+  const finalHeight = finalWidth * aspect;
 
   onUpdateImageSize?.(selectedImage, finalWidth, finalHeight);
 }

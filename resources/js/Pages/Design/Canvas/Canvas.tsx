@@ -214,16 +214,21 @@ const st = selectedImageId ? imageState[selectedImageId] : undefined;
       return;
     }
 
-    // ---------------- UPLOADED IMAGE ----------------
-    if (layer.type === "image" && !layer.isClipart) {
-      onSelectText?.(null);
-      onSelectImage?.(uid);
-      drag.setSelected([uid]);
-      drag.onPointerDown(e, uid);
+// ---------------- UPLOADED IMAGE ----------------
+if (layer.type === "image" && !layer.isClipart) {
+  onSelectText?.(null);
 
-      if (latestUploadedImageRef.current === uid) latestUploadedImageRef.current = null;
-      return;
-    }
+  // Force select immediately
+  onSelectImage?.(uid);
+
+  drag.setSelected([uid]); // still do drag update
+  onSwitchTab?.("upload");
+
+  e.stopPropagation();
+  return;
+}
+
+
 
     // ---------------- CLIPART ----------------
     if (layer.type === "image" && layer.isClipart) {

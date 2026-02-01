@@ -16,9 +16,6 @@ type Props = {
 export default function SelectionWatcher({
   selected,
   imageState,
-  onSelectImage,
-  onSelectText,
-  onSwitchTab,
   onSelectionChange,
 }: Props) {
   const prevSelectedRef = useRef<string[]>([]);
@@ -31,34 +28,10 @@ export default function SelectionWatcher({
     if (isSame) return;
 
     prevSelectedRef.current = selected;
+
+    // ✅ Only report selection, DO NOT change uploaded image or text state
     onSelectionChange?.(selected);
-
-    if (selected.length === 0) {
-      onSwitchTab?.(null);
-      return;
-    }
-
-    if (selected.length > 1) {
-      onSwitchTab?.("multi");
-      return;
-    }
-
-    const uid = selected[0];
-    const layer = imageState[uid];
-    if (!layer) return;
-
-    if (layer.type === "text") {
-      onSelectText?.(uid);
-      onSwitchTab?.("text");
-      return;
-    }
-
-    if (layer.type === "image") {
-      onSelectImage?.(uid);
-      // FIX: uploaded images → open "image-properties" tab
-      onSwitchTab?.(layer.isClipart ? "clipart" : "image-properties");
-    }
-  }, [selected, imageState, onSelectImage, onSelectText, onSwitchTab, onSelectionChange]);
+  }, [selected, onSelectionChange]);
 
   return null;
 }
