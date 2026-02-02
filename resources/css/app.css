@@ -7,6 +7,17 @@
 @tailwind utilities;
 
 /* ---------------------------------------------------- */
+/* DISABLE BROWSER TEXT / IMAGE SELECTION               */
+/* ---------------------------------------------------- */
+
+.disable-selection,
+.disable-selection * {
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+
+/* ---------------------------------------------------- */
 /* CUSTOM FONTS                                        */
 /* ---------------------------------------------------- */
 
@@ -152,7 +163,7 @@
 }
 
 /* ---------------------------------------------------- */
-/* CUSTOM ANIMATIONS                                    */
+/* CUSTOM ANIMATIONS                                   */
 /* ---------------------------------------------------- */
 
 @keyframes fadeInUp {
@@ -166,7 +177,7 @@
 }
 
 /* ---------------------------------------------------- */
-/* FIREFOX ORANGE HOVER FIX FOR <OPTION> ELEMENTS      */
+/* FIREFOX ORANGE HOVER FIX FOR <OPTION> ELEMENTS       */
 /* ---------------------------------------------------- */
 
 select option:hover,
