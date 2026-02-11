@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const images = [
-  "/images/HeroSection/hero-clothing1.png",
-  "/images/HeroSection/hero-clothing2.png",
-  "/images/HeroSection/hero-clothing3.png",
+  "/images/HeroSection/hero-clothing1.jpeg",
+  "/images/HeroSection/hero-clothing2.jpeg",
+  "/images/HeroSection/hero-clothing3.jpeg",
   "/images/HeroSection/hero-clothing4.png",
 ];
 
@@ -54,7 +54,7 @@ export default function HeroSection() {
   };
 
   return (
-    <div className="relative w-full" style={{ paddingTop: "37px" }}>
+    <div className="relative w-full" style={{ paddingTop: "px" }}>
       {/* Hero container */}
       <div className="relative w-full aspect-video max-h-[91vh] overflow-hidden">
         <AnimatePresence initial={false} custom={direction}>

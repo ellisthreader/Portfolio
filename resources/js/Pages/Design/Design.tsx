@@ -3,6 +3,9 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Head, usePage, router } from "@inertiajs/react";
 import { ArrowLeft, ArrowRight, X, Shirt, Upload as UploadIcon, Type, Image as ClipartIcon } from "lucide-react";
+import { route } from "ziggy-js";
+
+
 
 import ProductEdit from "./Sidebar/ProductEdit";
 import AddText from "./Sidebar/TextSideBar/AddText";
@@ -16,6 +19,23 @@ import ClipartProperties from "./Sidebar/ClipartSideBar/Properties/ClipartProper
 import SidebarHeader from "./Components/SidebarHeader";
 import ClipartSectionsPage from "./Sidebar/ClipartSideBar/UI/ClipartSectionsPage";
 import BlankSidebar from "./Sidebar/BlankSidebar";
+import HistoryControls from "./HistoryControls";
+
+export interface Product {
+  id: number;
+  name: string;
+  slug: string;
+  brand?: string;
+  price?: number | string;
+  original_price?: number | string | null;
+  images?: any[];
+  image?: string;
+  colourProducts?: any[];
+  sizes?: string[];
+  categories?: any[];
+}
+
+
 
 export type CanvasPosition = {
   x: number;
@@ -64,19 +84,30 @@ type SidebarView =
 
 export default function Design() {
   const { props } = usePage();
+
+  
+  
   const { product, selectedColour: propColour, selectedSize: propSize, onResizeTextCommit } = props;
 
-  const safeProduct = product ?? {
-    name: "Unknown",
-    brand: "",
-    slug: "",
-    images: [],
-    sizes: [],
-    colourProducts: [],
-    categories: [],
-  };
 
-  const safeName = safeProduct.name ?? "Unknown";
+  // 1️⃣ Create currentProduct state first
+const [currentProduct, setCurrentProduct] = useState<Product | null>(product ?? null);
+
+// 2️⃣ Create safeProduct after currentProduct exists
+const safeProduct: Product = currentProduct ?? {
+  id: 0,
+  name: "Unknown",
+  brand: "",
+  slug: "",
+  images: [],
+  sizes: [],
+  colourProducts: [],
+  categories: [],
+};
+
+// 3️⃣ Optional: safe name
+const safeName: string = safeProduct.name ?? "Unknown";
+
 
   // ---------------- STATES ----------------
   const [isChangeProductModalOpen, setIsChangeProductModalOpen] = useState(false);
@@ -90,13 +121,16 @@ export default function Design() {
   const [sidebarStack, setSidebarStack] = useState<SidebarView[]>(["product"]);
   const activeSidebar = sidebarStack[sidebarStack.length - 1];
 
-  const [displayImages, setDisplayImages] = useState<string[]>([]);
+  
   const [mainImage, setMainImage] = useState("");
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [selectedObjects, setSelectedObjects] = useState<string[]>([]);
   const [replaceClipartId, setReplaceClipartId] = useState<string | null>(null);
   const [positions, setPositions] = useState<Record<string, {
+
+ 
+
     x: number;
     y: number;
     width: number;
@@ -106,6 +140,12 @@ export default function Design() {
 
   const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
 
+  const normalizeImages = (images: any[]) =>
+  (images ?? []).map(img => (typeof img === "string" ? img : img.url ?? img.path ?? ""));
+
+const [displayImages, setDisplayImages] = useState<string[]>(
+  normalizeImages(currentProduct?.images ?? [])
+);
 
   // ---------------- UTILS ----------------
 const setSelectedUploadedImageWithLog = (uid: string | null) => {
@@ -140,32 +180,51 @@ const setSelectedUploadedImageWithLog = (uid: string | null) => {
     height: canvasSize.height * 0.65,
   };
 
-  const variantsByColour = useMemo(() => {
-    const grouped: Record<string, any[]> = {};
-    if (Array.isArray(safeProduct.colourProducts)) {
-      safeProduct.colourProducts.forEach(cp => {
-        const colour = cp.colour;
-        const sizes = cp.sizes ?? [];
-        const images = cp.images ?? safeProduct.images ?? [];
-        if (!grouped[colour]) grouped[colour] = [];
-        if (sizes.length) {
-          sizes.forEach(s => grouped[colour].push({ colour, size: s, images }));
-        } else grouped[colour].push({ colour, size: undefined, images });
-      });
+const variantsByColour = useMemo(() => {
+  const grouped: Record<string, any[]> = {};
+  if (!currentProduct) return grouped;
+
+  (currentProduct.colourProducts ?? []).forEach(cp => {
+    const colour = cp.colour;
+    const sizes = cp.sizes ?? [];
+    const images = cp.images ?? currentProduct.images ?? [];
+    if (!grouped[colour]) grouped[colour] = [];
+    if (sizes.length) {
+      sizes.forEach(s => grouped[colour].push({ colour, size: s, images }));
+    } else {
+      grouped[colour].push({ colour, size: undefined, images });
     }
-    return grouped;
-  }, [safeProduct]);
+  });
+
+  return grouped;
+}, [currentProduct]);
+
+
 
   const uniqueColours = Object.keys(variantsByColour);
-  const [selectedColour, setSelectedColour] = useState(
-    propColour && uniqueColours.includes(propColour) ? propColour : uniqueColours[0] ?? null
-  );
-  const [selectedSize, setSelectedSize] = useState(propSize ?? null);
+  const [selectedColour, setSelectedColour] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
 
-  const normalizeImages = (images: any[]) =>
-    (images ?? []).map(img => (typeof img === "string" ? img : img.url ?? img.path ?? ""));
+
 
   // ---------------- EFFECTS ----------------
+
+  // 🔁 Sync Inertia props → local state (IMPORTANT)
+useEffect(() => {
+  if (!product) return;
+
+  setCurrentProduct(product);
+
+  if (propColour) {
+    setSelectedColour(propColour);
+  }
+
+  if (propSize) {
+    setSelectedSize(propSize);
+  }
+}, [product, propColour, propSize]);
+
+
   useEffect(() => {
     if (!canvasRef.current) return;
     const updateSize = () => {
@@ -177,20 +236,26 @@ const setSelectedUploadedImageWithLog = (uid: string | null) => {
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  useEffect(() => {
-    if (!selectedColour) return;
+useEffect(() => {
+  // 🟢 CASE 1: product has NO colour variants
+  if (!selectedColour || !variantsByColour[selectedColour]) {
+    const fallbackImages = normalizeImages(currentProduct?.images ?? []);
+    setDisplayImages(fallbackImages);
+    setMainImage(fallbackImages[0] ?? "");
+    return;
+  }
 
-    const colourVariants = variantsByColour[selectedColour];
-    if (!colourVariants || colourVariants.length === 0) return;
+  // 🟢 CASE 2: product HAS colour variants
+  const colourVariants = variantsByColour[selectedColour];
+  const variant =
+    colourVariants.find(v => v.size === selectedSize) ?? colourVariants[0];
 
-    const variant = colourVariants.find(v => v.size === selectedSize) ?? colourVariants[0];
-    if (!variant) return;
+    
 
-    const sorted = normalizeImages(variant.images ?? []);
 
-    setDisplayImages(prev => (prev.length === sorted.length && prev.every((v, i) => v === sorted[i]) ? prev : sorted));
-    setMainImage(prev => (prev === (sorted[0] ?? "") ? prev : sorted[0] ?? ""));
-  }, [selectedColour, selectedSize, variantsByColour]);
+  const sorted = normalizeImages(variant?.images ?? []);
+}, [currentProduct, selectedColour, selectedSize, variantsByColour]);
+
 
 
   useEffect(() => {
@@ -203,20 +268,230 @@ const setSelectedUploadedImageWithLog = (uid: string | null) => {
   } else {
     setSidebarTitleOverride(null); // revert to default title
   }
+
+  console.group("🟡 DESIGN IMAGE STATE");
+  console.log("currentProduct:", currentProduct);
+  console.log("selectedColour:", selectedColour);
+  console.log("selectedSize:", selectedSize);
+  console.log("displayImages:", displayImages);
+  console.log("mainImage:", mainImage);
+  console.groupEnd();
 }, [selectedUploadedImage, imageState]);
 
 
 
 
 
+// ---------- TYPES ----------
+type HistorySnapshot = {
+  product: Product | null;
+  imageState: Record<string, ImageState>;
+  positions: Record<string, CanvasPosition>;
+  sizes: Record<string, { w: number; h: number }>;
+  selectedColour: string | null;
+  selectedSize: string | null;
+};
+
+// ---------- STATES ----------
+
+const [history, setHistory] = useState<HistorySnapshot[]>([]);
+
+const [historyIndex, setHistoryIndex] = useState(-1);
+
+
+// ---------- CURRENT VARIANT ----------
+const currentVariant = useMemo(() => {
+  if (!selectedColour || !variantsByColour[selectedColour]) return undefined;
+  const colourVariants = variantsByColour[selectedColour];
+  return colourVariants.find(v => v.size === selectedSize) ?? colourVariants[0];
+}, [selectedColour, selectedSize, variantsByColour]);
+
+
+
+// ---------- PUSH HISTORY ----------
+const pushHistory = (reason?: string) => {
+  setHistory(prev => {
+    const nextIndex = historyIndex + 1;
+
+    const snapshot: HistorySnapshot = {
+      product: structuredClone(currentProduct), // ✅ use currentProduct
+      imageState: structuredClone(imageState),
+      positions: structuredClone(positions),
+      sizes: structuredClone(sizes),
+      selectedColour,
+      selectedSize,
+    };
+
+    
+    console.groupCollapsed(
+      `%c🕘 PUSH HISTORY${reason ? ` – ${reason}` : ""}`,
+      "color:#22c55e;font-weight:bold"
+    );
+    console.log("product →", currentProduct?.slug);
+    console.log("colour →", selectedColour);
+    console.log("size →", selectedSize);
+    console.groupEnd();
+
+    // Keep history up to current index, then add new snapshot
+    return [...prev.slice(0, nextIndex), snapshot];
+  });
+
+  setHistoryIndex(i => i + 1);
+};
+
+// ---------- UNDO ----------
+const undo = () => {
+  if (historyIndex <= 0) return;
+
+  const snapshot = history[historyIndex - 1];
+
+  setCurrentProduct(snapshot.product); // ✅ use currentProduct
+  setImageState(snapshot.imageState);
+  setPositions(snapshot.positions);
+  setSizes(snapshot.sizes);
+  setSelectedColour(snapshot.selectedColour);
+  setSelectedSize(snapshot.selectedSize);
+
+  setHistoryIndex(i => i - 1);
+};
+
+// ---------- REDO ----------
+const redo = () => {
+  if (historyIndex >= history.length - 1) return;
+
+  const snapshot = history[historyIndex + 1];
+
+  setCurrentProduct(snapshot.product); // ✅ use currentProduct
+  setImageState(snapshot.imageState);
+  setPositions(snapshot.positions);
+  setSizes(snapshot.sizes);
+  setSelectedColour(snapshot.selectedColour);
+  setSelectedSize(snapshot.selectedSize);
+
+  setHistoryIndex(i => i + 1);
+};
+
+// ---------- SEED INITIAL STATE ----------
+const hasSeededHistory = useRef(false);
+
+useEffect(() => {
+  if (hasSeededHistory.current) return;
+  if (!currentProduct || !selectedColour) return; // ✅ use currentProduct
+
+  const snapshot: HistorySnapshot = {
+    product: structuredClone(currentProduct),
+    imageState: structuredClone(imageState),
+    positions: structuredClone(positions),
+    sizes: structuredClone(sizes),
+    selectedColour,
+    selectedSize,
+  };
+
+  console.groupCollapsed("%c🌱 SEED HISTORY", "color:#3b82f6;font-weight:bold");
+  console.log("product →", currentProduct?.slug);
+  console.log("colour →", selectedColour);
+  console.log("size →", selectedSize);
+  console.groupEnd();
+
+  setHistory([snapshot]);
+  setHistoryIndex(0);
+  hasSeededHistory.current = true;
+}, [currentProduct, selectedColour]);
+
+// ---------- PRODUCT CHANGES ----------
+const handleColourChange = (colour: string) => {
+  if (colour === selectedColour) return;
+  pushHistory("change colour");
+  setSelectedColour(colour);
+
+  // Reset size to first available for this colour
+  const variants = variantsByColour[colour];
+  if (variants?.length) {
+    setSelectedSize(variants[0].size ?? null);
+    const images = normalizeImages(variants[0].images ?? []);
+    setDisplayImages(images);
+    setMainImage(images[0] ?? "");
+  } else {
+    // fallback
+    setSelectedSize(null);
+    const fallbackImages = normalizeImages(currentProduct?.images ?? []);
+    setDisplayImages(fallbackImages);
+    setMainImage(fallbackImages[0] ?? "");
+  }
+};
+
+const handleSizeChange = (size: string) => {
+  if (size === selectedSize) return;
+  pushHistory("change size");
+  setSelectedSize(size);
+};
+
+
+
+const handleProductSelect = (product: Product) => {
+  router.get(
+    route("design.show", { slug: product.slug }), // ✅ must use slug
+    {},
+    { preserveState: false } // can be true if you want smoother Inertia reload
+  );
+};
+
+
+useEffect(() => {
+  if (!currentProduct) return;
+
+  // No colour selected → fallback to product images
+  if (!selectedColour || !variantsByColour[selectedColour]) {
+    const fallbackImages = normalizeImages(currentProduct?.images ?? []);
+    setDisplayImages(fallbackImages);
+    setMainImage(fallbackImages[0] ?? "");
+    return;
+  }
+
+  // Colour selected → get variant by size
+  const colourVariants = variantsByColour[selectedColour];
+
+  // Pick the variant that matches selectedSize, fallback to first
+  const variant = colourVariants.find(v => v.size === selectedSize) ?? colourVariants[0];
+
+  const images = normalizeImages(variant?.images ?? []);
+  setDisplayImages(images);
+  setMainImage(images[0] ?? "");
+}, [currentProduct, selectedColour, selectedSize, variantsByColour]);
+
+
+
+const lastProductRef = useRef<Product | null>(null);
+
+useEffect(() => {
+  if (!currentProduct) return;
+  if (lastProductRef.current === currentProduct) return;
+
+  if (lastProductRef.current !== null) {
+    pushHistory("change product");
+  }
+
+  lastProductRef.current = currentProduct;
+}, [currentProduct, selectedColour, selectedSize]);
+
+
 
 
   // ---------------- HANDLERS ----------------
-  const handleRotateImage = (uid: string, angle: number) => {
-    setImageState(prev => prev[uid] ? { ...prev, [uid]: { ...prev[uid], rotation: angle } } : prev);
-  };
+const beginRotate = () => {
+  pushHistory();
+};
+
+const handleRotateImage = (uid: string, angle: number) => {
+  setImageState(prev => ({
+    ...prev,
+    [uid]: { ...prev[uid], rotation: angle },
+  }));
+};
+
 
 const handleFlipImage = (id: string, flip: "none" | "horizontal" | "vertical") => {
+  pushHistory();
   setImageState((prev) => {
     const current = prev[id];
     if (!current) return prev;
@@ -249,10 +524,12 @@ const handleUpdateImageSize = (uid: string, w: number, h: number) => {
 
 
   const handleChangeImageColor = (uid: string, color: string) => {
+    pushHistory();
     setImageState(prev => prev[uid] ? { ...prev, [uid]: { ...prev[uid], color } } : prev);
   };
 
   const handleAddClipart = (src: string) => {
+    pushHistory();
     const uid = crypto.randomUUID();
     const size = { w: 150, h: 150 };
     setImageState(prev => ({
@@ -275,6 +552,7 @@ const handleUpdateImageSize = (uid: string, w: number, h: number) => {
   };
 
   const handleReplaceClipart = (src: string) => {
+    pushHistory();
     if (!replaceClipartId) return;
     setImageState(prev => {
       const layer = prev[replaceClipartId];
@@ -302,6 +580,7 @@ const handleUpdateImageSize = (uid: string, w: number, h: number) => {
   };
 
 const handleUpload = (url: string) => {
+  pushHistory(); // ✅ ADD HERE
   const uid = crypto.randomUUID();
   const defaultSize = { w: 150, h: 150 };
 
@@ -351,6 +630,7 @@ const handleUpload = (url: string) => {
 
 
   const handleDuplicateUploadedImage = (uid: string) => {
+    pushHistory(); // ← ADD THIS
     const source = imageState[uid];
     if (!source) return;
     const dup = crypto.randomUUID();
@@ -365,6 +645,7 @@ const handleUpload = (url: string) => {
   };
 
   const handleRemoveUploadedImage = (uid: string) => {
+    pushHistory(); // ← ADD THIS FIRST
     setUploadedImages(prev => prev.filter(u => u !== uid));
     setImageState(prev => {
       const next = { ...prev };
@@ -375,6 +656,7 @@ const handleUpload = (url: string) => {
   };
 
   const deleteTextLayer = (uid: string) => {
+    pushHistory();
     setImageState(prev => { const next = { ...prev }; delete next[uid]; return next; });
     setSelectedText(null);
     setSelectedObjects(prev => prev.filter(id => id !== uid));
@@ -382,6 +664,7 @@ const handleUpload = (url: string) => {
   };
 
   const duplicateTextLayer = (uid: string) => {
+    pushHistory();
     const source = imageState[uid];
     if (!source || source.type !== "text") return;
     const newId = crypto.randomUUID();
@@ -398,17 +681,47 @@ const handleUpload = (url: string) => {
 const handleCanvasSelectionChange = (objects: string[]) => {
   setSelectedObjects(objects);
 
-  // Track uploaded image selection (non-clipart)
-  const uploadedLayer = objects.find(uid => imageState[uid]?.type === "image" && !imageState[uid]?.isClipart) ?? null;
+  const textLayer =
+    objects.find(uid => imageState[uid]?.type === "text") ?? null;
 
-  if (uploadedLayer !== selectedUploadedImage) {
-    setSelectedUploadedImageWithLog(uploadedLayer);
+  const imageLayer =
+    objects.find(uid => imageState[uid]?.type === "image") ?? null;
+
+  // ---- TEXT ----
+  if (textLayer) {
+    setSelectedText(textLayer);
+    setSelectedUploadedImageWithLog(null);
+
+    // 🔥 FORCE TAB SWITCH
+    setSidebarStack(prev =>
+      prev[prev.length - 1] === "text" ? prev : ["product", "text"]
+    );
+
+    return;
   }
 
-  // Track text selection
-  const textLayer = objects.find(uid => imageState[uid]?.type === "text") ?? null;
-  setSelectedText(textLayer);
+  // ---- IMAGE / CLIPART ----
+  if (imageLayer) {
+    setSelectedText(null);
+    setSelectedUploadedImageWithLog(imageLayer);
+
+    const isClipart = imageState[imageLayer]?.isClipart;
+
+    // 🔥 FORCE TAB SWITCH
+    setSidebarStack(prev =>
+      prev[prev.length - 1] === (isClipart ? "clipart" : "upload")
+        ? prev
+        : ["product", isClipart ? "clipart" : "upload"]
+    );
+
+    return;
+  }
+
+  // ---- NOTHING ----
+  setSelectedText(null);
+  setSelectedUploadedImageWithLog(null);
 };
+
 
 
 
@@ -437,7 +750,14 @@ const SIDEBAR_TITLES: Record<string, string | ((props: any) => string)> = {
 
     switch (activeSidebar) {
       case "product":
-        return <ProductEdit product={safeProduct} selectedColour={selectedColour} selectedSize={selectedSize} onColourChange={setSelectedColour} onSizeChange={setSelectedSize} onOpenChangeProductModal={() => setIsChangeProductModalOpen(true)} />;
+        return <ProductEdit
+            product={safeProduct}
+            selectedColour={selectedColour}
+            selectedSize={selectedSize}
+            onColourChange={handleColourChange}
+            onSizeChange={handleSizeChange}
+            onOpenChangeProductModal={() => setIsChangeProductModalOpen(true)}
+          />;
 
 case "upload":
   return (
@@ -484,6 +804,7 @@ case "upload":
   };
 
   const handleResetImage = (uid: string) => {
+    pushHistory();
     setImageState(prev => {
       const layer = prev[uid];
       if (!layer || !layer.original) return prev;
@@ -493,6 +814,7 @@ case "upload":
 
 
   const handleResizeText = (uid: string, newFontSize: number) => {
+  pushHistory(); 
   if (!uid) return;
   setImageState(prev => ({
     ...prev,
@@ -504,20 +826,46 @@ case "upload":
 };
 
 
-  return (
-    <div className="min-h-screen bg-gray-200 dark:bg-gray-900 relative disable-selection">
-      <Head title="Start Designing" />
-      {isChangeProductModalOpen && <ChangeProductModal onClose={() => setIsChangeProductModalOpen(false)} currentCategory={null} />}
-      <div className={isChangeProductModalOpen ? "blur-lg opacity-40" : ""}>
-        <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b flex items-center justify-between px-6 h-16 z-40 shadow-sm">
-          <div className="text-xl font-bold">{safeName}</div>
-          <div className="flex items-center gap-4">
-            <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={24} /></button>
-            <button onClick={() => alert("Next step coming soon")} className="p-2 rounded-full hover:bg-gray-100"><ArrowRight size={24} /></button>
-            <button onClick={closeToBlank} className="p-2 rounded-full hover:bg-red-100"><X size={28} className="text-red-600" /></button>
-          </div>
+return (
+  <div className="min-h-screen bg-gray-200 dark:bg-gray-900 relative disable-selection">
+    <Head title="Start Designing" />
+
+{isChangeProductModalOpen && (
+  <ChangeProductModal
+    onClose={() => setIsChangeProductModalOpen(false)}
+    onSelectProduct={handleProductSelect} // ✅ Use the fixed handler
+  />
+)}
+
+
+    <div className={isChangeProductModalOpen ? "blur-lg opacity-40" : ""}>
+      {/* TOP BAR */}
+      <div className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b flex items-center justify-between px-6 h-16 z-40 shadow-sm">
+        <div className="text-xl font-bold">{safeName}</div>
+
+        <div className="flex items-center gap-4">
+          {/* ⬅️⬅️ HISTORY CONTROLS */}
+          <HistoryControls
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={historyIndex > 0}
+            canRedo={historyIndex < history.length - 1}
+          />
+
+          {/* ❌ CLOSE */}
+          <button
+            onClick={closeToBlank}
+            className="p-2 rounded-full hover:bg-red-100"
+          >
+            <X size={28} className="text-red-600" />
+          </button>
         </div>
-        <div className="pt-[96px] flex min-h-screen">
+      </div>
+
+      {/* CONTENT */}
+      <div className="pt-[96px] flex min-h-screen">
+        {/* LEFT SIDEBAR */}
+
 {/* LEFT SIDEBAR */}
 <div className="w-[140px] ml-6 mt-4 mb-6 bg-neutral-700 shadow-xl border rounded-2xl p-4 flex flex-col gap-4 items-center h-[calc(100vh-160px)]">
   {[
@@ -592,10 +940,7 @@ case "upload":
               if (!tab) return;
 
               // Keep uploaded image selected for 'upload' tab
-              if (tab !== "clipart" && tab !== "upload") setSelectedUploadedImageWithLog(null);
-
-              if (tab !== "text") setSelectedText(null);
-
+          
               setSidebarStack((prev) =>
                 prev[prev.length - 1] === tab ? prev : [...prev.slice(0, 1), tab as SidebarView]
               );

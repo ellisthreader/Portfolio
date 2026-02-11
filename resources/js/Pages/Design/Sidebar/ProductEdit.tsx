@@ -76,10 +76,11 @@ export default function ProductEdit({
   const uniqueColours = Object.keys(variantsByColour);
 
   // ---------- Sizes available for selected colour ----------
-  const availableSizes =
-    selectedColour
-      ? variantsByColour[selectedColour].map(v => v.size).filter(Boolean)
-      : [];
+const availableSizes =
+  selectedColour && variantsByColour[selectedColour]
+    ? variantsByColour[selectedColour].map(v => v.size).filter(Boolean)
+    : [];
+
 
   // ---------- CLICK HANDLERS ----------
   const handleColourClick = (colour: string) => onColourChange(colour);

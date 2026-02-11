@@ -21,7 +21,6 @@
 /* CUSTOM FONTS                                        */
 /* ---------------------------------------------------- */
 
-/* Relative path from resources/css/app.css to resources/fonts */
 @font-face {
   font-family: "Abril Fatface";
   src: url("../fonts/AbrilFatface-Regular.ttf") format("truetype");
@@ -167,8 +166,14 @@
 /* ---------------------------------------------------- */
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .fade-in {
@@ -183,7 +188,7 @@
 select option:hover,
 select option:focus,
 select option:active {
-  background: #2563eb !important; /* Tailwind blue-600 */
+  background: #2563eb !important;
   color: white !important;
 }
 
@@ -192,8 +197,25 @@ select option {
   color: black;
 }
 
-/* Dark mode for options */
 .dark select option {
-  background-color: #1f2937; /* gray-800 */
+  background-color: #1f2937;
   color: white;
+}
+
+/* ---------------------------------------------------- */
+/* LOGO NEON GLOW (HOVER + CLICK)                       */
+/* ---------------------------------------------------- */
+
+/* Hover glow — softer */
+.logo-glow-hover:hover {
+  filter: drop-shadow(0 0 4px #D4AF37)
+          drop-shadow(0 0 10px rgba(212, 175, 55, 0.1))
+          drop-shadow(0 0 18px rgba(212, 175, 55, 0.1));
+}
+
+/* Click glow — slightly stronger than hover */
+.logo-neon-glow {
+  filter: drop-shadow(0 0 6px #D4AF37)
+          drop-shadow(0 0 14px rgba(212, 175, 55, 0.1))
+          drop-shadow(0 0 24px rgba(212, 175, 55, 0.1));
 }

@@ -250,6 +250,7 @@ if (layer.type === "image" && !layer.isClipart) {
       onPointerMove={marquee.onPointerMove}
     >
       <MainProductImage src={mainImage} />
+      
       <RestrictedArea box={restrictedBox} />
 
       {/* IMAGES */}

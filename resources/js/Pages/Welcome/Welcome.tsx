@@ -3,8 +3,9 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import GuestLayout from "@/Layouts/GuestLayout";
 
 import HeroSection from "./HeroSection";
+import IdeaToIconicSection from "./IdeaToIconicSection";
 import CategorySection from "./CategorySection";
-import BrandsSection from "./BrandsSection";
+import StackedScrollCards from "./StackedScrollCards";
 import SaleHeroSection from "./SaleHeroSections";
 import TrendingNowPage from "./TrendingNowPage";
 
@@ -37,20 +38,29 @@ export default function Welcome() {
   const user = props.auth?.user;
   const Layout = user ? AuthenticatedLayout : GuestLayout;
 
-  // 🔥 Log products to verify they are being passed
+  // 🔥 Debug: verify products
   console.log("🔥 Products received in Welcome page:", props.products);
 
   return (
     <Layout>
       <Head title="Welcome" />
 
+      {/* HERO */}
       <HeroSection />
-      <CategorySection />
-      <BrandsSection />
 
-      {/* Trending Now Section */}
+      {/* FROM IDEA TO ICONIC SECTION */}
+      <IdeaToIconicSection />
+
+      {/* CATEGORIES */}
+      <CategorySection />
+
+      {/* STACKED FEATURE CARDS */}
+      <StackedScrollCards />
+
+      {/* TRENDING NOW */}
       <TrendingNowPage products={props.products} />
 
+      {/* SALE / PROMO */}
       <SaleHeroSection />
     </Layout>
   );

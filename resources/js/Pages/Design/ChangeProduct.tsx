@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { usePage, router } from "@inertiajs/react";
+import { usePage } from "@inertiajs/react";
 import ChangeProductCard from "@/Pages/Product/ChangeProductCard";
 import SearchBar from "@/Pages/Design/SearchBar";
 
@@ -30,9 +30,15 @@ interface Category {
 interface ChangeProductModalProps {
   onClose: () => void;
   currentCategory?: Category;
+  onSelectProduct: (productId: number) => void;
+
 }
 
-export default function ChangeProductModal({ onClose, currentCategory }: ChangeProductModalProps) {
+export default function ChangeProductModal({
+  onClose,
+  currentCategory,
+  onSelectProduct,
+}: ChangeProductModalProps) {
   const { props } = usePage<{
     adultCategories: Category[];
     kidsCategories: Record<string, Category[]>;
@@ -80,18 +86,13 @@ export default function ChangeProductModal({ onClose, currentCategory }: ChangeP
     setSelectedCategory(category);
   };
 
-  const navigateToProduct = (slug: string) => {
-    router.visit(`/design/${encodeURIComponent(slug)}`, {
-      method: "get",
-      preserveScroll: true,
-      onSuccess: () => onClose(),
-    });
-  };
+  // ---------- PRODUCT SELECTION ----------
+const handleProductSelect = (product: Product) => {
+  onSelectProduct(product); // ✅ Pass the full product
+  onClose();
+};
 
-  const handleProductSelect = (product: Product) => {
-    navigateToProduct(product.slug);
-  };
-
+  // ---------- FILTER PRODUCTS ----------
   const filteredProducts = (selectedCategory?.products ?? []).map((p: Product) => {
     let images: string[] = [];
 
@@ -113,6 +114,7 @@ export default function ChangeProductModal({ onClose, currentCategory }: ChangeP
     };
   });
 
+  // ---------- HIGHLIGHTED CATEGORIES ----------
   const highlightedAdultCategories = useMemo(() => {
     if (!selectedCategory) return adult.map(c => ({ ...c, isSelected: false }));
 
@@ -161,6 +163,7 @@ export default function ChangeProductModal({ onClose, currentCategory }: ChangeP
     return grouped;
   }, [kids, selectedCategory]);
 
+  // ---------- RENDER ----------
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-10 animate-fadeIn">
       <div className="relative w-[92%] h-[90%] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-10 overflow-hidden border border-gray-200 dark:border-gray-700">

@@ -19,8 +19,8 @@ export default function NavMenu() {
   const { toggleCart } = useCart();
 
   const [activeSidebar, setActiveSidebar] = useState<string | null>(null);
-  const [isHovering, setIsHovering] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [logoGlow, setLogoGlow] = useState(false);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -36,33 +36,20 @@ export default function NavMenu() {
     if (!category || isAnimating || category === activeSidebar) return;
 
     if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-
     hoverTimeout.current = setTimeout(() => {
       setActiveSidebar(category);
-      setIsHovering(true);
     }, 120);
-  };
-
-  const handleMouseEnter = () => {
-    setIsHovering(true);
-    if (hoverTimeout.current) {
-      clearTimeout(hoverTimeout.current);
-      hoverTimeout.current = null;
-    }
   };
 
   const handleMouseLeave = () => {
     if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-
     hoverTimeout.current = setTimeout(() => {
-      setIsHovering(false);
       setActiveSidebar(null);
     }, 180);
   };
 
   const closeSidebar = () => {
     if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-    setIsHovering(false);
     setActiveSidebar(null);
   };
 
@@ -88,38 +75,70 @@ export default function NavMenu() {
   };
 
   return (
-    <>
-      {/* NAVBAR */}
+    <div className="relative">
       <motion.nav
         className="
-          fixed top-0 left-0 right-0 z-20
-          bg-white/70 dark:bg-gray-900/70 
-          backdrop-blur-xl 
-          flex items-center justify-between 
-          px-10 py-4 
-          shadow-sm 
-          border-b border-white/20 dark:border-gray-700/30
+          relative z-30 w-full
+          bg-white dark:bg-gray-900
+          backdrop-blur-xl
+          flex items-center
+          pl-3 pr-10 py-4
+          border-b border-gray-200 dark:border-gray-700
         "
       >
-        <div className="flex items-center gap-16">
+        {/* LEFT */}
+        <div className="flex items-center gap-1">
           {/* LOGO */}
-          <Link href="/">
-            <img src="/images/vaire-logo.png" className="h-11" />
+          <Link
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              setLogoGlow(true);
+              setTimeout(() => setLogoGlow(false), 600);
+            }}
+            className="flex items-center"
+          >
+            <div
+              className={`
+                relative h-[50px] w-[220px]
+                transition-all duration-300
+                logo-glow-hover
+                ${logoGlow ? "logo-neon-glow" : ""}
+              `}
+            >
+              <img
+                src="/images/BLText.png"
+                alt="Bear Lane"
+                className="w-full h-full object-contain select-none"
+              />
+            </div>
           </Link>
 
           {/* NAV LINKS */}
           <div
-            className="flex items-center gap-12 text-[17px] uppercase tracking-wide text-black dark:text-gray-200"
+            className="
+              flex items-center gap-12
+              text-[17px] uppercase tracking-wide
+              text-black dark:text-gray-200
+            "
             onMouseMove={handleNavMouseMove}
-            onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
             {categories.map((cat) => (
               <div
                 key={cat}
                 data-category={cat}
-                onClick={() => setActiveSidebar(cat)}
-                className="cursor-pointer px-4 py-2 transition-colors hover:text-gray-400 dark:hover:text-gray-300"
+                className="
+                  cursor-pointer px-4 py-2
+                  transition-all duration-300
+                  hover:text-[#D4AF37]
+                  relative
+                  after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-0
+                  after:w-0 after:h-[2px]
+                  after:bg-[#D4AF37]
+                  after:transition-all after:duration-300
+                  hover:after:w-full
+                "
               >
                 {cat}
               </div>
@@ -127,20 +146,24 @@ export default function NavMenu() {
           </div>
         </div>
 
-        {/* RIGHT ICONS */}
-        <div className="flex items-center gap-6 text-black dark:text-gray-200">
-          <Search className="w-5 h-5 cursor-pointer hover:text-gray-400 dark:hover:text-gray-300 transition-colors" />
-          <Heart className="w-5 h-5 cursor-pointer hover:text-gray-400 dark:hover:text-gray-300 transition-colors" />
-
+        {/* RIGHT */}
+        <div className="ml-auto flex items-center gap-6">
+          <Search className="w-5 h-5 cursor-pointer hover:text-[#D4AF37] transition" />
+          <Heart className="w-5 h-5 cursor-pointer hover:text-[#D4AF37] transition" />
           <Link href="/profile">
-            <User className="w-5 h-5 cursor-pointer hover:text-gray-400 dark:hover:text-gray-300 transition-colors" />
+            <User className="w-5 h-5 cursor-pointer hover:text-[#D4AF37] transition" />
           </Link>
-
-          <div className="cursor-pointer" onClick={toggleCart}>
-            <ShoppingCart className="w-5 h-5 hover:text-gray-400 dark:hover:text-gray-300 transition-colors" />
+          <div
+            onClick={toggleCart}
+            className="cursor-pointer hover:text-[#D4AF37] transition"
+          >
+            <ShoppingCart className="w-5 h-5" />
           </div>
-
-          <DarkModeSwitch checked={darkMode} onChange={toggleDarkMode} size={20} />
+          <DarkModeSwitch
+            checked={darkMode}
+            onChange={toggleDarkMode}
+            size={20}
+          />
         </div>
       </motion.nav>
 
@@ -148,72 +171,35 @@ export default function NavMenu() {
       <AnimatePresence>
         {activeSidebar && (
           <>
-            {/* OVERLAY */}
             <motion.div
-              key="overlay"
               initial={{ opacity: 0 }}
-              animate={{ opacity: darkMode ? 0.6 : 0.5 }}
+              animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
               onClick={closeSidebar}
-              className="fixed top-[72px] left-0 w-full h-[calc(100%-72px)] bg-black z-20"
+              className="absolute top-full left-0 w-full h-screen bg-black z-20"
             />
 
-            {/* SIDEBAR PANEL */}
             <motion.div
-              key="sidebar"
               variants={sidebarVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              transition={{ duration: 0.27 }}
+              transition={{ duration: 0.25 }}
               onAnimationStart={() => setIsAnimating(true)}
               onAnimationComplete={() => setIsAnimating(false)}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
               className="
-                fixed top-[72px] left-0 
-                h-[calc(100%-72px)] w-[35%] 
-                bg-white dark:bg-gray-900 
-                shadow-2xl 
-                z-30 
-                p-7 
-                overflow-y-auto 
-                flex flex-col
+                absolute top-full left-0
+                w-[35%] h-screen
+                bg-white dark:bg-gray-900
+                shadow-2xl z-30
+                p-7 overflow-y-auto
               "
             >
               {renderSidebar()}
-
-              {/* BOTTOM NAV LINKS */}
-              <div className="mt-10 pt-6  space-y-4 uppercase tracking-wide text-[15px]">
-                <Link href="/help" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
-                  HELP
-                </Link>
-
-                <Link href="/faq" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
-                  FAQS
-                </Link>
-
-                <Link href="/support" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
-                  CONTACT US
-                </Link>
-
-                <Link href="/help/privacy" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
-                  PRIVACY & SECURITY
-                </Link>
-
-                <Link href="/company" className="block hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
-                  COMPANY
-                </Link>
-
-                <button className="block text-left hover:text-gray-400 dark:hover:text-gray-300 transition-colors">
-                  CHANGE REGION
-                </button>
-              </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }
