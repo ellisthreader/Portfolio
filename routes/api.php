@@ -11,6 +11,11 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\Admin\AdminChatController;
 use App\Models\Order;
 
+use Illuminate\Support\Facades\Mail;
+use App\Mail\QuoteMail;
+use App\Http\Controllers\QuoteController;
+
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -115,3 +120,8 @@ Route::post('/chat/send', [ChatController::class, 'send']);
 // For now, just require auth:sanctum.
 // You can later add 'admin' middleware if you have an admin role
 Route::middleware(['auth:sanctum', 'admin'])->get('/admin/active-chats', [AdminChatController::class, 'activeChats']);
+
+
+
+// -- Email
+Route::post('/send-quote', [QuoteController::class, 'sendQuote']);

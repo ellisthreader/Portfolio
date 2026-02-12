@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import StartProject from "./StartProject";
-import GetQuoteInstantly from "./GetQuoteInstantly";
+import GetQuoteInstantly from "./Quote/GetQuoteInstantly";
 
 export default function IdeaToIconicSection() {
   const imageSets = [
@@ -26,8 +26,9 @@ export default function IdeaToIconicSection() {
   const [showConcept, setShowConcept] = useState(false);
   const [showModel, setShowModel] = useState(false);
 
-  // Track which “page” is open
-  const [activePage, setActivePage] = useState<"none" | "startProject" | "getQuote">("none");
+  const [activePage, setActivePage] = useState<
+    "none" | "startProject" | "getQuote"
+  >("none");
 
   useEffect(() => {
     setShowConcept(false);
@@ -51,9 +52,41 @@ export default function IdeaToIconicSection() {
     };
   }, []);
 
-  // Render buttons or the selected page
-  if (activePage === "startProject") return <StartProject />;
-  if (activePage === "getQuote") return <GetQuoteInstantly />;
+  /* ================= FULL PAGE VIEWS ================= */
+
+  if (activePage === "startProject") {
+    return (
+      <div className="bg-[#FAFAFA] pt-16 pb-6 px-4 overflow-y-auto">
+        <div className="max-w-7xl mx-auto">
+          <button
+            onClick={() => setActivePage("none")}
+            className="mb-6 text-sm text-[#C9A24D] hover:underline"
+          >
+            ← Back
+          </button>
+          <StartProject />
+        </div>
+      </div>
+    );
+  }
+
+  if (activePage === "getQuote") {
+    return (
+      <div className="bg-[#FAFAFA] pt-16 pb-6 px-4 overflow-y-auto">
+        <div className="max-w-7xl mx-auto">
+          <button
+            onClick={() => setActivePage("none")}
+            className="mb-6 text-sm text-[#C9A24D] hover:underline"
+          >
+            ← Back
+          </button>
+          <GetQuoteInstantly />
+        </div>
+      </div>
+    );
+  }
+
+  /* ================= HERO SECTION ================= */
 
   return (
     <section className="w-full bg-white py-24">
@@ -99,10 +132,10 @@ export default function IdeaToIconicSection() {
               >
                 {/* LEFT STACK */}
                 <div className="flex flex-col gap-4 w-[40%] relative">
-                  {/* Top Concept */}
+                  {/* Concept */}
                   <div
                     className={`relative aspect-square rounded-2xl overflow-hidden shadow-md
-                                transition-transform duration-700 ease-out transform
+                                transition-transform duration-700 ease-out
                                 hover:scale-105 hover:z-20
                                 ${
                                   showConcept && isActive
@@ -117,7 +150,7 @@ export default function IdeaToIconicSection() {
                     />
                   </div>
 
-                  {/* Arrow positioned between concept and model */}
+                  {/* Arrow */}
                   <div
                     className={`absolute left-1/2 -translate-x-1/2
                                 top-[calc(44%+18px)]
@@ -132,10 +165,10 @@ export default function IdeaToIconicSection() {
                     <ArrowRight size={28} className="rotate-90" />
                   </div>
 
-                  {/* Bottom 2D Model */}
+                  {/* Model */}
                   <div
                     className={`relative aspect-square rounded-2xl overflow-hidden shadow-md
-                                transition-transform duration-700 ease-out transform
+                                transition-transform duration-700 ease-out
                                 hover:scale-105 hover:z-20
                                 ${
                                   showModel && isActive
@@ -151,8 +184,8 @@ export default function IdeaToIconicSection() {
                   </div>
                 </div>
 
-                {/* RIGHT FINAL IMAGE */}
-                <div className="relative w-[60%] rounded-3xl overflow-hidden shadow-xl opacity-100">
+                {/* FINAL IMAGE */}
+                <div className="relative w-[60%] rounded-3xl overflow-hidden shadow-xl">
                   <img
                     src={set.final}
                     alt="Final product"
