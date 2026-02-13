@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import ProductStep from "./ProductStep";
 import EmbroideryStep from "./EmbroideryStep";
 import ContactStep from "./ContactStep";
+import SpeakToArtist from "./SpeakToArtist";
 
 /* ================= TYPES ================= */
 export type QuoteItem = {
@@ -87,11 +88,12 @@ export const calculatePrice = (
   else if (size.includes("XXL") || size.includes("12-18M"))
     basePrice *= 1.3;
 
-  return basePrice * quantity;
+  return Math.round(basePrice * quantity);
 };
 
 /* ================= MAIN ================= */
 export default function GetQuoteInstantly() {
+  const [activeTab, setActiveTab] = useState<"instant" | "artist">("instant");
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const [productType, setProductType] = useState("T Shirts");
@@ -116,68 +118,100 @@ export default function GetQuoteInstantly() {
 
     setTotal((t) => t + price);
 
-    setProductType("T Shirts");
-    setQuantity(1);
-    setDesignType("Logo");
-    setSizeCategory("Women");
-    setSize("XS");
-
     setStep(1);
   };
 
   const removeItem = (index: number) => {
-  setItems((prev) => {
-    const updated = [...prev];
-    const removed = updated.splice(index, 1)[0];
-    setTotal((t) => t - removed.price);
-    return updated;
-  });
-};
-
+    setItems((prev) => {
+      const updated = [...prev];
+      const removed = updated.splice(index, 1)[0];
+      setTotal((t) => t - removed.price);
+      return updated;
+    });
+  };
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl px-12 py-8 sm:px-12 sm:py-10">
-      <h1 className="text-4xl font-extrabold text-center mb-6">
-        Get Quote Instantly
-      </h1>
+    <div className="min-h-screen bg-white py-16 px-6">
+      <div className="max-w-5xl mx-auto">
 
-      {step === 1 && (
-        <ProductStep
-          productType={productType}
-          setProductType={setProductType}
-          quantity={quantity}
-          setQuantity={setQuantity}
-          sizeCategory={sizeCategory}
-          setSizeCategory={setSizeCategory}
-          size={size}
-          setSize={setSize}
-          sizeOptions={sizeOptions}
-          items={items}
-          onNext={() => setStep(2)}
-          onGetQuote={() => setStep(3)}
-          onRemoveItem={removeItem}
-        />
-      )}
+        {/* ===== Main Card ===== */}
+        <div className="bg-white border border-gray-100 rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.06)] p-10">
 
-      {step === 2 && (
-        <EmbroideryStep
-          designType={designType}
-          setDesignType={setDesignType}
-          onBack={() => setStep(1)}
-          onAdd={addItem}
-        />
-      )}
+          {/* ===== Tabs ===== */}
+          <div className="flex justify-center mb-12">
+            <div className="flex bg-gray-50 rounded-full p-1 border border-gray-200">
 
-      {step === 3 && (
-        <ContactStep
-          name={name}
-          setName={setName}
-          email={email}
-          setEmail={setEmail}
-          items={items}
-          total={total}
-        />
-      )}
+              <button
+                onClick={() => setActiveTab("instant")}
+                className={`px-8 py-3 rounded-full text-sm font-medium transition-all duration-300 ${
+                  activeTab === "instant"
+                    ? "bg-[#C6A75E] text-white shadow-md"
+                    : "text-gray-600 hover:text-black"
+                }`}
+              >
+                Get Quote Instantly
+              </button>
+
+              <button
+                onClick={() => setActiveTab("artist")}
+                className={`px-8 py-3 rounded-full text-sm font-medium transition-all duration-300 ${
+                  activeTab === "artist"
+                    ? "bg-[#C6A75E] text-white shadow-md"
+                    : "text-gray-600 hover:text-black"
+                }`}
+              >
+                Speak to an Embroidery Artist
+              </button>
+
+            </div>
+          </div>
+
+          {/* ===== Tab Content ===== */}
+          {activeTab === "instant" && (
+            <>
+              {step === 1 && (
+                <ProductStep
+                  productType={productType}
+                  setProductType={setProductType}
+                  quantity={quantity}
+                  setQuantity={setQuantity}
+                  sizeCategory={sizeCategory}
+                  setSizeCategory={setSizeCategory}
+                  size={size}
+                  setSize={setSize}
+                  sizeOptions={sizeOptions}
+                  items={items}
+                  onNext={() => setStep(2)}
+                  onGetQuote={() => setStep(3)}
+                  onRemoveItem={removeItem}
+                />
+              )}
+
+              {step === 2 && (
+                <EmbroideryStep
+                  designType={designType}
+                  setDesignType={setDesignType}
+                  onBack={() => setStep(1)}
+                  onAdd={addItem}
+                />
+              )}
+
+              {step === 3 && (
+                <ContactStep
+                  name={name}
+                  setName={setName}
+                  email={email}
+                  setEmail={setEmail}
+                  items={items}
+                  total={total}
+                />
+              )}
+            </>
+          )}
+
+          {activeTab === "artist" && <SpeakToArtist />}
+        </div>
+      </div>
     </div>
   );
 }

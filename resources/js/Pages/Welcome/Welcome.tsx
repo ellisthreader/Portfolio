@@ -48,11 +48,13 @@ export default function Welcome() {
       {/* HERO */}
       <HeroSection />
 
+       {/* CATEGORIES */}
+      <CategorySection />
+
       {/* FROM IDEA TO ICONIC SECTION */}
       <IdeaToIconicSection />
 
-      {/* CATEGORIES */}
-      <CategorySection />
+     
 
       {/* STACKED FEATURE CARDS */}
       <StackedScrollCards />
