@@ -1,17 +1,12 @@
 import { Head } from '@inertiajs/react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
-import { Environment, useGLTF } from '@react-three/drei';
-import { Box3, MeshStandardMaterial, Vector3 } from 'three';
-import type { Group, Mesh, Object3D } from 'three';
+import { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { HERO_3D_CONFIG } from '@/config/hero3d';
 
 const TITLES = ['AI Engineer', 'Full Stack Developer', 'Software Engineer'];
-const MODEL_PATH = '/assets/Untitled.glb';
-const MODEL_WORLD_X = 0;
-const MODEL_WORLD_Y = 0;
-const MODEL_ROT_Y = Math.PI - 0.1;
-const TARGET_MODEL_HEIGHT = 6.8;
-const HEAD_OFFSET = 1.6;
 
 function useTyping(words: string[]) {
   const [wordIndex, setWordIndex] = useState(0);
@@ -50,117 +45,125 @@ function useTyping(words: string[]) {
   return displayed;
 }
 
-function Model() {
-  const { camera } = useThree();
-  const groupRef = useRef<Group>(null);
-  const gltf = useGLTF(MODEL_PATH) as { scene: Object3D };
+function ThreeHero() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const prepared = useMemo(() => {
-    const cloned = gltf.scene.clone(true);
-    const box = new Box3().setFromObject(cloned);
-    const size = new Vector3();
-    const center = new Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-    const min = box.min.clone();
-    const max = box.max.clone();
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    const modelHeightRaw = Math.max(size.y, 1);
-    const normalizedScale = TARGET_MODEL_HEIGHT / modelHeightRaw;
+    const scene = new THREE.Scene();
 
-    cloned.traverse((obj) => {
-      const mesh = obj as Mesh;
-      if ('isMesh' in mesh && mesh.isMesh) {
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
+    const camera = new THREE.PerspectiveCamera(
+      HERO_3D_CONFIG.cameraFov,
+      container.clientWidth / container.clientHeight,
+      HERO_3D_CONFIG.cameraNear,
+      HERO_3D_CONFIG.cameraFar
+    );
+    camera.position.set(HERO_3D_CONFIG.cameraX, HERO_3D_CONFIG.cameraY, HERO_3D_CONFIG.cameraZ);
 
-        if (!mesh.material) {
-          mesh.material = new MeshStandardMaterial({
-            color: '#f5d0fe',
-            emissive: '#7e22ce',
-            emissiveIntensity: 0.35,
-            roughness: 0.4,
-            metalness: 0.1,
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.shadowMap.enabled = HERO_3D_CONFIG.enableShadows;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enableZoom = true;
+    controls.target.set(HERO_3D_CONFIG.targetX, HERO_3D_CONFIG.targetY, HERO_3D_CONFIG.targetZ);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, HERO_3D_CONFIG.ambientIntensity);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, HERO_3D_CONFIG.directionalIntensity);
+    directionalLight.position.set(
+      HERO_3D_CONFIG.directionalX,
+      HERO_3D_CONFIG.directionalY,
+      HERO_3D_CONFIG.directionalZ
+    );
+    directionalLight.castShadow = HERO_3D_CONFIG.enableShadows;
+    scene.add(directionalLight);
+
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(20, 20),
+      new THREE.ShadowMaterial({ opacity: 0.18 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = HERO_3D_CONFIG.groundY;
+    ground.receiveShadow = HERO_3D_CONFIG.enableShadows;
+    scene.add(ground);
+
+    const loader = new GLTFLoader();
+    const clock = new THREE.Clock();
+    let mixer: THREE.AnimationMixer | null = null;
+    let frameId = 0;
+
+    loader.load(
+      HERO_3D_CONFIG.modelPath,
+      (gltf: GLTF) => {
+        const model = gltf.scene;
+        model.position.set(HERO_3D_CONFIG.modelX, HERO_3D_CONFIG.modelY, HERO_3D_CONFIG.modelZ);
+        model.rotation.y = HERO_3D_CONFIG.modelRotY;
+        model.scale.set(HERO_3D_CONFIG.modelScale, HERO_3D_CONFIG.modelScale, HERO_3D_CONFIG.modelScale);
+
+        model.traverse((child: THREE.Object3D) => {
+          const mesh = child as THREE.Mesh;
+          if ('isMesh' in mesh && mesh.isMesh) {
+            mesh.castShadow = HERO_3D_CONFIG.enableShadows;
+            mesh.receiveShadow = HERO_3D_CONFIG.enableShadows;
+          }
+        });
+
+        scene.add(model);
+
+        if (gltf.animations.length > 0) {
+          mixer = new THREE.AnimationMixer(model);
+          gltf.animations.forEach((clip: THREE.AnimationClip) => {
+            mixer?.clipAction(clip).play();
           });
         }
+      },
+      undefined,
+      (error: unknown) => {
+        console.error('Failed to load model:', error);
       }
-    });
+    );
 
-    const offset: [number, number, number] = [
-      -center.x * normalizedScale,
-      -center.y * normalizedScale,
-      -center.z * normalizedScale,
-    ];
-
-    const modelBottomY = (min.y - center.y) * normalizedScale + MODEL_WORLD_Y;
-    const modelTopY = (max.y - center.y) * normalizedScale + MODEL_WORLD_Y;
-    const modelHeight = Math.max(1, modelTopY - modelBottomY);
-    const focusY = modelTopY - modelHeight * 0.08 + HEAD_OFFSET;
-    const cameraDistance = Math.max(3.6, modelHeight * 0.52);
-
-    return { model: cloned, scale: normalizedScale, offset, focusY, cameraDistance };
-  }, [gltf.scene]);
-
-  useEffect(() => {
-    camera.position.set(0, prepared.focusY + 0.12, prepared.cameraDistance);
-    camera.lookAt(0, prepared.focusY, 0);
-    camera.near = 0.1;
-    camera.far = 600;
-    camera.updateProjectionMatrix();
-  }, [camera, prepared.cameraDistance, prepared.focusY]);
-
-  return (
-    <group ref={groupRef} position={[MODEL_WORLD_X, MODEL_WORLD_Y, 0]} rotation={[0, MODEL_ROT_Y, 0]}>
-      <group scale={prepared.scale} position={prepared.offset}>
-        <primitive object={prepared.model} dispose={null} />
-      </group>
-    </group>
-  );
-}
-
-const CenterModel = memo(function CenterModel() {
-  const cameraConfig = useMemo(() => ({ position: [0, 1.6, 7.4] as [number, number, number], fov: 35 }), []);
-  const glConfig = useMemo(() => ({ alpha: true }), []);
-
-  useEffect(() => {
-    const originalWarn = console.warn;
-
-    console.warn = (...args: unknown[]) => {
-      const joined = args
-        .map((arg) => {
-          if (typeof arg === 'string') return arg;
-          if (arg && typeof arg === 'object' && 'message' in arg) {
-            return String((arg as { message?: string }).message ?? '');
-          }
-          return '';
-        })
-        .join(' ');
-
-      if (joined.includes('THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.')) {
-        return;
-      }
-
-      originalWarn(...args);
+    const onResize = () => {
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
     };
 
+    const resizeObserver = new ResizeObserver(onResize);
+    resizeObserver.observe(container);
+    window.addEventListener('resize', onResize);
+
+    const animate = () => {
+      frameId = window.requestAnimationFrame(animate);
+      controls.update();
+      if (mixer) mixer.update(clock.getDelta());
+      renderer.render(scene, camera);
+    };
+    animate();
+
     return () => {
-      console.warn = originalWarn;
+      window.cancelAnimationFrame(frameId);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', onResize);
+      controls.dispose();
+      renderer.dispose();
+      if (renderer.domElement.parentNode === container) {
+        container.removeChild(renderer.domElement);
+      }
     };
   }, []);
 
-  return (
-    <div className="hero-canvas-wrap">
-      <Canvas camera={cameraConfig} gl={glConfig}>
-        <ambientLight intensity={1.2} />
-        <directionalLight position={[4, 8, 3]} intensity={2.6} color="#f0c4ff" />
-        <pointLight position={[-4, 2, 3]} intensity={2.2} color="#d946ef" />
-        <pointLight position={[4, -1, 2]} intensity={1.8} color="#7c3aed" />
-        <Model />
-        <Environment preset="night" />
-      </Canvas>
-    </div>
-  );
-});
+  return <div ref={containerRef} className="hero-three-container" />;
+}
 
 function TypingJobs() {
   const typed = useTyping(TITLES);
@@ -194,7 +197,9 @@ export default function Home() {
             <p className="hero-name">Ellis Threader</p>
           </div>
 
-          <CenterModel />
+          <div className="hero-canvas-wrap">
+            <ThreeHero />
+          </div>
 
           <TypingJobs />
         </section>
@@ -202,5 +207,3 @@ export default function Home() {
     </>
   );
 }
-
-useGLTF.preload(MODEL_PATH);

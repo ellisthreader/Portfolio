@@ -149,12 +149,18 @@ body {
   position: relative;
   z-index: 8;
   justify-self: center;
+  align-self: center;
   height: min(82vh, 900px);
   width: min(100%, 900px);
   border-radius: 20px;
   overflow: visible;
   background: transparent;
-  transform: translateX(-10vw);
+  transform: translateX(0);
+}
+
+.hero-three-container {
+  width: 100%;
+  height: 100%;
 }
 
 .hero-model-status {
