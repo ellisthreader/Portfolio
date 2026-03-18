@@ -1,0 +1,222 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #080611;
+  color: #fff;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.hero-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 24%, rgba(217, 70, 239, 0.22), transparent 44%),
+    radial-gradient(circle at 85% 10%, rgba(124, 58, 237, 0.28), transparent 42%),
+    radial-gradient(circle at 52% 70%, rgba(236, 72, 153, 0.14), transparent 48%),
+    #080611;
+}
+
+.hero-bg-glow {
+  position: absolute;
+  inset: auto;
+  left: 50%;
+  top: 52%;
+  width: min(62vw, 860px);
+  height: min(62vw, 860px);
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(217, 70, 239, 0.28) 0%, rgba(168, 85, 247, 0.16) 40%, transparent 74%);
+  filter: blur(28px);
+  pointer-events: none;
+}
+
+.hero-nav {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  padding: 1.5rem 2rem;
+  background: transparent;
+  z-index: 20;
+}
+
+.hero-nav-links {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.hero-nav-links a {
+  color: #fff;
+  text-decoration: none;
+  text-shadow: 0 0 9px rgba(255, 255, 255, 0.38);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(460px, 52vw) minmax(240px, 1fr);
+  align-items: center;
+  gap: clamp(1rem, 2.5vw, 3rem);
+  min-height: 100vh;
+  padding: 5.5rem 2rem 2.5rem;
+}
+
+.hero-left {
+  position: relative;
+  z-index: 16;
+  justify-self: start;
+}
+
+.hero-greeting {
+  margin: 0;
+  font-size: clamp(1.9rem, 3.2vw, 3rem);
+  line-height: 1.1;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(139, 92, 246, 0.35), 0 0 34px rgba(217, 70, 239, 0.28);
+}
+
+.hero-name {
+  margin: 0.25rem 0 0;
+  font-size: clamp(2.35rem, 4.1vw, 3.85rem);
+  line-height: 1.03;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #f5d0fe;
+  text-shadow: 0 0 28px rgba(236, 72, 153, 0.42), 0 0 48px rgba(139, 92, 246, 0.46);
+}
+
+.hero-text-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.hero-right {
+  justify-self: end;
+  width: min(100%, 360px);
+  margin-top: clamp(0.75rem, 2.8vh, 2rem);
+}
+
+.hero-role-label {
+  margin: 0;
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  font-weight: 600;
+  color: #e9d5ff;
+  text-shadow: 0 0 14px rgba(168, 85, 247, 0.35);
+}
+
+.hero-typed {
+  margin: 0.55rem 0 0;
+  font-size: clamp(1.5rem, 2.35vw, 2.3rem);
+  min-height: 2.5em;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #f0abfc;
+  text-shadow: 0 0 12px rgba(240, 171, 252, 0.62), 0 0 24px rgba(217, 70, 239, 0.42);
+}
+
+.hero-typed::after {
+  content: '';
+  display: inline-block;
+  width: 0.13em;
+  height: 1em;
+  margin-left: 0.18em;
+  vertical-align: -0.1em;
+  background: #fff;
+  animation: caret-blink 900ms steps(1, end) infinite;
+}
+
+.hero-canvas-wrap {
+  position: relative;
+  z-index: 8;
+  justify-self: center;
+  height: min(82vh, 900px);
+  width: min(100%, 900px);
+  border-radius: 20px;
+  overflow: visible;
+  background: transparent;
+  transform: translateX(-10vw);
+}
+
+.hero-model-status {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  color: #f5f3ff;
+  font-size: 1rem;
+  text-align: center;
+  background: radial-gradient(circle at center, rgba(124, 58, 237, 0.2), rgba(8, 6, 17, 0.75));
+  text-shadow: 0 0 14px rgba(217, 70, 239, 0.5);
+}
+
+.hero-model-status[data-error='true'] {
+  color: #fca5a5;
+  text-shadow: 0 0 14px rgba(239, 68, 68, 0.6);
+}
+
+@keyframes caret-blink {
+  0%,
+  48% {
+    opacity: 1;
+  }
+  52%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 1024px) {
+  .hero-content {
+    grid-template-columns: 1fr;
+    padding-top: 5rem;
+  }
+
+  .hero-left {
+    justify-self: start;
+    width: min(100%, 520px);
+  }
+
+  .hero-right {
+    justify-self: start;
+    width: min(100%, 520px);
+    order: 3;
+  }
+
+  .hero-canvas-wrap {
+    order: 2;
+    width: min(100%, 760px);
+    height: min(58vh, 580px);
+    transform: translateX(0);
+  }
+
+  .hero-nav {
+    padding: 1.1rem 1rem;
+  }
+
+  .hero-nav-links {
+    gap: 1rem;
+    font-size: 0.87rem;
+  }
+}
