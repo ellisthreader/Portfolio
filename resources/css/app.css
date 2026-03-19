@@ -11,7 +11,7 @@ body,
 
 body {
   margin: 0;
-  background: #080611;
+  background: #05030b;
   color: #fff;
   font-family: 'Space Grotesk', sans-serif;
 }
@@ -21,10 +21,10 @@ body {
   min-height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(circle at 18% 24%, rgba(217, 70, 239, 0.22), transparent 44%),
-    radial-gradient(circle at 85% 10%, rgba(124, 58, 237, 0.28), transparent 42%),
-    radial-gradient(circle at 52% 70%, rgba(236, 72, 153, 0.14), transparent 48%),
-    #080611;
+    radial-gradient(circle at 16% 30%, rgba(171, 87, 255, 0.1), transparent 34%),
+    radial-gradient(circle at 82% 12%, rgba(130, 73, 230, 0.09), transparent 36%),
+    radial-gradient(circle at 60% 72%, rgba(177, 91, 255, 0.06), transparent 40%),
+    #030305;
 }
 
 .hero-bg-glow {
@@ -36,8 +36,8 @@ body {
   height: min(62vw, 860px);
   transform: translate(-50%, -50%);
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(217, 70, 239, 0.28) 0%, rgba(168, 85, 247, 0.16) 40%, transparent 74%);
-  filter: blur(28px);
+  background: radial-gradient(circle, rgba(174, 95, 255, 0.14) 0%, rgba(108, 57, 206, 0.08) 42%, transparent 74%);
+  filter: blur(38px);
   pointer-events: none;
 }
 
@@ -70,16 +70,18 @@ body {
   z-index: 10;
   display: grid;
   grid-template-columns: minmax(240px, 1fr) minmax(460px, 52vw) minmax(240px, 1fr);
-  align-items: center;
-  gap: clamp(1rem, 2.5vw, 3rem);
+  align-items: end;
+  gap: clamp(0.55rem, 1.6vw, 1.6rem);
   min-height: 100vh;
-  padding: 5.5rem 2rem 2.5rem;
+  padding: 5.5rem 2rem 0;
 }
 
 .hero-left {
   position: relative;
   z-index: 16;
   justify-self: start;
+  align-self: center;
+  transform: translate(22px, -52px);
 }
 
 .hero-greeting {
@@ -112,8 +114,10 @@ body {
 
 .hero-right {
   justify-self: end;
+  align-self: center;
   width: min(100%, 360px);
-  margin-top: clamp(0.75rem, 2.8vh, 2rem);
+  margin-top: 0;
+  transform: translate(-8px, 10px);
 }
 
 .hero-role-label {
@@ -149,8 +153,8 @@ body {
   position: relative;
   z-index: 8;
   justify-self: center;
-  align-self: center;
-  height: min(82vh, 900px);
+  align-self: end;
+  height: min(88vh, 980px);
   width: min(100%, 900px);
   border-radius: 20px;
   overflow: visible;
@@ -197,23 +201,29 @@ body {
   .hero-content {
     grid-template-columns: 1fr;
     padding-top: 5rem;
+    padding-bottom: 0;
   }
 
   .hero-left {
     justify-self: start;
     width: min(100%, 520px);
+    align-self: start;
+    transform: translate(0, 0);
   }
 
   .hero-right {
     justify-self: start;
     width: min(100%, 520px);
     order: 3;
+    align-self: start;
+    transform: translate(0, 0);
   }
 
   .hero-canvas-wrap {
     order: 2;
     width: min(100%, 760px);
-    height: min(58vh, 580px);
+    height: min(64vh, 660px);
+    align-self: end;
     transform: translateX(0);
   }
 
