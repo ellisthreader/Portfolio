@@ -13,7 +13,7 @@ export const HERO_3D_CONFIG = {
   targetZ: 0, // Orbit/look target depth
 
   modelX: 0, // Model left/right
-  modelY: -1.2, // Model up/down
+  modelY: -0.95, // Model up/down
   modelZ: 0, // Model depth
   modelScale: 1.82, // Model size
   modelRotY: 0, // Model facing direction
