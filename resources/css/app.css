@@ -43,7 +43,6 @@ body {
 
 .scroll-page {
   position: relative;
-  z-index: 5;
 }
 
 .hero-nav {

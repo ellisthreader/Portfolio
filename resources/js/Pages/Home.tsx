@@ -220,7 +220,7 @@ export default function Home() {
     const modelState: ModelScrollState = {
       positionX: 0,
       rotationY: 0,
-      scale: 1,
+      scale: 0.72,
     };
 
     let mixer: THREE.AnimationMixer | null = null;
@@ -279,7 +279,7 @@ export default function Home() {
           '(max-width: 767px)': () => {
             modelState.positionX = 0;
             modelState.rotationY = 0;
-            modelState.scale = 0.9;
+            modelState.scale = 0.64;
 
             const tl = gsap.timeline({
               scrollTrigger: {
@@ -293,7 +293,7 @@ export default function Home() {
             tl.to(modelState, {
               positionX: mobileLeftX,
               rotationY: 0.55,
-              scale: 0.82,
+              scale: 0.58,
               ease: 'none',
             });
 
@@ -302,7 +302,7 @@ export default function Home() {
           '(min-width: 768px)': () => {
             modelState.positionX = 0;
             modelState.rotationY = 0;
-            modelState.scale = 1;
+            modelState.scale = 0.72;
 
             const tl = gsap.timeline({
               scrollTrigger: {
@@ -316,7 +316,7 @@ export default function Home() {
             tl.to(modelState, {
               positionX: desktopLeftX,
               rotationY: 0.58,
-              scale: 0.92,
+              scale: 0.66,
               ease: 'none',
             });
 
