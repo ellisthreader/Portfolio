@@ -28,12 +28,10 @@ export const styleSheet: StyleSheet = {
     "width": "2.6rem",
     "height": "2.6rem",
     "border-radius": "999px",
-    "border": "1px solid rgba(255, 255, 255, 0.24)",
+    "border": "1px solid rgba(255, 255, 255, 0.16)",
     "background": "rgba(8, 5, 15, 0.42)",
-    "box-shadow": "0 0 14px rgba(255, 255, 255, 0.16)",
     "isolation": "isolate",
     "transition": "color 260ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1)",
-    "filter": "drop-shadow(0 0 10px rgba(255, 255, 255, 0.22))",
   },
   ".social-dock a::before,\n.social-dock a::after": {
     "content": "''",

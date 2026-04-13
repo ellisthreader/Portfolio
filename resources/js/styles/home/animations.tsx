@@ -14,7 +14,7 @@ export const styleSheet: StyleSheet = {
       "transform": "translate3d(0, 0, 0) scale(1)",
     },
     "50%": {
-      "transform": "translate3d(0, -24px, 0) scale(1.05)",
+      "transform": "translate3d(0, -10px, 0) scale(1.035)",
     },
   },
   "@keyframes loader-spin": {
@@ -43,11 +43,13 @@ export const styleSheet: StyleSheet = {
   "@keyframes terminal-line-in": {
     "0%": {
       "opacity": "0",
-      "transform": "translateY(4px)",
+      "transform": "translateY(10px)",
+      "filter": "blur(10px)",
     },
     "100%": {
       "opacity": "1",
       "transform": "translateY(0)",
+      "filter": "blur(0)",
     },
   },
   "@keyframes terminal-cursor-blink": {
@@ -79,15 +81,29 @@ export const styleSheet: StyleSheet = {
   "@keyframes terminal-welcome-in": {
     "0%": {
       "opacity": "0",
-      "transform": "translateY(8px) scale(0.92)",
-      "letter-spacing": "0.28em",
-      "filter": "blur(6px)",
+      "transform": "translateZ(-140px) scale(0.76)",
+      "letter-spacing": "0.34em",
+      "filter": "blur(18px)",
+    },
+    "55%": {
+      "opacity": "1",
+      "transform": "translateZ(0) scale(1.03)",
+      "letter-spacing": "0.27em",
+      "filter": "blur(0)",
     },
     "100%": {
       "opacity": "1",
-      "transform": "translateY(0) scale(1)",
-      "letter-spacing": "0.18em",
+      "transform": "translateZ(0) scale(1)",
+      "letter-spacing": "0.24em",
       "filter": "blur(0)",
+    },
+  },
+  "@keyframes terminal-welcome-glow": {
+    "0%, 100%": {
+      "text-shadow": "0 0 22px rgba(255, 187, 241, 0.34), 0 0 40px rgba(236, 72, 153, 0.22), 0 0 72px rgba(168, 85, 247, 0.16)",
+    },
+    "50%": {
+      "text-shadow": "0 0 30px rgba(255, 213, 248, 0.54), 0 0 56px rgba(236, 72, 153, 0.34), 0 0 96px rgba(168, 85, 247, 0.24)",
     },
   },
 };

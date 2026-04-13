@@ -16,16 +16,20 @@ export const styleSheet: StyleSheet = {
     "z-index": "4",
   },
   ".s-hero": {
-    "background": "radial-gradient(980px 540px at 12% 8%, rgba(168, 85, 247, 0.26), transparent 72%),\n    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%)",
+    "background": "transparent",
   },
   ".s-model-shift": {
-    "background": "radial-gradient(820px 460px at 78% 24%, rgba(147, 51, 234, 0.18), transparent 72%),\n    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%)",
+    "background": "transparent",
   },
   ".s-model-hold": {
-    "background": "radial-gradient(920px 500px at 86% 18%, rgba(192, 132, 252, 0.24), transparent 74%),\n    linear-gradient(180deg, #120a22 0%, #090612 100%)",
+    "background": "transparent",
   },
   ".s-outro": {
-    "background": "linear-gradient(180deg, #090612 0%, #030208 100%)",
+    "background": "transparent",
+  },
+  ".story-section": {
+    "background": "transparent",
+    "min-height": "92svh",
   },
   ".parallax-layer": {
     "position": "absolute",
