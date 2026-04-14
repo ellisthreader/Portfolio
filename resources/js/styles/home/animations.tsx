@@ -106,4 +106,31 @@ export const styleSheet: StyleSheet = {
       "text-shadow": "0 0 30px rgba(255, 213, 248, 0.54), 0 0 56px rgba(236, 72, 153, 0.34), 0 0 96px rgba(168, 85, 247, 0.24)",
     },
   },
+  "@keyframes scroll-cue-float": {
+    "0%,\n  100%": {
+      "transform": "translate3d(-50%, 0, 0)",
+      "opacity": "0.84",
+    },
+    "50%": {
+      "transform": "translate3d(-50%, 8px, 0)",
+      "opacity": "1",
+    },
+  },
+  "@keyframes scroll-cue-dot": {
+    "0%": {
+      "transform": "translateY(0)",
+      "opacity": "0",
+    },
+    "18%": {
+      "opacity": "1",
+    },
+    "72%": {
+      "transform": "translateY(11px)",
+      "opacity": "1",
+    },
+    "100%": {
+      "transform": "translateY(11px)",
+      "opacity": "0",
+    },
+  },
 };

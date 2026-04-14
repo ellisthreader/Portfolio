@@ -1,4 +1,5 @@
 import { styleSheet as baseStyles } from './base';
+import { styleSheet as backgroundStyles } from './background';
 import { styleSheet as loaderStyles } from './loader';
 import { styleSheet as loaderPanelStyles } from './loader-panel';
 import { styleSheet as canvasStyles } from './canvas';
@@ -17,6 +18,7 @@ import { renderStyleSheet } from './renderer';
 
 const homeStyles = [
   renderStyleSheet(baseStyles),
+  renderStyleSheet(backgroundStyles),
   renderStyleSheet(loaderStyles),
   renderStyleSheet(loaderPanelStyles),
   renderStyleSheet(canvasStyles),

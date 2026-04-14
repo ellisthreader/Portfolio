@@ -1,5 +1,5 @@
 export const HERO_3D_CONFIG = {
-  modelPath: '/assets/FIXED5.glb', // Model file in public/assets
+  modelPath: '/assets/FIXEDNOW.glb', // Model file in public/assets
 
   cameraFov: 47, // Lower = more zoomed in
   cameraNear: 0.1, // Near clipping plane

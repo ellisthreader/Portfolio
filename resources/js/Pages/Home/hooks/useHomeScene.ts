@@ -46,30 +46,83 @@ export function useHomeScene(): HomeSceneState {
 
     const mediaQuery = window.matchMedia('(pointer: fine)');
     const useEnhancedPointer = mediaQuery.matches;
-    const getRenderPixelRatio = () => Math.min(window.devicePixelRatio, window.innerWidth < 1024 ? 1 : 1.25);
+    const useDecorativeCursor =
+      useEnhancedPointer &&
+      window.getComputedStyle(pointerLight).display !== 'none' &&
+      window.getComputedStyle(cursorAura).display !== 'none';
+    const getRenderPixelRatio = () => Math.min(window.devicePixelRatio, window.innerWidth < 768 ? 0.95 : 1.2);
+    const getCanvasViewport = () => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        width: Math.max(1, Math.round(rect.width || window.innerWidth)),
+        height: Math.max(1, Math.round(rect.height || window.innerHeight)),
+      };
+    };
     const getModelOffsetY = () => (window.innerWidth < 768 ? -0.24 : -0.38);
     const getHeroModelScale = () => (window.innerWidth < 768 ? 0.54 : 0.62);
     const getAboutModelOffsetX = () => (window.innerWidth < 768 ? 0 : -0.52);
     const getAboutModelRotationY = () => (window.innerWidth < 768 ? 0 : THREE.MathUtils.degToRad(6));
+    const getHeadPointerCenterY = () => (window.innerWidth < 768 ? 0.44 : 0.42);
+    const normalizePointerAxis = (position: number, size: number, centerRatio: number) => {
+      const center = size * centerRatio;
+      const travel = Math.max(center, size - center, 1);
+      return THREE.MathUtils.clamp((position - center) / travel, -1, 1);
+    };
     const applyDeadzone = (value: number, deadzone: number) => {
       const magnitude = Math.abs(value);
       if (magnitude <= deadzone) return 0;
       return Math.sign(value) * ((magnitude - deadzone) / (1 - deadzone));
     };
     const shapePointerInput = (value: number, exponent: number) => Math.sign(value) * Math.pow(Math.abs(value), exponent);
-    const renderFrameBudget = 1000 / 45;
-    const headPointerDeadzone = 0.045;
-    const headPointerCurve = 1.22;
-    const headInputFollowDamping = 8.5;
-    const headInputReturnDamping = 2.4;
-    const headRotationFollowDamping = 5.2;
-    const headRotationReturnDamping = 2.05;
-    const headIdleDelayMs = 160;
-    const headIdleEaseWindowMs = 1200;
-    let pointerNormalizedX = 0;
-    let pointerNormalizedY = 0;
+    const getCoalescedPointerSample = (event: PointerEvent) => {
+      if (typeof event.getCoalescedEvents !== 'function') {
+        return { x: event.clientX, y: event.clientY };
+      }
+
+      const samples = event.getCoalescedEvents();
+      if (!samples.length) {
+        return { x: event.clientX, y: event.clientY };
+      }
+
+      let totalX = 0;
+      let totalY = 0;
+      samples.forEach((sample) => {
+        totalX += sample.clientX;
+        totalY += sample.clientY;
+      });
+
+      const averageX = totalX / samples.length;
+      const averageY = totalY / samples.length;
+
+      return {
+        x: THREE.MathUtils.lerp(averageX, event.clientX, 0.42),
+        y: THREE.MathUtils.lerp(averageY, event.clientY, 0.42),
+      };
+    };
+    const headPointerDeadzone = 0.052;
+    const headPointerCurve = 1.28;
+    const headPointerScreenFollowDamping = 11.5;
+    const headPointerScreenReturnDamping = 4.4;
+    const headInputFollowDamping = 8.8;
+    const headInputReturnDamping = 3.6;
+    const headSettledFollowDamping = 5.6;
+    const headSettledReturnDamping = 2.6;
+    const headRotationFollowDamping = 6.5;
+    const headRotationReturnDamping = 2.8;
+    const headIdleDelayMs = 110;
+    const headIdleEaseWindowMs = 1550;
+    const headMicroJitterThreshold = 0.005;
+    const modelPositionDamping = 4.4;
+    const modelRotationDamping = 4;
+    const modelScaleDamping = 5.1;
+    let headPointerTargetClientX = window.innerWidth / 2;
+    let headPointerTargetClientY = window.innerHeight * getHeadPointerCenterY();
+    let headPointerClientX = headPointerTargetClientX;
+    let headPointerClientY = headPointerTargetClientY;
     let filteredHeadPointerX = 0;
     let filteredHeadPointerY = 0;
+    let settledHeadPointerX = 0;
+    let settledHeadPointerY = 0;
     let lastPointerMoveTime = performance.now();
     let detachInteractiveCursorHandlers = () => {};
 
@@ -82,15 +135,16 @@ export function useHomeScene(): HomeSceneState {
       let lightY = targetY;
 
       const syncPointer = (event: PointerEvent) => {
-        targetX = event.clientX;
-        targetY = event.clientY;
-        pointerNormalizedX = THREE.MathUtils.clamp(event.clientX / window.innerWidth, 0, 1) * 2 - 1;
-        pointerNormalizedY = THREE.MathUtils.clamp(event.clientY / window.innerHeight, 0, 1) * 2 - 1;
+        const sample = getCoalescedPointerSample(event);
+        targetX = sample.x;
+        targetY = sample.y;
+        headPointerTargetClientX = sample.x;
+        headPointerTargetClientY = sample.y;
         lastPointerMoveTime = performance.now();
       };
       const resetPointerTracking = () => {
-        pointerNormalizedX = 0;
-        pointerNormalizedY = 0;
+        headPointerTargetClientX = window.innerWidth / 2;
+        headPointerTargetClientY = window.innerHeight * getHeadPointerCenterY();
         lastPointerMoveTime = performance.now() - headIdleDelayMs;
       };
 
@@ -103,39 +157,43 @@ export function useHomeScene(): HomeSceneState {
         pointerLight.style.transform = `translate3d(${lightX}px, ${lightY}px, 0) translate(-50%, -50%)`;
       };
 
-      const interactiveNodes = Array.from(document.querySelectorAll<HTMLElement>('a, button, [role="button"], input, textarea, select'));
-      const onInteractiveEnter = () => {
-        gsap.to(cursorAura, { scale: 1.24, opacity: 0.96, duration: 0.2, ease: 'power3.out', overwrite: true });
-        gsap.to(pointerLight, { opacity: 0.9, duration: 0.35, ease: 'power2.out', overwrite: true });
-      };
-      const onInteractiveLeave = () => {
-        gsap.to(cursorAura, { scale: 1, opacity: 0.78, duration: 0.3, ease: 'power3.out', overwrite: true });
-        gsap.to(pointerLight, { opacity: 0.7, duration: 0.35, ease: 'power2.out', overwrite: true });
-      };
-
-      interactiveNodes.forEach((node) => {
-        node.addEventListener('pointerenter', onInteractiveEnter);
-        node.addEventListener('pointerleave', onInteractiveLeave);
-      });
-
-      detachInteractiveCursorHandlers = () => {
-        interactiveNodes.forEach((node) => {
-          node.removeEventListener('pointerenter', onInteractiveEnter);
-          node.removeEventListener('pointerleave', onInteractiveLeave);
-        });
-      };
-
       window.addEventListener('pointermove', syncPointer, { passive: true });
       window.addEventListener('pointerleave', resetPointerTracking, { passive: true });
-      gsap.ticker.add(renderPointer);
-      gsap.set([pointerLight, cursorAura], { x: targetX, y: targetY });
-      gsap.set(pointerLight, { opacity: 0.7 });
-      gsap.set(cursorAura, { opacity: 0.78, scale: 1 });
+      if (useDecorativeCursor) {
+        const interactiveNodes = Array.from(document.querySelectorAll<HTMLElement>('a, button, [role="button"], input, textarea, select'));
+        const onInteractiveEnter = () => {
+          gsap.to(cursorAura, { scale: 1.24, opacity: 0.96, duration: 0.2, ease: 'power3.out', overwrite: true });
+          gsap.to(pointerLight, { opacity: 0.9, duration: 0.35, ease: 'power2.out', overwrite: true });
+        };
+        const onInteractiveLeave = () => {
+          gsap.to(cursorAura, { scale: 1, opacity: 0.78, duration: 0.3, ease: 'power3.out', overwrite: true });
+          gsap.to(pointerLight, { opacity: 0.7, duration: 0.35, ease: 'power2.out', overwrite: true });
+        };
+
+        interactiveNodes.forEach((node) => {
+          node.addEventListener('pointerenter', onInteractiveEnter);
+          node.addEventListener('pointerleave', onInteractiveLeave);
+        });
+
+        detachInteractiveCursorHandlers = () => {
+          interactiveNodes.forEach((node) => {
+            node.removeEventListener('pointerenter', onInteractiveEnter);
+            node.removeEventListener('pointerleave', onInteractiveLeave);
+          });
+        };
+
+        gsap.ticker.add(renderPointer);
+        gsap.set([pointerLight, cursorAura], { x: targetX, y: targetY });
+        gsap.set(pointerLight, { opacity: 0.7 });
+        gsap.set(cursorAura, { opacity: 0.78, scale: 1 });
+      }
 
       const cleanupEnhancedPointer = () => {
         window.removeEventListener('pointermove', syncPointer);
         window.removeEventListener('pointerleave', resetPointerTracking);
-        gsap.ticker.remove(renderPointer);
+        if (useDecorativeCursor) {
+          gsap.ticker.remove(renderPointer);
+        }
       };
 
       detachInteractiveCursorHandlers = (() => {
@@ -211,7 +269,8 @@ export function useHomeScene(): HomeSceneState {
           .to(directionalLight, { intensity: directionalTarget, duration: 1.6, ease: 'sine.out' }, '<')
           .to(accentLight, { intensity: accentTarget, duration: 1.75, ease: 'sine.out' }, '<')
           .to(pinkRim, { intensity: rimTarget, duration: 1.9, ease: 'sine.out' }, '<')
-          .to(backlight, { intensity: backlightTarget, duration: 2.05, ease: 'sine.out' }, '<');
+          .to(backlight, { intensity: backlightTarget, duration: 2.05, ease: 'sine.out' }, '<')
+          .to(rearGlow, { intensity: rearGlowTarget, duration: 1.9, ease: 'sine.out' }, '<');
       }, 0);
     };
 
@@ -292,16 +351,20 @@ export function useHomeScene(): HomeSceneState {
 
     const renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: window.devicePixelRatio <= 1.5,
+      antialias: window.innerWidth >= 768,
       alpha: true,
       powerPreference: 'high-performance',
       stencil: false,
     });
+    const initialViewport = getCanvasViewport();
     renderer.setPixelRatio(getRenderPixelRatio());
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(initialViewport.width, initialViewport.height, false);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(22, window.innerWidth / window.innerHeight, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(22, initialViewport.width / initialViewport.height, 0.1, 100);
     camera.position.set(0, 1.48, 2.1);
     camera.lookAt(0, 0.64, 0);
 
@@ -309,7 +372,8 @@ export function useHomeScene(): HomeSceneState {
     const directionalTarget = 1.72;
     const accentTarget = 1.15;
     const rimTarget = 0.95;
-    const backlightTarget = 1.34;
+    const backlightTarget = 40.5;
+    const rearGlowTarget = 27.5;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0);
     const directionalLight = new THREE.DirectionalLight(0xf5d0fe, 0);
@@ -318,12 +382,15 @@ export function useHomeScene(): HomeSceneState {
     accentLight.position.set(-1.8, 1.3, 2.2);
     const pinkRim = new THREE.PointLight(0xe879f9, 0, 16, 1.3);
     pinkRim.position.set(1.5, 1.7, 2.4);
-    const backlight = new THREE.PointLight(0xa855f7, 0, 20, 1.15);
-    backlight.position.set(0, 1.05, -2.8);
-    scene.add(ambientLight, directionalLight, accentLight, pinkRim, backlight);
+    const backlight = new THREE.PointLight(0xa855f7, 0, 18, 1.05);
+    backlight.position.set(0, -0.72, -1.42);
+    const rearGlow = new THREE.PointLight(0xe9d5ff, 0, 12, 1.1);
+    rearGlow.position.set(0, -1.12, -0.92);
+    scene.add(ambientLight, directionalLight, accentLight);
 
     const modelAnchor = new THREE.Group();
     scene.add(modelAnchor);
+    modelAnchor.add(backlight, rearGlow);
 
     const modelState: ModelScrollState = {
       positionX: 0,
@@ -336,61 +403,80 @@ export function useHomeScene(): HomeSceneState {
     const headControls: HeadControl[] = [];
     const headMotion = { lift: 0, track: 0 };
     let rafId = 0;
-    let lastRenderTime = 0;
     const clock = new THREE.Clock();
-    const headTrackYaw = THREE.MathUtils.degToRad(34);
-    const headTrackPitch = THREE.MathUtils.degToRad(28);
-    const maxHeadYaw = THREE.MathUtils.degToRad(24);
-    const maxHeadPitchUp = THREE.MathUtils.degToRad(22);
-    const maxHeadPitchDown = THREE.MathUtils.degToRad(12);
+    const headTrackYaw = THREE.MathUtils.degToRad(30);
+    const headTrackPitch = THREE.MathUtils.degToRad(32);
+    const maxHeadYaw = THREE.MathUtils.degToRad(21);
+    const maxHeadPitchUp = THREE.MathUtils.degToRad(30);
+    const maxHeadPitchDown = THREE.MathUtils.degToRad(10);
     const headNeutralPitchOffset = THREE.MathUtils.degToRad(-6);
 
     const setCanvasSize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
+      const viewport = getCanvasViewport();
+      camera.aspect = viewport.width / viewport.height;
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(getRenderPixelRatio());
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setSize(viewport.width, viewport.height, false);
       modelAnchor.position.y = getModelOffsetY();
       modelState.positionX = 0;
       modelState.rotationY = 0;
       modelState.scale = getHeroModelScale();
+      headPointerTargetClientX = window.innerWidth / 2;
+      headPointerTargetClientY = window.innerHeight * getHeadPointerCenterY();
+      headPointerClientX = headPointerTargetClientX;
+      headPointerClientY = headPointerTargetClientY;
+      filteredHeadPointerX = 0;
+      filteredHeadPointerY = 0;
+      settledHeadPointerX = 0;
+      settledHeadPointerY = 0;
     };
 
     window.addEventListener('resize', setCanvasSize);
+    const resizeObserver = new ResizeObserver(() => setCanvasSize());
+    resizeObserver.observe(canvas);
 
-    const ctx = gsap.context(() => {
-      const aboutSection = root.querySelector<HTMLElement>('.about-section');
-      if (!aboutSection) return;
-
-      gsap.timeline({
-        scrollTrigger: {
-          trigger: aboutSection,
-          start: 'top 92%',
-          end: 'top 18%',
-          scrub: 1.8,
-          invalidateOnRefresh: true,
-        },
-      }).to(modelState, {
-        positionX: () => getAboutModelOffsetX(),
-        rotationY: () => getAboutModelRotationY(),
-        ease: 'none',
-      });
-    }, root);
+    const ctx = gsap.context(() => {}, root);
 
     const loader = new GLTFLoader();
     loader.load(
-      '/assets/FIXED5.glb?v=1',
+      '/assets/FIXEDNOW.glb?v=1',
       (gltf: GLTF) => {
         const model = gltf.scene;
         const bounds = new THREE.Box3().setFromObject(model);
         const center = bounds.getCenter(new THREE.Vector3());
         model.position.sub(center);
 
+        const maxAnisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+
         model.traverse((child) => {
           const mesh = child as THREE.Mesh;
           if (!mesh.isMesh) return;
           mesh.castShadow = false;
           mesh.receiveShadow = false;
+
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach((material) => {
+            if (!('roughness' in material) || !('metalness' in material)) return;
+            const standardMaterial = material as THREE.MeshStandardMaterial;
+            const textureMaps = [
+              standardMaterial.map,
+              standardMaterial.normalMap,
+              standardMaterial.roughnessMap,
+              standardMaterial.metalnessMap,
+              standardMaterial.emissiveMap,
+              standardMaterial.aoMap,
+              standardMaterial.alphaMap,
+            ];
+
+            textureMaps.forEach((texture) => {
+              if (!texture) return;
+              texture.anisotropy = maxAnisotropy;
+            });
+
+            standardMaterial.roughness = Math.max(0.16, standardMaterial.roughness * 0.72);
+            standardMaterial.metalness = Math.min(0.16, standardMaterial.metalness + 0.02);
+            standardMaterial.needsUpdate = true;
+          });
 
           if (mesh.name === 'Retopo_head' || mesh.name === 'Sphere' || mesh.name === 'Sphere.001') {
             mesh.frustumCulled = false;
@@ -416,7 +502,7 @@ export function useHomeScene(): HomeSceneState {
             lerp: 0.18,
           });
         } else {
-          console.warn('Head bone Bone006L / Bone.006.L / Bone005R / Bone.005.R was not found in FIXED5.glb');
+          console.warn('Head bone Bone006L / Bone.006.L / Bone005R / Bone.005.R was not found in FIXEDNOW.glb');
         }
 
         if (gltf.animations.length > 0) {
@@ -465,46 +551,60 @@ export function useHomeScene(): HomeSceneState {
       }
     );
 
-    const render = (timestamp = 0) => {
+    const render = () => {
       rafId = window.requestAnimationFrame(render);
       if (document.hidden) {
-        lastRenderTime = timestamp;
+        clock.getDelta();
         return;
       }
-      if (timestamp - lastRenderTime < renderFrameBudget) return;
-      lastRenderTime = timestamp;
 
-      const dt = Math.min(clock.getDelta(), 1 / 20);
+      const dt = Math.min(clock.getDelta(), 1 / 30);
       if (mixer) mixer.update(dt);
 
       if (modelRoot) {
         const targetScale = modelState.scale;
-        modelAnchor.position.x = THREE.MathUtils.lerp(modelAnchor.position.x, modelState.positionX, 0.075);
-        modelAnchor.rotation.y = THREE.MathUtils.lerp(modelAnchor.rotation.y, modelState.rotationY, 0.075);
-        modelAnchor.scale.x = THREE.MathUtils.lerp(modelAnchor.scale.x || 1, targetScale, 0.12);
-        modelAnchor.scale.y = THREE.MathUtils.lerp(modelAnchor.scale.y || 1, targetScale, 0.12);
-        modelAnchor.scale.z = THREE.MathUtils.lerp(modelAnchor.scale.z || 1, targetScale, 0.12);
-        backlight.position.x = 0;
+        modelAnchor.position.x = THREE.MathUtils.damp(modelAnchor.position.x, modelState.positionX, modelPositionDamping, dt);
+        modelAnchor.rotation.y = THREE.MathUtils.damp(modelAnchor.rotation.y, modelState.rotationY, modelRotationDamping, dt);
+        modelAnchor.scale.x = THREE.MathUtils.damp(modelAnchor.scale.x || 1, targetScale, modelScaleDamping, dt);
+        modelAnchor.scale.y = THREE.MathUtils.damp(modelAnchor.scale.y || 1, targetScale, modelScaleDamping, dt);
+        modelAnchor.scale.z = THREE.MathUtils.damp(modelAnchor.scale.z || 1, targetScale, modelScaleDamping, dt);
         backlight.intensity = backlightTarget;
+        rearGlow.intensity = rearGlowTarget;
 
         if (headControls.length) {
           const now = performance.now();
           const idleProgress = THREE.MathUtils.clamp((now - lastPointerMoveTime - headIdleDelayMs) / headIdleEaseWindowMs, 0, 1);
-          const rawHeadPointerX = shapePointerInput(applyDeadzone(pointerNormalizedX, headPointerDeadzone), headPointerCurve);
-          const rawHeadPointerY = shapePointerInput(applyDeadzone(pointerNormalizedY, headPointerDeadzone), headPointerCurve);
+          const headScreenDampingX = THREE.MathUtils.lerp(headPointerScreenFollowDamping, headPointerScreenReturnDamping, idleProgress);
+          const headScreenDampingY = THREE.MathUtils.lerp(headPointerScreenFollowDamping * 1.04, headPointerScreenReturnDamping, idleProgress);
+          headPointerClientX = THREE.MathUtils.damp(headPointerClientX, headPointerTargetClientX, headScreenDampingX, dt);
+          headPointerClientY = THREE.MathUtils.damp(headPointerClientY, headPointerTargetClientY, headScreenDampingY, dt);
+
+          const normalizedHeadPointerX = normalizePointerAxis(headPointerClientX, window.innerWidth, 0.5);
+          const normalizedHeadPointerY = normalizePointerAxis(headPointerClientY, window.innerHeight, getHeadPointerCenterY());
+          const rawHeadPointerX = shapePointerInput(applyDeadzone(normalizedHeadPointerX, headPointerDeadzone), headPointerCurve);
+          const rawHeadPointerY = shapePointerInput(applyDeadzone(normalizedHeadPointerY, headPointerDeadzone), headPointerCurve);
           const headPointerTargetX = THREE.MathUtils.lerp(rawHeadPointerX, 0, idleProgress);
           const headPointerTargetY = THREE.MathUtils.lerp(rawHeadPointerY, 0, idleProgress);
           const headInputDampingX = THREE.MathUtils.lerp(headInputFollowDamping, headInputReturnDamping, idleProgress);
           const headInputDampingY = THREE.MathUtils.lerp(headInputFollowDamping * 0.96, headInputReturnDamping, idleProgress);
+          const headSettledDampingX = THREE.MathUtils.lerp(headSettledFollowDamping, headSettledReturnDamping, idleProgress);
+          const headSettledDampingY = THREE.MathUtils.lerp(headSettledFollowDamping * 0.96, headSettledReturnDamping, idleProgress);
 
           filteredHeadPointerX = THREE.MathUtils.damp(filteredHeadPointerX, headPointerTargetX, headInputDampingX, dt);
           filteredHeadPointerY = THREE.MathUtils.damp(filteredHeadPointerY, headPointerTargetY, headInputDampingY, dt);
+          settledHeadPointerX = THREE.MathUtils.damp(settledHeadPointerX, filteredHeadPointerX, headSettledDampingX, dt);
+          settledHeadPointerY = THREE.MathUtils.damp(settledHeadPointerY, filteredHeadPointerY, headSettledDampingY, dt);
+
+          const stabilizedHeadPointerX = Math.abs(settledHeadPointerX) < headMicroJitterThreshold ? 0 : settledHeadPointerX;
+          const stabilizedHeadPointerY = Math.abs(settledHeadPointerY) < headMicroJitterThreshold ? 0 : settledHeadPointerY;
+          const headDriveX = stabilizedHeadPointerX;
+          const headDriveY = stabilizedHeadPointerY;
 
           headControls.forEach((control) => {
             const introTilt = (1 - headMotion.lift) * control.introTilt;
-            const upwardPitchBoost = filteredHeadPointerY < 0 ? 1 + Math.abs(filteredHeadPointerY) * 0.72 : 1;
-            const unclampedYaw = filteredHeadPointerX * headTrackYaw * headMotion.track * control.yawWeight;
-            const unclampedPitch = filteredHeadPointerY * upwardPitchBoost * headTrackPitch * headMotion.track * control.pitchWeight;
+            const upwardPitchBoost = headDriveY < 0 ? 1 + Math.abs(headDriveY) * 1.45 : 1;
+            const unclampedYaw = headDriveX * headTrackYaw * headMotion.track * control.yawWeight;
+            const unclampedPitch = headDriveY * upwardPitchBoost * headTrackPitch * headMotion.track * control.pitchWeight;
             const trackingYaw = THREE.MathUtils.clamp(unclampedYaw, -maxHeadYaw, maxHeadYaw);
             const trackingPitch = THREE.MathUtils.clamp(unclampedPitch, -maxHeadPitchUp, maxHeadPitchDown);
             const rotationDamping = THREE.MathUtils.lerp(headRotationFollowDamping, headRotationReturnDamping, idleProgress) * (control.lerp / 0.18);
@@ -533,6 +633,7 @@ export function useHomeScene(): HomeSceneState {
       ctx.revert();
       window.cancelAnimationFrame(rafId);
       window.removeEventListener('resize', setCanvasSize);
+      resizeObserver.disconnect();
       ScrollTrigger.clearMatchMedia();
       gsap.ticker.remove(onTick);
       lenis.off('scroll', syncLenisWithScrollTrigger);

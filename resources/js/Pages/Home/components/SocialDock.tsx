@@ -27,9 +27,10 @@ const socialLinks = [
 
 export function SocialDock() {
   const { showSocial } = useHomeSceneContext();
+  const isVisible = showSocial || true;
 
   return (
-    <nav className={`social-dock ${showSocial ? 'is-visible' : 'is-hidden'}`} aria-label="Social links">
+    <nav className={`social-dock ${isVisible ? 'is-visible' : 'is-hidden'}`} aria-label="Social links">
       {socialLinks.map((link) => (
         <a key={link.label} href={link.href} target="_blank" rel="noreferrer" aria-label={link.label}>
           <svg viewBox="0 0 24 24" role="img" aria-hidden="true">

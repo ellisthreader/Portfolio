@@ -2,9 +2,9 @@ import type { StyleSheet } from './types';
 
 export const styleSheet: StyleSheet = {
   ":root": {
-    "--bg-0": "#05030b",
-    "--bg-1": "#0b0714",
-    "--bg-2": "#130a22",
+    "--bg-0": "#030209",
+    "--bg-1": "#070411",
+    "--bg-2": "#0d0718",
     "--ink": "#f5ecff",
     "--muted": "#c9b7e7",
     "--line": "rgba(232, 240, 248, 0.14)",

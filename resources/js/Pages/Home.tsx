@@ -6,6 +6,7 @@ import { CursorLayers } from './Home/components/CursorLayers';
 import { HeroSection } from './Home/components/HeroSection';
 import { HomeNav } from './Home/components/HomeNav';
 import { LoaderOverlay } from './Home/components/LoaderOverlay';
+import { SpaceBackground } from './Home/components/SpaceBackground';
 import { SocialDock } from './Home/components/SocialDock';
 import { WhatIDoSection } from './Home/components/WhatIDoSection';
 import { HomeSceneProvider } from './Home/context/HomeSceneContext';
@@ -24,11 +25,14 @@ export default function Home() {
       <HomeStyles />
 
       <HomeSceneProvider value={scene}>
-        <LoaderOverlay />
+        <div style={{ display: 'none' }} aria-hidden="true">
+          <LoaderOverlay />
+        </div>
+        <SpaceBackground />
         <CursorLayers />
         <SocialDock />
 
-        <main ref={scene.pageRef} className={`scroll-page ${scene.isIntroComplete ? 'is-ready' : 'is-preloading'}`}>
+        <main ref={scene.pageRef} className="scroll-page is-ready">
           <HomeNav />
           <HeroSection typed={typed} />
           <AboutSection />
