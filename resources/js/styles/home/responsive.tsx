@@ -53,6 +53,7 @@ export const styleSheet: StyleSheet = {
       "justify-self": "center",
     },
     ".about-copy": {
+      "grid-column": "auto",
       "width": "min(100%, 680px)",
     },
     ".services-intro": {

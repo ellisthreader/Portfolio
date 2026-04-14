@@ -2,7 +2,7 @@ import type { StyleSheet } from './types';
 
 export const styleSheet: StyleSheet = {
   ".hero-model-stage": {
-    "position": "absolute",
+    "position": "fixed",
     "inset": "0",
     "pointer-events": "none",
     "z-index": "1",

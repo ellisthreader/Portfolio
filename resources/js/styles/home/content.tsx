@@ -120,6 +120,8 @@ export const styleSheet: StyleSheet = {
     "color": "rgba(229, 215, 247, 0.7)",
   },
   ".about-copy": {
+    "grid-column": "2 / 3",
+    "justify-self": "end",
     "width": "min(100%, 640px)",
   },
   ".story-block": {
