@@ -13,7 +13,6 @@ export function LoaderOverlay() {
   const terminalComplete = terminalLines.length >= TERMINAL_LINES.length;
   const terminalProgressLabel = `${String(terminalProgress).padStart(3, '0')}%`;
   const isTotalLoadDone = terminalComplete && terminalProgress >= 100;
-
   if (!showLoader) return null;
 
   return (

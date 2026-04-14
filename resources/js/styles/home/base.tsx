@@ -74,7 +74,10 @@ export const styleSheet: StyleSheet = {
   },
   "@media (pointer: fine)": {
     "body,\n    a,\n    button,\n    input,\n    textarea,\n    select,\n    [role='button']": {
-      "cursor": "none",
+      "cursor": "auto",
+    },
+    ".ambient-pointer-light,\n    .custom-cursor": {
+      "display": "none",
     },
   },
   "@media (pointer: coarse)": {

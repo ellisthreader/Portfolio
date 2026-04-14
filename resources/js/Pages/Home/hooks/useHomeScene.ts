@@ -47,12 +47,30 @@ export function useHomeScene(): HomeSceneState {
     const mediaQuery = window.matchMedia('(pointer: fine)');
     const useEnhancedPointer = mediaQuery.matches;
     const getRenderPixelRatio = () => Math.min(window.devicePixelRatio, window.innerWidth < 1024 ? 1 : 1.25);
-    const getModelOffsetY = () => (window.innerWidth < 768 ? -0.22 : -0.34);
+    const getModelOffsetY = () => (window.innerWidth < 768 ? -0.24 : -0.38);
+    const getHeroModelScale = () => (window.innerWidth < 768 ? 0.54 : 0.62);
     const getAboutModelOffsetX = () => (window.innerWidth < 768 ? 0 : -0.52);
     const getAboutModelRotationY = () => (window.innerWidth < 768 ? 0 : THREE.MathUtils.degToRad(6));
+    const applyDeadzone = (value: number, deadzone: number) => {
+      const magnitude = Math.abs(value);
+      if (magnitude <= deadzone) return 0;
+      return Math.sign(value) * ((magnitude - deadzone) / (1 - deadzone));
+    };
+    const shapePointerInput = (value: number, exponent: number) => Math.sign(value) * Math.pow(Math.abs(value), exponent);
     const renderFrameBudget = 1000 / 45;
+    const headPointerDeadzone = 0.045;
+    const headPointerCurve = 1.22;
+    const headInputFollowDamping = 8.5;
+    const headInputReturnDamping = 2.4;
+    const headRotationFollowDamping = 5.2;
+    const headRotationReturnDamping = 2.05;
+    const headIdleDelayMs = 160;
+    const headIdleEaseWindowMs = 1200;
     let pointerNormalizedX = 0;
     let pointerNormalizedY = 0;
+    let filteredHeadPointerX = 0;
+    let filteredHeadPointerY = 0;
+    let lastPointerMoveTime = performance.now();
     let detachInteractiveCursorHandlers = () => {};
 
     if (useEnhancedPointer) {
@@ -68,6 +86,12 @@ export function useHomeScene(): HomeSceneState {
         targetY = event.clientY;
         pointerNormalizedX = THREE.MathUtils.clamp(event.clientX / window.innerWidth, 0, 1) * 2 - 1;
         pointerNormalizedY = THREE.MathUtils.clamp(event.clientY / window.innerHeight, 0, 1) * 2 - 1;
+        lastPointerMoveTime = performance.now();
+      };
+      const resetPointerTracking = () => {
+        pointerNormalizedX = 0;
+        pointerNormalizedY = 0;
+        lastPointerMoveTime = performance.now() - headIdleDelayMs;
       };
 
       const renderPointer = () => {
@@ -102,6 +126,7 @@ export function useHomeScene(): HomeSceneState {
       };
 
       window.addEventListener('pointermove', syncPointer, { passive: true });
+      window.addEventListener('pointerleave', resetPointerTracking, { passive: true });
       gsap.ticker.add(renderPointer);
       gsap.set([pointerLight, cursorAura], { x: targetX, y: targetY });
       gsap.set(pointerLight, { opacity: 0.7 });
@@ -109,6 +134,7 @@ export function useHomeScene(): HomeSceneState {
 
       const cleanupEnhancedPointer = () => {
         window.removeEventListener('pointermove', syncPointer);
+        window.removeEventListener('pointerleave', resetPointerTracking);
         gsap.ticker.remove(renderPointer);
       };
 
@@ -146,46 +172,46 @@ export function useHomeScene(): HomeSceneState {
           .set('.terminal-welcome', { transformOrigin: '50% 50%', willChange: 'transform, opacity, filter', force3D: true })
           .set('.hero-nav-email, .hero-nav-links a, .hero-greeting, .hero-name, .hero-job-label, .hero-job-title', { autoAlpha: 0, y: 18 })
           .set(loaderIris, { autoAlpha: 0, scale: 0.6 })
-          .to('.terminal-topbar, .terminal-log, .terminal-footer', { autoAlpha: 0, y: -10, duration: 0.32, ease: 'power2.out' }, 0)
-          .fromTo('.terminal-welcome', { autoAlpha: 0, scale: 0.08, z: -320, filter: 'blur(28px)' }, { autoAlpha: 1, scale: 1.82, z: 0, filter: 'blur(0px)', duration: 1.2, ease: 'power4.out' }, 0)
-          .to('.terminal-welcome-wrap', { autoAlpha: 0, scale: 1.02, filter: 'blur(8px)', duration: 0.22, ease: 'power2.inOut' }, 1.88)
-          .to(loaderIris, { autoAlpha: 0.72, scale: 10, duration: 1.26, ease: 'power3.out' }, 2.12)
-          .to('.terminal-shell', { scale: shellScaleTarget * 0.88, duration: 1.02, ease: 'power2.inOut' }, 2.12)
-          .to('.terminal-shell', { scale: shellScaleTarget, borderRadius: '0px', duration: 0.84, ease: 'power3.out' }, 2.82)
+          .to('.terminal-topbar, .terminal-log, .terminal-footer', { autoAlpha: 0, y: -10, duration: 0.24, ease: 'power2.out' }, 0)
+          .fromTo('.terminal-welcome', { autoAlpha: 0, scale: 0.08, z: -320, filter: 'blur(28px)' }, { autoAlpha: 1, scale: 1.82, z: 0, filter: 'blur(0px)', duration: 0.9, ease: 'power4.out' }, 0)
+          .to('.terminal-welcome-wrap', { autoAlpha: 0, scale: 1.02, filter: 'blur(8px)', duration: 0.16, ease: 'power2.inOut' }, 1.26)
+          .to(loaderIris, { autoAlpha: 0.66, scale: 8.6, duration: 0.92, ease: 'power3.out' }, 1.38)
+          .to('.terminal-shell', { scale: shellScaleTarget * 0.88, duration: 0.76, ease: 'power2.inOut' }, 1.38)
+          .to('.terminal-shell', { scale: shellScaleTarget, borderRadius: '0px', duration: 0.6, ease: 'power3.out' }, 1.9)
           .fromTo(
             [canvas, root],
-            { autoAlpha: 1, scale: 1.11, filter: 'blur(18px) brightness(0.46) saturate(0.78)' },
+            { autoAlpha: 1, scale: 1.09, filter: 'blur(14px) brightness(0.52) saturate(0.84)' },
             {
               autoAlpha: 1,
               scale: 1,
               filter: 'blur(0px) brightness(1) saturate(1)',
-              duration: 1.22,
-              stagger: 0.05,
+              duration: 0.86,
+              stagger: 0.04,
               ease: 'power2.out',
               onStart: () => {
                 isIntroCompleteRef.current = true;
                 setIsIntroComplete(true);
               },
             },
-            2.88
+            1.96
           )
-          .to('.terminal-shell', { borderColor: 'rgba(0, 0, 0, 0)', boxShadow: '0 0 0 rgba(0, 0, 0, 0)', duration: 0.58, ease: 'power1.out' }, 2.96)
-          .to(loaderOverlay, { backgroundColor: 'rgba(5, 3, 11, 0)', autoAlpha: 0, duration: 0.76, ease: 'power2.inOut' }, 2.98)
+          .to('.terminal-shell', { borderColor: 'rgba(0, 0, 0, 0)', boxShadow: '0 0 0 rgba(0, 0, 0, 0)', duration: 0.4, ease: 'power1.out' }, 2.02)
+          .to(loaderOverlay, { backgroundColor: 'rgba(5, 3, 11, 0)', autoAlpha: 0, duration: 0.48, ease: 'power2.inOut' }, 2.04)
           .call(() => {
             gsap.set([canvas, root], { clearProps: 'filter,transform,willChange,force3D' });
             gsap.set('.terminal-shell', { clearProps: 'transform,borderRadius,boxShadow,borderColor,willChange,force3D' });
           })
-          .fromTo('.hero-nav-email, .hero-nav-links a', { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.98, stagger: 0.06, ease: 'power2.out' }, 3.18)
-          .fromTo('.hero-greeting, .hero-name, .hero-job-label, .hero-job-title', { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 1.08, stagger: 0.07, ease: 'power3.out' }, 3.24)
+          .fromTo('.hero-nav-email, .hero-nav-links a', { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.05, ease: 'power2.out' }, 2.12)
+          .fromTo('.hero-greeting, .hero-name, .hero-job-label, .hero-job-title', { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.8, stagger: 0.06, ease: 'power3.out' }, 2.16)
           .call(() => {
             if (!headControls.length) return;
-            gsap.to(headMotion, { lift: 1, track: 1, duration: 1.24, ease: 'power3.out' });
-          }, [], 3.06)
-          .to(ambientLight, { intensity: ambientTarget, duration: 1.5, ease: 'sine.out' }, 3.02)
-          .to(directionalLight, { intensity: directionalTarget, duration: 2.2, ease: 'sine.out' }, '<')
-          .to(accentLight, { intensity: accentTarget, duration: 2.35, ease: 'sine.out' }, '<')
-          .to(pinkRim, { intensity: rimTarget, duration: 2.55, ease: 'sine.out' }, '<')
-          .to(backlight, { intensity: backlightTarget, duration: 2.7, ease: 'sine.out' }, '<');
+            gsap.to(headMotion, { lift: 1, track: 1, duration: 0.96, ease: 'power3.out' });
+          }, [], 2.02)
+          .to(ambientLight, { intensity: ambientTarget, duration: 1.05, ease: 'sine.out' }, 1.98)
+          .to(directionalLight, { intensity: directionalTarget, duration: 1.6, ease: 'sine.out' }, '<')
+          .to(accentLight, { intensity: accentTarget, duration: 1.75, ease: 'sine.out' }, '<')
+          .to(pinkRim, { intensity: rimTarget, duration: 1.9, ease: 'sine.out' }, '<')
+          .to(backlight, { intensity: backlightTarget, duration: 2.05, ease: 'sine.out' }, '<');
       }, 0);
     };
 
@@ -232,15 +258,15 @@ export function useHomeScene(): HomeSceneState {
           updateTerminalProgress(lineIndex, charIndex);
           setActiveTerminalLine(line.slice(0, charIndex));
           charIndex += 1;
-          const baseDelay = lineIndex === TERMINAL_LINES.length - 1 ? 30 : 22;
-          const jitter = Math.floor(Math.random() * 28);
+          const baseDelay = lineIndex === TERMINAL_LINES.length - 1 ? 16 : 12;
+          const jitter = Math.floor(Math.random() * 8);
           typingTimeoutRef.current = window.setTimeout(typeCharacter, baseDelay + jitter);
           return;
         }
 
         setTerminalLines((prev) => [...prev, line]);
         setActiveTerminalLine('');
-        typingTimeoutRef.current = window.setTimeout(() => typeTerminalLine(lineIndex + 1), 170 + Math.floor(Math.random() * 140));
+        typingTimeoutRef.current = window.setTimeout(() => typeTerminalLine(lineIndex + 1), 55 + Math.floor(Math.random() * 30));
       };
 
       typeCharacter();
@@ -276,8 +302,8 @@ export function useHomeScene(): HomeSceneState {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(22, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 1.68, 2.1);
-    camera.lookAt(0, 0.84, 0);
+    camera.position.set(0, 1.48, 2.1);
+    camera.lookAt(0, 0.64, 0);
 
     const ambientTarget = 0.96;
     const directionalTarget = 1.72;
@@ -302,20 +328,21 @@ export function useHomeScene(): HomeSceneState {
     const modelState: ModelScrollState = {
       positionX: 0,
       rotationY: 0,
-      scale: 0.72,
+      scale: getHeroModelScale(),
     };
 
     let mixer: THREE.AnimationMixer | null = null;
     let modelRoot: THREE.Group | null = null;
     const headControls: HeadControl[] = [];
     const headMotion = { lift: 0, track: 0 };
-    let smoothedHeadPointerX = 0;
-    let smoothedHeadPointerY = 0;
     let rafId = 0;
     let lastRenderTime = 0;
     const clock = new THREE.Clock();
-    const headTrackYaw = THREE.MathUtils.degToRad(26);
-    const headTrackPitch = THREE.MathUtils.degToRad(18);
+    const headTrackYaw = THREE.MathUtils.degToRad(34);
+    const headTrackPitch = THREE.MathUtils.degToRad(28);
+    const maxHeadYaw = THREE.MathUtils.degToRad(24);
+    const maxHeadPitchUp = THREE.MathUtils.degToRad(22);
+    const maxHeadPitchDown = THREE.MathUtils.degToRad(12);
     const headNeutralPitchOffset = THREE.MathUtils.degToRad(-6);
 
     const setCanvasSize = () => {
@@ -326,7 +353,7 @@ export function useHomeScene(): HomeSceneState {
       modelAnchor.position.y = getModelOffsetY();
       modelState.positionX = 0;
       modelState.rotationY = 0;
-      modelState.scale = window.innerWidth < 768 ? 0.64 : 0.72;
+      modelState.scale = getHeroModelScale();
     };
 
     window.addEventListener('resize', setCanvasSize);
@@ -352,7 +379,7 @@ export function useHomeScene(): HomeSceneState {
 
     const loader = new GLTFLoader();
     loader.load(
-      '/assets/FIXED.glb?v=2',
+      '/assets/FIXED5.glb?v=1',
       (gltf: GLTF) => {
         const model = gltf.scene;
         const bounds = new THREE.Box3().setFromObject(model);
@@ -369,20 +396,6 @@ export function useHomeScene(): HomeSceneState {
             mesh.frustumCulled = false;
           }
 
-          if (mesh.name === 'Sphere') {
-            mesh.renderOrder = 1;
-          }
-
-          if (mesh.name === 'Sphere.001') {
-            mesh.renderOrder = 2;
-            const eyeMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-            eyeMaterials.forEach((material) => {
-              material.depthWrite = false;
-              material.polygonOffset = true;
-              material.polygonOffsetFactor = -4;
-              material.polygonOffsetUnits = -4;
-            });
-          }
         });
 
         const headBone =
@@ -403,7 +416,7 @@ export function useHomeScene(): HomeSceneState {
             lerp: 0.18,
           });
         } else {
-          console.warn('Head bone Bone006L / Bone.006.L / Bone005R / Bone.005.R was not found in FIXED.glb');
+          console.warn('Head bone Bone006L / Bone.006.L / Bone005R / Bone.005.R was not found in FIXED5.glb');
         }
 
         if (gltf.animations.length > 0) {
@@ -461,7 +474,7 @@ export function useHomeScene(): HomeSceneState {
       if (timestamp - lastRenderTime < renderFrameBudget) return;
       lastRenderTime = timestamp;
 
-      const dt = clock.getDelta();
+      const dt = Math.min(clock.getDelta(), 1 / 20);
       if (mixer) mixer.update(dt);
 
       if (modelRoot) {
@@ -475,22 +488,32 @@ export function useHomeScene(): HomeSceneState {
         backlight.intensity = backlightTarget;
 
         if (headControls.length) {
-          smoothedHeadPointerX += (pointerNormalizedX - smoothedHeadPointerX) * 0.075;
-          smoothedHeadPointerY += (pointerNormalizedY - smoothedHeadPointerY) * 0.075;
+          const now = performance.now();
+          const idleProgress = THREE.MathUtils.clamp((now - lastPointerMoveTime - headIdleDelayMs) / headIdleEaseWindowMs, 0, 1);
+          const rawHeadPointerX = shapePointerInput(applyDeadzone(pointerNormalizedX, headPointerDeadzone), headPointerCurve);
+          const rawHeadPointerY = shapePointerInput(applyDeadzone(pointerNormalizedY, headPointerDeadzone), headPointerCurve);
+          const headPointerTargetX = THREE.MathUtils.lerp(rawHeadPointerX, 0, idleProgress);
+          const headPointerTargetY = THREE.MathUtils.lerp(rawHeadPointerY, 0, idleProgress);
+          const headInputDampingX = THREE.MathUtils.lerp(headInputFollowDamping, headInputReturnDamping, idleProgress);
+          const headInputDampingY = THREE.MathUtils.lerp(headInputFollowDamping * 0.96, headInputReturnDamping, idleProgress);
+
+          filteredHeadPointerX = THREE.MathUtils.damp(filteredHeadPointerX, headPointerTargetX, headInputDampingX, dt);
+          filteredHeadPointerY = THREE.MathUtils.damp(filteredHeadPointerY, headPointerTargetY, headInputDampingY, dt);
 
           headControls.forEach((control) => {
             const introTilt = (1 - headMotion.lift) * control.introTilt;
-            const trackingYaw = smoothedHeadPointerX * headTrackYaw * headMotion.track * control.yawWeight;
-            const upwardPitchBoost = smoothedHeadPointerY < 0 ? 1 + Math.abs(smoothedHeadPointerY) * 0.55 : 1;
-            const trackingPitch = smoothedHeadPointerY * upwardPitchBoost * headTrackPitch * headMotion.track * control.pitchWeight;
+            const upwardPitchBoost = filteredHeadPointerY < 0 ? 1 + Math.abs(filteredHeadPointerY) * 0.72 : 1;
+            const unclampedYaw = filteredHeadPointerX * headTrackYaw * headMotion.track * control.yawWeight;
+            const unclampedPitch = filteredHeadPointerY * upwardPitchBoost * headTrackPitch * headMotion.track * control.pitchWeight;
+            const trackingYaw = THREE.MathUtils.clamp(unclampedYaw, -maxHeadYaw, maxHeadYaw);
+            const trackingPitch = THREE.MathUtils.clamp(unclampedPitch, -maxHeadPitchUp, maxHeadPitchDown);
+            const rotationDamping = THREE.MathUtils.lerp(headRotationFollowDamping, headRotationReturnDamping, idleProgress) * (control.lerp / 0.18);
+            const targetRotationX = control.neutralRotationX + introTilt + headNeutralPitchOffset + trackingPitch;
+            const targetRotationY = control.neutralRotationY + trackingYaw;
 
-            control.target.rotation.x = THREE.MathUtils.lerp(
-              control.target.rotation.x,
-              control.neutralRotationX + introTilt + headNeutralPitchOffset + trackingPitch,
-              control.lerp
-            );
-            control.target.rotation.y = THREE.MathUtils.lerp(control.target.rotation.y, control.neutralRotationY + trackingYaw, control.lerp);
-            control.target.rotation.z = THREE.MathUtils.lerp(control.target.rotation.z, control.neutralRotationZ, control.lerp);
+            control.target.rotation.x = THREE.MathUtils.damp(control.target.rotation.x, targetRotationX, rotationDamping, dt);
+            control.target.rotation.y = THREE.MathUtils.damp(control.target.rotation.y, targetRotationY, rotationDamping, dt);
+            control.target.rotation.z = THREE.MathUtils.damp(control.target.rotation.z, control.neutralRotationZ, rotationDamping * 0.92, dt);
           });
         }
       }
